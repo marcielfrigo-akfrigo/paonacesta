@@ -71,6 +71,8 @@ h1{font:400 38px/1.12 var(--display);margin:0 0 6px;letter-spacing:-.5px;text-wr
 .fitem[aria-pressed="true"] .ck{background:var(--green);border-color:var(--green)}
 .fitem[aria-pressed="true"] .ck::after{content:"";width:10px;height:6px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
 .fitem:disabled{opacity:.55;cursor:not-allowed}
+.outra{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--ink2);margin-top:12px;max-width:260px}
+.outra input{border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:11px 12px;min-height:46px;font-size:16px}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fields label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--ink2)}
 .fields .wide{grid-column:1/-1}
@@ -191,15 +193,16 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
     <div class="grid">
       <div>
         <section class="step" aria-labelledby="s1"><h2 id="s1"><span class="n">1</span>Quantos pães por dia?</h2><p class="hint">Entregamos todos os dias da semana escolhidos abaixo.</p><div class="opts" id="paes"></div></section>
-        <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">2</span>Em quais dias?</h2><p class="hint">De segunda a sexta. Desmarque os dias em que não quer receber.</p><div class="opts" id="dias"></div></section>
-        <section class="step" aria-labelledby="s3"><h2 id="s3"><span class="n">3</span>Quer frios?</h2><p class="hint">Pacotes de 200 g, que chegam junto com o pão na segunda e na quarta. Toque para escolher.</p><div class="frios" id="frios"></div></section>
-        <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">4</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
-        <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">5</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
+        <section class="step" aria-labelledby="s1b"><h2 id="s1b"><span class="n">2</span>Quando quer começar?</h2><p class="hint">Pode começar no meio da semana: os dias até sexta entram no primeiro pagamento.</p><div class="opts" id="quando"></div><label class="outra" id="outraData" hidden>Escolha a data<input id="inicio" type="date"></label></section>
+        <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">3</span>Em quais dias?</h2><p class="hint">De segunda a sexta. Desmarque os dias em que não quer receber.</p><div class="opts" id="dias"></div></section>
+        <section class="step" aria-labelledby="s3"><h2 id="s3"><span class="n">4</span>Quer frios?</h2><p class="hint">Pacotes de 200 g, que chegam junto com o pão na segunda e na quarta. Toque para escolher.</p><div class="frios" id="frios"></div></section>
+        <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">5</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
+        <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">6</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
           <div class="fields">
             <label class="wide">Nome<input id="nome" autocomplete="name" placeholder="Seu nome"></label>
             <label>Condomínio<select id="cond"></select></label>
             <label>Casa / rua<input id="casa" placeholder="Ex.: Casa 120"></label>
-            <label class="wide">Começar a receber em<input id="inicio" type="date"><small style="font-weight:400;color:var(--muted)">Pode começar no meio da semana: os dias até sexta entram no primeiro pagamento.</small></label>
+            
           </div>
         </section>
       </div>
@@ -305,6 +308,13 @@ function periodos(){
   per.disp = ["semanal"];
   if (r >= 2) { per.quinzenal = plano(2); per.disp.push("quinzenal"); }
   if (r >= 3) { per.mensal = plano(r); per.disp.push("mensal"); }
+  else if (r === 1) {
+    // última semana do mês: o mensal pega esta semana + o mês seguinte inteiro
+    let f2 = fim, n2 = 0; const m2 = mesDaSemana(mais(fim, 7)); while (mesDaSemana(mais(f2, 7)) === m2) { f2 = mais(f2, 7); n2++; }
+    per.mensal = { ini, fim: mais(f2, 4), sem: 1 + n2, fechaMes: true }; per.mesMensal = MESES[m2]; per.fimMensal = mais(f2, 4); per.disp.push("mensal");
+  }
+  // o desconto (e o aviso de quanto falta) fica só no plano mais longo que fecha o mês
+  per.disp.slice(0, -1).forEach(k => { per[k].fechaMes = false; });
   return per;
 }
 const DIASEM = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
@@ -338,19 +348,28 @@ function calc(){
   if (avulso) linhas.push([`Esta semana: ${textoAvulso}`, avulso]);
   return { ok: true, linhas, semana, per, cheio, planos, desc, falta, avulso, textoAvulso };
 }
-const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMes)})` : NOMEPLANO[k];
+const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMensal || c.per.fimMes)})` : NOMEPLANO[k];
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
 const textoPlano = (c, k) => (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""} + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : textoPeriodo(c.per[k]));
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
 
+function opcoesInicio(){
+  const p = primeiroDia(), seg = p.getDay() === 1 ? p : mais(p, 8 - p.getDay());
+  const o = [[iso(p), `${p.getDay() === mais(new Date(), 1).getDay() ? "Amanhã" : DIASEM[p.getDay()][0].toUpperCase() + DIASEM[p.getDay()].slice(1)}`, `${DIASEM[p.getDay()]}, ${ddmm(p)}`]];
+  if (iso(seg) !== iso(p)) o.push([iso(seg), "Segunda que vem", ddmm(seg)]);
+  return o;
+}
 function render(){
   $("#paes").innerHTML = CONFIG.quantidades.map(q => [q, semanaPaes(q, 5)]).map(([q, v]) => `<button class="opt" type="button" data-paes="${q}" aria-pressed="${q === st.paes}">${q}<small>${brl(v)}/sem</small></button>`).join("");
   $("#dias").innerHTML = DIAS.map(([d, n]) => `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
   $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
+  const ops = opcoesInicio(), atual = $("#inicio").value, ehRapida = ops.some(([v]) => v === atual);
+  $("#quando").innerHTML = ops.map(([v, t, sub]) => `<button class="opt big" type="button" data-ini="${v}" aria-pressed="${atual === v && !st.outraData}"><b>${t}</b><small>${sub}</small></button>`).join("") + `<button class="opt big" type="button" data-ini="outra" aria-pressed="${!!st.outraData || !ehRapida}"><b>Outra data</b><small>${!ehRapida || st.outraData ? ddmm(parse(atual)) : "escolher no calendário"}</small></button>`;
+  $("#outraData").hidden = !(st.outraData || !ehRapida);
   const c = calc();
   const disp = c.ok ? c.per.disp : ["semanal", "quinzenal", "mensal"];
   const seloDe = k => c.ok && c.desc[k] ? `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo cinza">falta ${brl(c.falta[k])} p/ desconto</span>` : "";
-  $("#planos").innerHTML = disp.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]} ${seloDe(k)}</b><small>${c.ok ? (c.desc[k] ? `<s>${brl(c.cheio[k])}</s> ` : "") + brl(c.planos[k]) + " · " + textoPlano(c, k) : "—"}</small></button>`).join("") + `<p class="regra">Pagando até o fim do mês, pedidos de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto.${c.ok && c.per.restam < 3 ? ` Em ${c.per.mes} faltam só ${c.per.restam} semana${c.per.restam > 1 ? "s" : ""}, por isso não aparece o mensal.` : ""}</p>`;
+  $("#planos").innerHTML = disp.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]} ${seloDe(k)}</b><small>${c.ok ? (c.desc[k] ? `<s>${brl(c.cheio[k])}</s> ` : "") + brl(c.planos[k]) + " · " + textoPlano(c, k) : "—"}</small></button>`).join("") + `<p class="regra">Pagando até o fim do mês, pedidos de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto.${c.ok && c.per.restam === 2 ? ` Faltam só 2 semanas em ${c.per.mes}: o quinzenal fecha o mês.` : c.ok && c.per.restam === 1 ? ` Última semana de ${c.per.mes}: o mensal já inclui ${c.per.mesMensal} inteiro.` : ""}</p>`;
   $("#resumo").textContent = c.ok ? `${st.paes} pães por dia · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
   $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` : "";
   $("#calcPlanos").innerHTML = disp.map(k => `<button class="plan${c.ok && (c.desc[k] || c.falta[k]) ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${c.ok && c.desc[k] ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo flut cinza">Falta ${brl(c.falta[k])} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}<span>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]}<small>${c.ok ? textoPlano(c, k) : ""}</small></span><b>${c.ok && c.desc[k] ? `<s>${brl(c.cheio[k])}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
@@ -366,6 +385,7 @@ document.addEventListener("click", e => {
   else if (b.dataset.dia) { const d = Number(b.dataset.dia); st.dias = st.dias.includes(d) ? st.dias.filter(x => x !== d) : [...st.dias, d].sort(); }
   else if (b.dataset.fd) { const d = b.dataset.fd, i = b.dataset.fi, l = st.frios[d] || []; st.frios[d] = l.includes(i) ? l.filter(x => x !== i) : [...l, i]; }
   else if (b.dataset.plano) { st.plano = b.dataset.plano; }
+  else if (b.dataset.ini) { if (b.dataset.ini === "outra") { st.outraData = true; } else { st.outraData = false; $("#inicio").value = b.dataset.ini; } }
   else return;
   salvar(); render();
 });
