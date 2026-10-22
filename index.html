@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pão na Cesta – Faça seu pedido</title>
+<meta name="theme-color" content="#f9f7f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pão na Cesta">
+<link rel="apple-touch-icon" href="logo-pao-na-cesta.png">
+<link rel="icon" href="logo-pao-na-cesta.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Libre+Caslon+Display&display=swap">
+<style>
+/* Layout: formulário em passos à esquerda e calculadora fixa à direita (no celular, a calculadora vira uma barra presa embaixo) */
+:root{
+  --bg:#f9f7f1; --side:#f0ece2; --card:#fffefa; --soft:#f4efe4; --ink:#3b2a1d; --ink2:#5e4b33; --muted:#6f6253; --faint:#706150; --line:#e9e4d9; --line2:#f0ebe0;
+  --gold:#7d5d22; --gold-soft:#eae1ce; --brown:#513624; --on-brown:#fff7e8; --green:#4c7549; --green-bg:#e6eedf;
+  --display:"Libre Caslon Display", Georgia, "Times New Roman", serif;
+  --body:"DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --shadow:0 4px 10px rgba(59,42,29,.07);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg)}
+body{color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding-top:env(safe-area-inset-top,0px)}
+::selection{background:color-mix(in srgb,var(--gold) 30%,transparent)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--gold) 55%,transparent);outline-offset:2px}
+.wrap{max-width:1080px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;margin-bottom:22px}
+header.top img.logo{height:76px;width:auto;filter:drop-shadow(0 4px 8px rgba(81,54,36,.15))}
+.partner{display:flex;align-items:center;gap:10px}
+.partner img{width:42px;height:42px;border-radius:50%;clip-path:circle(48%);object-fit:cover;box-shadow:0 3px 8px rgba(59,42,29,.18)}
+.partner span{display:flex;flex-direction:column;font-size:11px;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);line-height:1.3}
+.partner b{font:400 19px var(--display);letter-spacing:0;text-transform:none;color:var(--ink)}
+h1{font:400 38px/1.12 var(--display);margin:0 0 6px;letter-spacing:-.5px;text-wrap:balance}
+.lead{color:var(--muted);margin:0 0 22px;max-width:60ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:start}
+.step{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+.step h2{font-size:17px;font-weight:600;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+.step h2 .n{width:26px;height:26px;border-radius:50%;background:var(--brown);color:var(--on-brown);display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+.step p.hint{color:var(--muted);font-size:13px;margin:0 0 14px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 14px;min-height:48px;min-width:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-weight:600;color:var(--ink2);transition:background .15s,border-color .15s}
+.opt small{font-weight:500;font-size:12px;color:var(--muted)}
+.opt[aria-pressed="true"]{background:var(--brown);border-color:var(--brown);color:var(--on-brown)}
+.opt[aria-pressed="true"] small{color:color-mix(in srgb,var(--on-brown) 80%,transparent)}
+.opt:disabled{opacity:.5;cursor:not-allowed}
+.opt.big{flex:1 1 140px;align-items:flex-start;text-align:left;padding:12px 14px}
+.opt.big b{font-size:16px}
+.frios{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.fday{border:1px solid var(--line2);border-radius:10px;padding:12px;background:var(--bg)}
+.fday h3{margin:0 0 8px;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold)}
+.fitem{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:1px solid var(--line);background:var(--card);border-radius:9px;padding:10px 12px;margin-top:6px;min-height:46px;text-align:left}
+.fitem span{font-weight:600}
+.fitem small{color:var(--muted);font-size:13px;white-space:nowrap}
+.fitem .ck{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center}
+.fitem[aria-pressed="true"]{border-color:var(--green);background:var(--green-bg)}
+.fitem[aria-pressed="true"] .ck{background:var(--green);border-color:var(--green)}
+.fitem[aria-pressed="true"] .ck::after{content:"";width:10px;height:6px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.fitem:disabled{opacity:.55;cursor:not-allowed}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fields label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--ink2)}
+.fields .wide{grid-column:1/-1}
+.fields input,.fields select{border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:11px 12px;min-height:46px;font-size:16px;font-weight:400}
+/* Calculadora */
+.calc{position:sticky;top:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.calc .hd{background:var(--gold-soft);padding:16px 18px}
+.calc .hd h2{font:400 24px var(--display);margin:0}
+.calc .hd p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.lines{padding:12px 18px;display:grid;gap:6px;font-size:14px;border-bottom:1px solid var(--line2)}
+.lines div{display:flex;justify-content:space-between;gap:10px}
+.lines span{color:var(--muted)}
+.lines b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.plans{padding:10px;display:grid;gap:6px}
+.plan{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg);text-align:left;min-height:56px}
+.plan span{display:flex;flex-direction:column;font-weight:600}
+.plan small{font-weight:500;color:var(--muted);font-size:12px}
+.plan b{font-size:22px;font-variant-numeric:tabular-nums;font-weight:600}
+.plan[aria-pressed="true"]{background:var(--brown);border-color:var(--brown);color:var(--on-brown)}
+.plan[aria-pressed="true"] small{color:color-mix(in srgb,var(--on-brown) 80%,transparent)}
+.calc .go{margin:6px 10px 12px;width:calc(100% - 20px)}
+.b{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;padding:0 18px;min-height:52px;font-size:16px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink2)}
+.b.pri{background:var(--brown);border-color:var(--brown);color:var(--on-brown)}
+.b.wa{background:#1f8a4c;border-color:#1f8a4c;color:#fff}
+.b:disabled{opacity:.45;cursor:not-allowed}
+.warn{margin:0 10px 12px;font-size:13px;color:#9a4a33;background:#f9e7e0;border-radius:8px;padding:8px 10px}
+.bar{display:none}
+.note{font-size:12px;color:var(--muted);padding:0 18px 14px;margin:0}
+/* Pix */
+.pix{max-width:560px;margin:0 auto}
+.pix .step{text-align:center}
+.qr{width:240px;height:240px;margin:10px auto 14px;background:#fff;border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;padding:10px}
+.qr img,.qr canvas,.qr svg{width:100%;height:100%}
+.valor{font:400 44px var(--display);margin:4px 0}
+.code{width:100%;border:1px dashed var(--line);border-radius:9px;background:var(--bg);padding:10px;font-size:12px;word-break:break-all;color:var(--ink2);text-align:left;max-height:90px;overflow:auto}
+.stack{display:grid;gap:10px;margin-top:14px}
+.summary{text-align:left;font-size:14px;background:var(--soft);border-radius:10px;padding:12px 14px;margin-top:14px;white-space:pre-line}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 90px);z-index:200;background:var(--green);color:#fff;padding:12px 18px;border-radius:9px;box-shadow:0 7px 25px rgba(0,0,0,.2);font-size:14px;font-weight:600;max-width:90vw}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
+@media (max-width:860px){
+  .grid{grid-template-columns:1fr}
+  .calc{position:static}
+  .bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(59,42,29,.1);padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));align-items:center;gap:12px}
+  .bar div{flex:1;min-width:0;display:flex;flex-direction:column}
+  .bar small{font-size:12px;color:var(--muted)}
+  .bar b{font-size:24px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .bar .b{min-height:48px;padding:0 16px}
+  .wrap{padding-bottom:110px}
+  h1{font-size:32px}
+  header.top img.logo{height:62px}
+}
+@media (max-width:520px){
+  .frios{grid-template-columns:1fr}
+  .fields{grid-template-columns:1fr}
+  .fields .wide{grid-column:auto}
+  .opt{min-width:56px;padding:10px 12px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <img class="logo" src="logo-pao-na-cesta.png" alt="Pão na Cesta" width="375" height="270">
+    <div class="partner"><img src="logo-chantilly.jpg" alt="Chantilly Fábrica de Delícias" width="290" height="290"><span>Em parceria com<b>Chantilly</b></span></div>
+  </header>
+
+  <main id="tela-pedido">
+    <h1>Monte a sua cesta.</h1>
+    <p class="lead">Pão fresquinho na sua porta, de segunda a sexta, das 5h30 às 6h15. Escolha abaixo e veja o valor na hora.</p>
+    <div class="grid">
+      <div>
+        <section class="step" aria-labelledby="s1"><h2 id="s1"><span class="n">1</span>Quantos pães por dia?</h2><p class="hint">Entregamos todos os dias da semana escolhidos abaixo.</p><div class="opts" id="paes"></div></section>
+        <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">2</span>Em quais dias?</h2><p class="hint">De segunda a sexta. Desmarque os dias em que não quer receber.</p><div class="opts" id="dias"></div></section>
+        <section class="step" aria-labelledby="s3"><h2 id="s3"><span class="n">3</span>Quer frios?</h2><p class="hint">Pacotes de 200 g, que chegam junto com o pão na segunda e na quarta. Toque para escolher.</p><div class="frios" id="frios"></div></section>
+        <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">4</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
+        <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">5</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
+          <div class="fields">
+            <label class="wide">Nome<input id="nome" autocomplete="name" placeholder="Seu nome"></label>
+            <label>Condomínio<select id="cond"></select></label>
+            <label>Casa / rua<input id="casa" placeholder="Ex.: Casa 120"></label>
+            <label class="wide">Começar a receber em<input id="inicio" type="date"></label>
+          </div>
+        </section>
+      </div>
+
+      <aside class="calc" aria-live="polite">
+        <div class="hd"><h2>Sua cesta</h2><p id="resumo">Escolha a quantidade de pães.</p></div>
+        <div class="lines" id="linhas"></div>
+        <div class="plans" id="calcPlanos"></div>
+        <div class="warn" id="aviso" hidden></div>
+        <button class="b pri go" id="confirmar" type="button">Confirmar pedido</button>
+        <p class="note">O mensal tem 4 ou 5 semanas, conforme o mês. Você só paga depois de conferir tudo.</p>
+      </aside>
+    </div>
+  </main>
+
+  <main id="tela-pix" hidden>
+    <div class="pix">
+      <section class="step">
+        <h2 style="justify-content:center">Falta só o Pix</h2>
+        <p class="hint" id="pixPlano"></p>
+        <div class="valor" id="pixValor"></div>
+        <div class="qr" id="qr" aria-label="QR Code do Pix"></div>
+        <p class="hint">Abra o app do seu banco, escolha <b>Pix → Ler QR Code</b> ou <b>Pix copia e cola</b>.</p>
+        <div class="code" id="pixCode"></div>
+        <div class="stack">
+          <button class="b pri" type="button" id="copiarPix">Copiar código Pix</button>
+          <button class="b wa" type="button" id="enviarWa">Enviar pedido e comprovante no WhatsApp</button>
+          <button class="b" type="button" id="voltar">Voltar e mudar o pedido</button>
+        </div>
+        <div class="summary" id="pixResumo"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>Pão na Cesta · Presidente Prudente · Em parceria com Chantilly</footer>
+</div>
+
+<div class="bar" id="bar"><div><small id="barPlano">Semanal</small><b id="barValor">R$ 0</b></div><button class="b pri" type="button" id="barGo">Confirmar</button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+// ===== Configuração do Pão na Cesta (preços por SEMANA; null = preço ainda não definido) =====
+const CONFIG = {
+  // R$ 70 por semana para 5 pães em 5 dias = R$ 2,80 por pão por dia; cada quantidade é proporcional
+  precoPaoDia: 2.8,
+  quantidades: [3, 4, 5, 6, 7, 8, 9, 10],
+  diasFrios: { 1: "Segunda", 3: "Quarta" },
+  // Pacote de 200 g, valor por semana em cada dia escolhido
+  frios: { "Presunto": 14, "Mussarela": 20, "Peito de peru": 20, "Queijo prato": 23, "Mortadela defumada": 14 },
+  condominios: ["Bosque dos Tamburis","Bourbon","Central Parque","Dama 1","Dama 2","Dama 3","Dama Beatriz","Dama Belvedere","Gramado","Porto Madeiro","Quinta das Flores","Valência 1","Vila Toscana","Outro"],
+  pix: { chave: "+5518996470899", nome: "PAO NA CESTA", cidade: "PRESIDENTE PRUDENTE" },   // chave Pix celular (18) 99647-0899
+  whatsapp: "5518996470899"   // (18) 99647-0899
+};
+// ==============================================================================================
+
+const $ = s => document.querySelector(s);
+const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: Number.isInteger(n) ? 0 : 2 });
+const DIAS = [[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"]];
+const NOMEPLANO = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
+const st = { paes: 5, dias: [1,2,3,4,5], frios: {}, plano: "semanal" };
+try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
+
+const semanaPaes = (q, nd) => Math.round(q * CONFIG.precoPaoDia * nd * 100) / 100;
+// Datas: cada semana (seg a sex) pertence ao mês da sua quinta-feira. Ex.: out/2026 = 28/09 a 30/10 (5 semanas)
+const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const mais = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const ddmm = d => String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
+const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+function segundaDe(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); const w = x.getDay(); return mais(x, w === 0 ? 1 : w === 6 ? 2 : 1 - w); }
+const mesDaSemana = seg => mais(seg, 3).getMonth();
+function proximaSegunda(){ const h = new Date(); h.setHours(0, 0, 0, 0); return mais(h, ((8 - h.getDay()) % 7) || 7); }
+function periodos(){
+  const ini = segundaDe($("#inicio") && $("#inicio").value ? parse($("#inicio").value) : proximaSegunda());
+  // mês cheio: a partir da primeira semana de um mês que comece nesta segunda ou depois
+  let m0 = ini; while (mesDaSemana(mais(m0, -7)) === mesDaSemana(m0)) m0 = mais(m0, 7);
+  let fim = m0, n = 1; while (mesDaSemana(mais(fim, 7)) === mesDaSemana(m0)) { fim = mais(fim, 7); n++; }
+  return {
+    semanal: { ini, fim: mais(ini, 4), sem: 1 },
+    quinzenal: { ini, fim: mais(ini, 11), sem: 2 },
+    mensal: { ini: m0, fim: mais(fim, 4), sem: n, mes: MESES[mesDaSemana(m0)] }
+  };
+}
+function calc(){
+  const nd = st.dias.length;
+  if (!nd) return { ok: false, motivo: "Escolha pelo menos um dia." };
+  const paes = semanaPaes(st.paes, nd);
+  const linhas = [[`${st.paes} pães × ${nd} dia${nd > 1 ? "s" : ""}`, paes]];
+  let frios = 0;
+  for (const [d, nomeDia] of Object.entries(CONFIG.diasFrios)) {
+    if (!st.dias.includes(Number(d))) continue;
+    (st.frios[d] || []).forEach(i => { const v = CONFIG.frios[i]; if (v != null) { frios += v; linhas.push([`${i} (${nomeDia.toLowerCase()})`, v]); } });
+  }
+  const semana = Math.round((paes + frios) * 100) / 100;
+  const per = periodos();
+  return { ok: true, linhas, semana, per, planos: Object.fromEntries(Object.entries(per).map(([k, p]) => [k, Math.round(semana * p.sem * 100) / 100])) };
+}
+const PLANOS = ["semanal", "quinzenal", "mensal"];
+const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
+function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
+
+function render(){
+  $("#paes").innerHTML = CONFIG.quantidades.map(q => [q, semanaPaes(q, 5)]).map(([q, v]) => `<button class="opt" type="button" data-paes="${q}" aria-pressed="${q === st.paes}">${q}<small>${brl(v)}/sem</small></button>`).join("");
+  $("#dias").innerHTML = DIAS.map(([d, n]) => `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
+  $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
+  const c = calc();
+  $("#planos").innerHTML = PLANOS.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${NOMEPLANO[k]}</b><small>${c.ok ? brl(c.planos[k]) + " · " + textoPeriodo(c.per[k]) : "—"}</small></button>`).join("");
+  $("#resumo").textContent = c.ok ? `${st.paes} pães por dia · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
+  $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` : "";
+  $("#calcPlanos").innerHTML = PLANOS.map(k => `<button class="plan" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><span>${NOMEPLANO[k]}${k === "mensal" && c.ok ? " de " + c.per.mensal.mes : ""}<small>${c.ok ? textoPeriodo(c.per[k]) : ""}</small></span><b>${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
+  $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
+  $("#confirmar").disabled = !c.ok; $("#barGo").disabled = !c.ok;
+  $("#barPlano").textContent = NOMEPLANO[st.plano]; $("#barValor").textContent = c.ok ? brl(c.planos[st.plano]) : "—";
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.paes) { st.paes = Number(b.dataset.paes); }
+  else if (b.dataset.dia) { const d = Number(b.dataset.dia); st.dias = st.dias.includes(d) ? st.dias.filter(x => x !== d) : [...st.dias, d].sort(); }
+  else if (b.dataset.fd) { const d = b.dataset.fd, i = b.dataset.fi, l = st.frios[d] || []; st.frios[d] = l.includes(i) ? l.filter(x => x !== i) : [...l, i]; }
+  else if (b.dataset.plano) { st.plano = b.dataset.plano; }
+  else return;
+  salvar(); render();
+});
+
+// ===== Pix (BR Code com valor) =====
+function crc16(s){ let c = 0xFFFF; for (let i = 0; i < s.length; i++) { c ^= s.charCodeAt(i) << 8; for (let j = 0; j < 8; j++) c = c & 0x8000 ? (c << 1) ^ 0x1021 : c << 1; c &= 0xFFFF; } return c.toString(16).toUpperCase().padStart(4, "0"); }
+const tlv = (id, v) => id + String(v.length).padStart(2, "0") + v;
+const limpa = (s, n) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, n);
+function pixCodigo(valor, txid){
+  const p = CONFIG.pix;
+  const base = tlv("00", "01") + tlv("26", tlv("00", "br.gov.bcb.pix") + tlv("01", p.chave)) + tlv("52", "0000") + tlv("53", "986") + tlv("54", valor.toFixed(2)) + tlv("58", "BR") + tlv("59", limpa(p.nome, 25)) + tlv("60", limpa(p.cidade, 15)) + tlv("62", tlv("05", txid)) + "6304";
+  return base + crc16(base);
+}
+function textoPedido(c){
+  const fr = Object.entries(CONFIG.diasFrios).flatMap(([d, n]) => st.dias.includes(Number(d)) && (st.frios[d] || []).length ? [`${n}: ${st.frios[d].join(", ")}`] : []);
+  return [
+    `*Pedido Pão na Cesta*`,
+    `Nome: ${$("#nome").value.trim()}`,
+    `Condomínio: ${$("#cond").value} · ${$("#casa").value.trim()}`,
+    `Pães: ${st.paes} por dia`,
+    `Dias: ${DIAS.filter(([d]) => st.dias.includes(d)).map(([, n]) => n).join(", ")}`,
+    fr.length ? `Frios: ${fr.join(" | ")}` : "Frios: não",
+    `Plano: ${NOMEPLANO[st.plano]} – ${brl(c.planos[st.plano])} (${textoPeriodo(c.per[st.plano])})`,
+    $("#inicio").value ? `Começar em: ${$("#inicio").value.split("-").reverse().join("/")}` : "",
+    "", "Segue o comprovante do Pix."
+  ].filter(x => x !== null).join("\n");
+}
+function toast(t){ document.querySelectorAll(".toast").forEach(x => x.remove()); const el = document.createElement("div"); el.className = "toast"; el.setAttribute("role", "status"); el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
+async function copiar(t, msg){ try { await navigator.clipboard.writeText(t); toast(msg); } catch (e) { const r = document.createRange(); r.selectNodeContents($("#pixCode")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selecione e copie o código"); } }
+
+function confirmar(){
+  const c = calc(); if (!c.ok) return;
+  if (!$("#nome").value.trim() || !$("#casa").value.trim()) { toast("Preencha seu nome e a casa"); $("#s5").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  const valor = c.planos[st.plano];
+  $("#pixPlano").textContent = `${NOMEPLANO[st.plano]} · ${textoPeriodo(c.per[st.plano])} · ${st.paes} pães por dia`;
+  $("#pixValor").textContent = brl(valor);
+  $("#pixResumo").textContent = textoPedido(c).replace(/\*/g, "");
+  if (CONFIG.pix.chave) {
+    const cod = pixCodigo(valor, "PNC" + Date.now().toString().slice(-8));
+    $("#pixCode").textContent = cod;
+    const q = qrcode(0, "M"); q.addData(cod); q.make(); $("#qr").innerHTML = q.createSvgTag({ cellSize: 6, margin: 0, scalable: true });
+    $("#copiarPix").disabled = false;
+  } else {
+    $("#pixCode").textContent = "A chave Pix do Pão na Cesta ainda vai ser configurada.";
+    $("#qr").innerHTML = '<span class="hint">QR Code em breve</span>'; $("#copiarPix").disabled = true;
+  }
+  $("#tela-pedido").hidden = true; $("#bar").hidden = true; $("#tela-pix").hidden = false; window.scrollTo(0, 0);
+}
+$("#confirmar").addEventListener("click", confirmar);
+$("#barGo").addEventListener("click", confirmar);
+$("#voltar").addEventListener("click", () => { $("#tela-pix").hidden = true; $("#tela-pedido").hidden = false; $("#bar").hidden = false; });
+$("#copiarPix").addEventListener("click", () => copiar($("#pixCode").textContent, "Código Pix copiado"));
+$("#enviarWa").addEventListener("click", () => {
+  const c = calc(); const t = encodeURIComponent(textoPedido(c));
+  if (!CONFIG.whatsapp) { copiar(textoPedido(c), "Pedido copiado. Cole no WhatsApp do Pão na Cesta."); return; }
+  window.location.href = `https://wa.me/${CONFIG.whatsapp}?text=${t}`;
+});
+
+$("#cond").innerHTML = `<option value="" disabled selected>Escolha</option>` + CONFIG.condominios.map(c => `<option>${c}</option>`).join("");
+// Link pessoal: ?n=Nome&c=Condomínio&h=Casa preenche os dados do cliente
+const qp = new URLSearchParams(location.search);
+if (qp.get("n")) $("#nome").value = qp.get("n");
+if (qp.get("c")) $("#cond").value = qp.get("c");
+if (qp.get("h")) $("#casa").value = qp.get("h");
+if (!$("#inicio").value) $("#inicio").value = iso(proximaSegunda());
+$("#inicio").addEventListener("change", render);
+render();
+</script>
+</body>
+</html>
