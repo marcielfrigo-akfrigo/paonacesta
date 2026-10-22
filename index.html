@@ -114,20 +114,55 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
 @media (max-width:860px){
   .grid{grid-template-columns:1fr}
   .calc{position:static}
-  .bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(59,42,29,.1);padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));align-items:center;gap:12px}
-  .bar div{flex:1;min-width:0;display:flex;flex-direction:column}
-  .bar small{font-size:12px;color:var(--muted)}
-  .bar b{font-size:24px;font-variant-numeric:tabular-nums;line-height:1.1}
-  .bar .b{min-height:48px;padding:0 16px}
-  .wrap{padding-bottom:110px}
-  h1{font-size:32px}
-  header.top img.logo{height:62px}
+  .bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(59,42,29,.1);padding:8px max(10px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));align-items:stretch;gap:6px}
+  .mini{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .mini button{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:5px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;min-height:58px;min-width:0}
+  .mini small{font-size:11px;color:var(--muted);font-weight:600}
+  .mini b{font-size:16px;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}
+  .mini i{font-style:normal;font-size:10px;line-height:1.2;color:var(--faint);text-align:center}
+  .mini i.ok{color:#1f8a4c;font-weight:700}
+  .mini button[aria-pressed="true"]{background:var(--brown);border-color:var(--brown);color:var(--on-brown)}
+  .mini button[aria-pressed="true"] small,.mini button[aria-pressed="true"] i{color:color-mix(in srgb,var(--on-brown) 85%,transparent)}
+  .mini button[aria-pressed="true"] i.ok{color:#9fe0b4}
+  .bar .b{min-height:58px;padding:0 12px;font-size:15px;flex:none}
+  .wrap{padding-block:12px 96px}
+  header.top{margin-bottom:12px;gap:8px}
+  header.top img.logo{height:48px}
+  .partner img{width:32px;height:32px}
+  .partner b{font-size:16px}
+  .partner span{font-size:10px}
+  h1{font-size:26px;margin-bottom:4px}
+  .lead{font-size:13px;margin-bottom:12px}
+  .step{padding:14px;margin-bottom:10px;border-radius:10px}
+  .step h2{font-size:15px}
+  .step h2 .n{width:22px;height:22px;font-size:12px}
+  .step p.hint{font-size:12px;margin-bottom:10px}
+  .opt{min-height:42px;padding:6px 10px}
+  .opt small{font-size:11px}
+  .opt.big{padding:8px 12px}
+  .fday{padding:10px}
+  .fitem{min-height:40px;padding:7px 10px;margin-top:5px}
+  .fitem small{font-size:12px}
+  .fields input,.fields select{min-height:42px;padding:9px 10px}
+  .calc .hd{padding:12px 14px}
+  .calc .hd h2{font-size:20px}
+  .lines{padding:10px 14px;font-size:13px}
+  .plan{min-height:48px;padding:9px 12px}
+  .plan b{font-size:18px}
+  .pix .step{padding:16px}
+  .qr{width:190px;height:190px;margin:6px auto 10px}
+  .valor{font-size:34px;margin:0}
+  .code{font-size:11px;max-height:64px}
+  .stack{gap:8px;margin-top:10px}
+  .stack .b{min-height:46px;font-size:15px}
+  .summary{font-size:13px;padding:10px 12px;margin-top:10px}
+  footer{padding-top:8px;font-size:12px}
 }
 @media (max-width:520px){
   .frios{grid-template-columns:1fr}
   .fields{grid-template-columns:1fr}
   .fields .wide{grid-column:auto}
-  .opt{min-width:56px;padding:10px 12px}
+  .opt{min-width:52px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -181,7 +216,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
         <div class="code" id="pixCode"></div>
         <div class="stack">
           <button class="b pri" type="button" id="copiarPix">Copiar código Pix</button>
-          <button class="b wa" type="button" id="enviarWa">Enviar pedido e comprovante no WhatsApp</button>
+          <button class="b wa" type="button" id="enviarWa">Enviar comprovante no WhatsApp</button>
           <button class="b" type="button" id="voltar">Voltar e mudar o pedido</button>
         </div>
         <div class="summary" id="pixResumo"></div>
@@ -192,7 +227,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
   <footer>Pão na Cesta · Presidente Prudente · Em parceria com Chantilly</footer>
 </div>
 
-<div class="bar" id="bar"><div><small id="barPlano">Semanal</small><b id="barValor">R$ 0</b></div><button class="b pri" type="button" id="barGo">Confirmar</button></div>
+<div class="bar" id="bar"><div class="mini" id="mini" role="group" aria-label="Valor por plano"></div><button class="b pri" type="button" id="barGo">Pedir</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
@@ -284,7 +319,7 @@ function render(){
   $("#calcPlanos").innerHTML = PLANOS.map(k => `<button class="plan${k === "mensal" ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${k === "mensal" && c.ok ? (c.temDesconto ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : `<span class="selo flut cinza">Falta ${brl(c.falta)} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>`) : ""}<span>${NOMEPLANO[k]}${k === "mensal" && c.ok ? " de " + c.per.mensal.mes : ""}<small>${c.ok ? textoPeriodo(c.per[k]) : ""}</small></span><b>${c.ok && k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
   $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
   $("#confirmar").disabled = !c.ok; $("#barGo").disabled = !c.ok;
-  $("#barPlano").textContent = NOMEPLANO[st.plano]; $("#barValor").textContent = c.ok ? brl(c.planos[st.plano]) : "—";
+  $("#mini").innerHTML = PLANOS.map(k => `<button type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><small>${NOMEPLANO[k]}</small><b>${c.ok ? brl(c.planos[k]) : "—"}</b>${k === "mensal" && c.ok ? (c.temDesconto ? `<i class="ok">−${brl(CONFIG.descontoMensal)} desconto</i>` : `<i>falta ${brl(c.falta)} p/ desconto</i>`) : `<i>${c.ok ? c.per[k].sem + (c.per[k].sem > 1 ? " semanas" : " semana") : ""}</i>`}</button>`).join("");
 }
 
 document.addEventListener("click", e => {
