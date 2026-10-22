@@ -205,7 +205,7 @@ const CONFIG = {
 const $ = s => document.querySelector(s);
 const qp = new URLSearchParams(location.search);
 // Modo de teste (?teste=1): todos os valores divididos por 10, só para testar o Pix
-const TESTE = qp.get("teste") === "1";
+const TESTE = false;   // para um novo teste, troque por: qp.get("teste") === "1"
 if (TESTE) {
   const d10 = v => v == null ? v : Math.round(v * 10) / 100;
   for (const k in CONFIG.precoFixo) CONFIG.precoFixo[k] = d10(CONFIG.precoFixo[k]);
