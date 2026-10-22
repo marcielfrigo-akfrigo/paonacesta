@@ -210,7 +210,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
         <div class="plans" id="calcPlanos"></div>
         <div class="warn" id="aviso" hidden></div>
         <button class="b pri go" id="confirmar" type="button">Confirmar pedido</button>
-        <p class="note">O mensal tem 4 ou 5 semanas, conforme o mês. Mensal de R$ 250 ou mais ganha R$ 20 de desconto. Você só paga depois de conferir tudo.</p>
+        <p class="note">Os planos vão no máximo até o fim do mês. Pagando até o fim do mês, a partir de R$ 250 você ganha R$ 20 de desconto. Você só paga depois de conferir tudo.</p>
       </aside>
     </div>
   </main>
@@ -298,15 +298,14 @@ function periodos(){
   // o plano começa na segunda; se a pessoa começa no meio da semana, os dias até sexta entram avulsos
   const ini = inicio.getDay() === 1 ? inicio : mais(inicio, 8 - inicio.getDay());
   const avulsos = []; if (inicio.getDay() !== 1) for (let d = inicio; d.getDay() >= 1 && d.getDay() <= 5 && d < ini; d = mais(d, 1)) if (st.dias.includes(d.getDay())) avulsos.push(d);
-  // mensal: até o fim do mês (semana pertence ao mês da quinta); se sobrar menos de 3 semanas, vai até o fim do mês seguinte
-  let fim = ini, n = 1; while (mesDaSemana(mais(fim, 7)) === mesDaSemana(ini)) { fim = mais(fim, 7); n++; }
-  if (n < 3) { const m2 = mesDaSemana(mais(fim, 7)); while (mesDaSemana(mais(fim, 7)) === m2) { fim = mais(fim, 7); n++; } }
-  return {
-    inicio, avulsos,
-    semanal: { ini, fim: mais(ini, 4), sem: 1 },
-    quinzenal: { ini, fim: mais(ini, 11), sem: 2 },
-    mensal: { ini, fim: mais(fim, 4), sem: n, mes: MESES[mesDaSemana(fim)] }
-  };
+  // semanas que faltam no mês (cada semana pertence ao mês da sua quinta-feira); nenhum plano passa do fim do mês
+  let fim = ini, r = 1; while (mesDaSemana(mais(fim, 7)) === mesDaSemana(ini)) { fim = mais(fim, 7); r++; }
+  const plano = sem => ({ ini, fim: mais(ini, 7 * sem - 3), sem, fechaMes: sem === r });
+  const per = { inicio, avulsos, restam: r, mes: MESES[mesDaSemana(ini)], fimMes: mais(fim, 4), semanal: plano(1) };
+  per.disp = ["semanal"];
+  if (r >= 2) { per.quinzenal = plano(2); per.disp.push("quinzenal"); }
+  if (r >= 3) { per.mensal = plano(r); per.disp.push("mensal"); }
+  return per;
 }
 const DIASEM = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
 function calc(){
@@ -321,19 +320,25 @@ function calc(){
   }
   const semana = Math.round((paes + frios) * 100) / 100;
   const per = periodos();
+  if (!per.disp.includes(st.plano)) st.plano = per.disp[per.disp.length - 1];
   // dias avulsos desta semana: pão do dia + frios se cair na segunda/quarta
   let avulso = 0;
   per.avulsos.forEach(d => { avulso += semanaPaes(st.paes, 1); (CONFIG.diasFrios[d.getDay()] ? (st.frios[d.getDay()] || []) : []).forEach(i => avulso += CONFIG.frios[i] || 0); });
   avulso = Math.round(avulso * 100) / 100;
-  const cheio = Object.fromEntries(PLANOS.map(k => [k, Math.round(semana * per[k].sem * 100) / 100]));
-  const temDesconto = cheio.mensal >= CONFIG.minimoDesconto;
-  const planos = Object.fromEntries(PLANOS.map(k => [k, Math.round((cheio[k] - (k === "mensal" && temDesconto ? CONFIG.descontoMensal : 0) + avulso) * 100) / 100]));
-  const falta = Math.round((CONFIG.minimoDesconto - cheio.mensal) * 100) / 100;
+  // desconto: só no plano que fecha até o fim do mês e quando o pagamento chega ao mínimo
+  const r2 = v => Math.round(v * 100) / 100;
+  const cheio = {}, planos = {}, desc = {}, falta = {};
+  per.disp.forEach(k => {
+    cheio[k] = r2(semana * per[k].sem + avulso);
+    desc[k] = per[k].fechaMes && cheio[k] >= CONFIG.minimoDesconto;
+    planos[k] = desc[k] ? r2(cheio[k] - CONFIG.descontoMensal) : cheio[k];
+    falta[k] = per[k].fechaMes && !desc[k] ? r2(CONFIG.minimoDesconto - cheio[k]) : 0;
+  });
   const textoAvulso = per.avulsos.length ? per.avulsos.map(d => DIASEM[d.getDay()]).join(" e ") + " (" + per.avulsos.map(ddmm).join(" e ") + ")" : "";
   if (avulso) linhas.push([`Esta semana: ${textoAvulso}`, avulso]);
-  return { ok: true, linhas, semana, per, cheio: Object.fromEntries(PLANOS.map(k => [k, Math.round((cheio[k] + avulso) * 100) / 100])), planos, temDesconto, falta, avulso, textoAvulso };
+  return { ok: true, linhas, semana, per, cheio, planos, desc, falta, avulso, textoAvulso };
 }
-const PLANOS = ["semanal", "quinzenal", "mensal"];
+const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMes)})` : NOMEPLANO[k];
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
 const textoPlano = (c, k) => (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""} + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : textoPeriodo(c.per[k]));
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
@@ -343,13 +348,16 @@ function render(){
   $("#dias").innerHTML = DIAS.map(([d, n]) => `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
   $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
   const c = calc();
-  $("#planos").innerHTML = PLANOS.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${NOMEPLANO[k]}${k === "mensal" && c.ok && c.temDesconto ? " " + `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}</b><small>${c.ok ? (k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s> ` : "") + brl(c.planos[k]) + " · " + textoPlano(c, k) : "—"}</small></button>`).join("") + `<p class="regra">Pedidos mensais de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto no pagamento mensal.${c.ok && !c.temDesconto ? ` <b class="falta">Falta ${brl(c.falta)} no mês para ganhar o desconto</b>` : ""}</p>`;
+  const disp = c.ok ? c.per.disp : ["semanal", "quinzenal", "mensal"];
+  const seloDe = k => c.ok && c.desc[k] ? `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo cinza">falta ${brl(c.falta[k])} p/ desconto</span>` : "";
+  $("#planos").innerHTML = disp.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]} ${seloDe(k)}</b><small>${c.ok ? (c.desc[k] ? `<s>${brl(c.cheio[k])}</s> ` : "") + brl(c.planos[k]) + " · " + textoPlano(c, k) : "—"}</small></button>`).join("") + `<p class="regra">Pagando até o fim do mês, pedidos de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto.${c.ok && c.per.restam < 3 ? ` Em ${c.per.mes} faltam só ${c.per.restam} semana${c.per.restam > 1 ? "s" : ""}, por isso não aparece o mensal.` : ""}</p>`;
   $("#resumo").textContent = c.ok ? `${st.paes} pães por dia · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
   $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` : "";
-  $("#calcPlanos").innerHTML = PLANOS.map(k => `<button class="plan${k === "mensal" ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${k === "mensal" && c.ok ? (c.temDesconto ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : `<span class="selo flut cinza">Falta ${brl(c.falta)} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>`) : ""}<span>${NOMEPLANO[k]}${k === "mensal" && c.ok ? " de " + c.per.mensal.mes : ""}<small>${c.ok ? textoPlano(c, k) : ""}</small></span><b>${c.ok && k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
+  $("#calcPlanos").innerHTML = disp.map(k => `<button class="plan${c.ok && (c.desc[k] || c.falta[k]) ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${c.ok && c.desc[k] ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo flut cinza">Falta ${brl(c.falta[k])} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}<span>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]}<small>${c.ok ? textoPlano(c, k) : ""}</small></span><b>${c.ok && c.desc[k] ? `<s>${brl(c.cheio[k])}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
   $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
   $("#confirmar").disabled = !c.ok; $("#barGo").disabled = !c.ok;
-  $("#mini").innerHTML = PLANOS.map(k => `<button type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><small>${NOMEPLANO[k]}</small><b>${c.ok ? brl(c.planos[k]) : "—"}</b>${k === "mensal" && c.ok ? (c.temDesconto ? `<i class="ok">−${brl(CONFIG.descontoMensal)} desconto</i>` : `<i class="falta">falta ${brl(c.falta)} p/ desconto</i>`) : `<i>${c.ok ? c.per[k].sem + (c.per[k].sem > 1 ? " semanas" : " semana") : ""}</i>`}</button>`).join("");
+  $("#mini").style.gridTemplateColumns = `repeat(${disp.length},minmax(0,1fr))`;
+  $("#mini").innerHTML = disp.map(k => `<button type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><small>${NOMEPLANO[k]}</small><b>${c.ok ? brl(c.planos[k]) : "—"}</b>${c.ok && c.desc[k] ? `<i class="ok">−${brl(CONFIG.descontoMensal)} desconto</i>` : c.ok && c.falta[k] ? `<i class="falta">falta ${brl(c.falta[k])} p/ desconto</i>` : `<i>${c.ok ? c.per[k].sem + (c.per[k].sem > 1 ? " semanas" : " semana") : ""}</i>`}</button>`).join("");
 }
 
 document.addEventListener("click", e => {
