@@ -84,6 +84,8 @@ h1{font:400 38px/1.12 var(--display);margin:0 0 6px;letter-spacing:-.5px;text-wr
 .plan b s,.opt s{display:block;font-size:13px;font-weight:500;opacity:.6;text-align:right}
 .opt s{display:inline}
 .selo{display:inline-block;background:#1f8a4c;color:#fff;font-size:11px;font-weight:700;letter-spacing:.3px;border-radius:999px;padding:3px 9px;vertical-align:2px;white-space:nowrap;box-shadow:0 2px 6px rgba(31,138,76,.35);animation:pulsa 1.6s ease-in-out infinite}
+.selo.cinza{background:#7d5d22;box-shadow:none;animation:none;font-weight:600}
+.regra{flex:1 1 100%;margin:4px 0 0;font-size:13px;color:#1f6b3d;background:#e6eedf;border-radius:8px;padding:8px 12px}
 .selo.flut{position:absolute;top:-12px;right:12px}
 @keyframes pulsa{0%,100%{transform:scale(1)}50%{transform:scale(1.08);box-shadow:0 4px 14px rgba(31,138,76,.5)}}
 @media (prefers-reduced-motion:reduce){.selo{animation:none}}
@@ -163,7 +165,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
         <div class="plans" id="calcPlanos"></div>
         <div class="warn" id="aviso" hidden></div>
         <button class="b pri go" id="confirmar" type="button">Confirmar pedido</button>
-        <p class="note">O mensal tem 4 ou 5 semanas, conforme o mês. Você só paga depois de conferir tudo.</p>
+        <p class="note">O mensal tem 4 ou 5 semanas, conforme o mês. Mensal de R$ 250 ou mais ganha R$ 20 de desconto. Você só paga depois de conferir tudo.</p>
       </aside>
     </div>
   </main>
@@ -202,7 +204,8 @@ const CONFIG = {
   quantidades: [3, 4, 5, 6, 7, 8, 9, 10],
   diasFrios: { 1: "Segunda", 3: "Quarta" },
   // Pacote de 200 g, valor por semana em cada dia escolhido
-  descontoMensal: 20,   // R$ 20 a menos no plano mensal
+  descontoMensal: 20,   // R$ 20 a menos no plano mensal…
+  minimoDesconto: 250,  // …quando o mês (pães + frios, antes do desconto) fecha em R$ 250 ou mais
   frios: { "Presunto": 14, "Mussarela": 20, "Peito de peru": 20, "Queijo prato": 23, "Mortadela defumada": 14 },
   condominios: ["Bosque dos Tamburis","Bourbon","Central Parque","Dama 1","Dama 2","Dama 3","Dama Beatriz","Dama Belvedere","Gramado","Porto Madeiro","Quinta das Flores","Valência 1","Vila Toscana","Outro"],
   pix: { chave: "+5518996470899", nome: "PAO NA CESTA", cidade: "PRESIDENTE PRUDENTE" },   // chave Pix celular (18) 99647-0899
@@ -219,7 +222,7 @@ if (TESTE) {
   for (const k in CONFIG.precoFixo) CONFIG.precoFixo[k] = d10(CONFIG.precoFixo[k]);
   CONFIG.precoPaoDia = d10(CONFIG.precoPaoDia);
   for (const k in CONFIG.frios) CONFIG.frios[k] = d10(CONFIG.frios[k]);
-  CONFIG.descontoMensal = d10(CONFIG.descontoMensal);
+  CONFIG.descontoMensal = d10(CONFIG.descontoMensal); CONFIG.minimoDesconto = d10(CONFIG.minimoDesconto);
 }
 const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
 const DIAS = [[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"]];
@@ -261,8 +264,10 @@ function calc(){
   const semana = Math.round((paes + frios) * 100) / 100;
   const per = periodos();
   const cheio = Object.fromEntries(Object.entries(per).map(([k, p]) => [k, Math.round(semana * p.sem * 100) / 100]));
-  const planos = { ...cheio, mensal: Math.max(0, Math.round((cheio.mensal - CONFIG.descontoMensal) * 100) / 100) };
-  return { ok: true, linhas, semana, per, cheio, planos };
+  const temDesconto = cheio.mensal >= CONFIG.minimoDesconto;
+  const planos = { ...cheio, mensal: temDesconto ? Math.round((cheio.mensal - CONFIG.descontoMensal) * 100) / 100 : cheio.mensal };
+  const falta = Math.round((CONFIG.minimoDesconto - cheio.mensal) * 100) / 100;
+  return { ok: true, linhas, semana, per, cheio, planos, temDesconto, falta };
 }
 const PLANOS = ["semanal", "quinzenal", "mensal"];
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
@@ -273,10 +278,10 @@ function render(){
   $("#dias").innerHTML = DIAS.map(([d, n]) => `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
   $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
   const c = calc();
-  $("#planos").innerHTML = PLANOS.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${NOMEPLANO[k]}${k === "mensal" ? " " + `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}</b><small>${c.ok ? (k === "mensal" ? `<s>${brl(c.cheio.mensal)}</s> ` : "") + brl(c.planos[k]) + " · " + textoPeriodo(c.per[k]) : "—"}</small></button>`).join("");
+  $("#planos").innerHTML = PLANOS.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${NOMEPLANO[k]}${k === "mensal" && c.ok && c.temDesconto ? " " + `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}</b><small>${c.ok ? (k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s> ` : "") + brl(c.planos[k]) + " · " + textoPeriodo(c.per[k]) : "—"}</small></button>`).join("") + `<p class="regra">Pedidos mensais de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto no pagamento mensal.${c.ok && !c.temDesconto ? ` Falta ${brl(c.falta)} no mês para ganhar o desconto.` : ""}</p>`;
   $("#resumo").textContent = c.ok ? `${st.paes} pães por dia · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
   $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` : "";
-  $("#calcPlanos").innerHTML = PLANOS.map(k => `<button class="plan${k === "mensal" ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${k === "mensal" ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}<span>${NOMEPLANO[k]}${k === "mensal" && c.ok ? " de " + c.per.mensal.mes : ""}<small>${c.ok ? textoPeriodo(c.per[k]) : ""}</small></span><b>${c.ok && k === "mensal" ? `<s>${brl(c.cheio.mensal)}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
+  $("#calcPlanos").innerHTML = PLANOS.map(k => `<button class="plan${k === "mensal" ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${k === "mensal" && c.ok ? (c.temDesconto ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : `<span class="selo flut cinza">Falta ${brl(c.falta)} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>`) : ""}<span>${NOMEPLANO[k]}${k === "mensal" && c.ok ? " de " + c.per.mensal.mes : ""}<small>${c.ok ? textoPeriodo(c.per[k]) : ""}</small></span><b>${c.ok && k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
   $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
   $("#confirmar").disabled = !c.ok; $("#barGo").disabled = !c.ok;
   $("#barPlano").textContent = NOMEPLANO[st.plano]; $("#barValor").textContent = c.ok ? brl(c.planos[st.plano]) : "—";
