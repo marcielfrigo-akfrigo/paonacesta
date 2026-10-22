@@ -307,11 +307,18 @@ function textoPedido(c){
   ].filter(x => x !== null).join("\n");
 }
 // Código que o app de gestão lê para cadastrar o pedido sozinho
-function codigoPedido(c){
-  const dados = { n: $("#nome").value.trim(), c: $("#cond").value, h: $("#casa").value.trim(), p: st.paes, d: st.dias,
+function dadosPedido(c){
+  return { n: $("#nome").value.trim(), c: $("#cond").value, h: $("#casa").value.trim(), p: st.paes, d: st.dias,
     f: Object.fromEntries(Object.entries(st.frios).filter(([d, l]) => st.dias.includes(Number(d)) && l.length)),
     pl: st.plano, v: c.planos[st.plano], s: c.semana, i: $("#inicio").value, ini: iso(c.per[st.plano].ini), fim: iso(c.per[st.plano].fim), t: TESTE ? 1 : 0 };
-  return "PNC1." + btoa(unescape(encodeURIComponent(JSON.stringify(dados))));
+}
+function codigoPedido(c){ return "PNC1." + btoa(unescape(encodeURIComponent(JSON.stringify(dadosPedido(c))))); }
+// Grava o pedido no banco do Pão na Cesta (aparece em "Pedidos novos" no app de gestão)
+let ultimoEnviado = "";
+async function enviarAoBanco(c){
+  const d = dadosPedido(c), chave = JSON.stringify(d);
+  if (chave === ultimoEnviado || !window.gravarPedido) return;
+  try { await window.gravarPedido({ ...d, status: "novo", criadoEm: Date.now() }); ultimoEnviado = chave; } catch (e) {}
 }
 function toast(t){ document.querySelectorAll(".toast").forEach(x => x.remove()); const el = document.createElement("div"); el.className = "toast"; el.setAttribute("role", "status"); el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
 async function copiar(t, msg){ try { await navigator.clipboard.writeText(t); toast(msg); } catch (e) { const r = document.createRange(); r.selectNodeContents($("#pixCode")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selecione e copie o código"); } }
@@ -333,6 +340,7 @@ function confirmar(){
     $("#qr").innerHTML = '<span class="hint">QR Code em breve</span>'; $("#copiarPix").disabled = true;
   }
   $("#tela-pedido").hidden = true; $("#bar").hidden = true; $("#tela-pix").hidden = false; window.scrollTo(0, 0);
+  enviarAoBanco(c);
 }
 $("#confirmar").addEventListener("click", confirmar);
 $("#barGo").addEventListener("click", confirmar);
@@ -353,6 +361,15 @@ if (!$("#inicio").value) $("#inicio").value = iso(proximaSegunda());
 $("#inicio").addEventListener("change", render);
 $("#avisoTeste").hidden = !TESTE;
 render();
+</script>
+<script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyCDjC2i08rrbegFaBAPRg33wJLuHLjmEWk","authDomain":"pao-na-cesta.firebaseapp.com","projectId":"pao-na-cesta","storageBucket":"pao-na-cesta.firebasestorage.app","messagingSenderId":"562755057813","appId":"1:562755057813:web:61f7132e3d23bb211c039c"};</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.projectId) {
+  const fs = getFirestore(initializeApp(window.FIREBASE_CONFIG));
+  window.gravarPedido = d => addDoc(collection(fs, "pedidos"), d);
+}
 </script>
 </body>
 </html>
