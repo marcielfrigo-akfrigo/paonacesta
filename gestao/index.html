@@ -637,7 +637,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     if (abertos.has(c.id)) {
       more += `<div class="det"><span><b>${esc(c.paes || 0)}</b> pães/dia</span>${c.endereco ? `<span>${esc(c.endereco)}</span>` : ""}<span>Entregador: <b>${esc(entregadorDe(c))}</b></span>${c.frios ? `<span>Frios: ${esc(c.frios)}</span>` : ""}${Array.isArray(c.dias) && c.dias.length ? `<span>Recebe: ${c.dias.map(d => DOW[d]).join(", ")}</span>` : ""}</div>
         ${c.suspenso && c.motivo ? `<div class="note">${esc(c.motivo)}</div>` : ""}${c.obs ? `<div class="note">${esc(c.obs)}</div>` : ""}
-        <div class="acts"><button class="b sm" type="button" data-a="editar" data-id="${c.id}">${ic("pencil")}Editar</button>${travado ? `<button class="b sm" type="button" data-a="abrir" data-id="${c.id}">Registrar pagamento mesmo assim</button>` : ""}<button class="b sm" type="button" data-a="cred" data-id="${c.id}">${ic("gift")}Lançar crédito</button></div>
+        <div class="acts"><button class="b sm" type="button" data-a="editar" data-id="${c.id}">${ic("pencil")}Editar</button>${travado ? `<button class="b sm" type="button" data-a="abrir" data-id="${c.id}">Registrar pagamento mesmo assim</button>` : ""}<button class="b sm" type="button" data-a="cred" data-id="${c.id}">${ic("gift")}Lançar crédito</button><button class="b sm" type="button" data-a="link" data-id="${c.id}">${ic("copy")}Link para renovar</button></div>
         <div class="hist">${hs.length ? hs.map((p, i) => `<div class="h"><span class="num">${br(p.data)} · ${esc(p.tipo)} · <b>${brl(p.valor)}</b>${p.credito ? ` <small class="g">(crédito ${brl(p.credito)})</small>` : ""} <small class="muted">→ pago até ${br(p.depois)}</small></span>${i === 0 ? `<button class="b danger sm" type="button" data-a="desfazer" data-pid="${p.id}"${ocupado ? " disabled" : ""}>Desfazer</button>` : ""}</div>`).join("") : `<span class="muted">Nenhum pagamento registrado pelo app ainda.</span>`}</div>`;
     }
     const meta = `${esc(c.condominio)} · ${brl(c.valor)}/sem${compacto ? "" : ` · ${c.paes || 0} pães`}`;
@@ -790,6 +790,24 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
 <div class="ft">Pão na Cesta · em parceria com Chantilly</div>
 </div></div></body></html>`;
   }
+  // Link pessoal para o cliente renovar no app dos clientes, já com o pedido de hoje preenchido
+  const SITE_CLIENTES = "https://paonacesta.com.br/";
+  const NOME_FRIO_APP = { "Mortadela": "Mortadela defumada" };
+  function linkCliente(c){
+    const f = Object.entries({ 1: "seg", 3: "qua" }).map(([d, nome]) => {
+      const itens = c.frios ? friosItens(c.frios.split("|").filter(sg => sg.includes(":") && norm(sg.split(":")[0]).includes(nome)).map(sg => sg.split(":").slice(1).join(":")).join(" e ")) : [];
+      return itens.length ? d + ":" + itens.map(i => NOME_FRIO_APP[i] || i).join(",") : "";
+    }).filter(Boolean).join(";");
+    const q = new URLSearchParams({ n: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), c: c.condominio.replace(/^Valencia/, "Valência"), h: c.endereco || "", p: String(c.paes || 5), d: (Array.isArray(c.dias) && c.dias.length ? c.dias : [1,2,3,4,5]).join(","), pl: c.plano || "semanal" });
+    if (f) q.set("f", f);
+    return SITE_CLIENTES + "?" + q.toString();
+  }
+  async function copiarLinkCliente(id, bt){
+    const c = clientes.find(x => x.id === id); if (!c) return;
+    const txt = `Oi, ${c.nome.split(" ")[0]}! Seu pedido do Pão na Cesta já está pronto para renovar. É só conferir e fazer o Pix: ${linkCliente(c)}`;
+    try { await navigator.clipboard.writeText(txt); toast("Mensagem com o link copiada. Cole no WhatsApp de " + c.nome.split(" ")[0]); }
+    catch (er) { const ta = document.createElement("textarea"); ta.value = txt; ta.rows = 4; ta.style.cssText = "width:100%;margin-top:8px"; bt.closest(".acts").after(ta); ta.select(); toast("Selecione e copie a mensagem"); }
+  }
   function mudHtml(lst, nomeAnt, comE){
     return `<div class="blk change"><h3>O que mudou desde ${nomeAnt}</h3>${lst.length ? `<ul>${lst.map(m => `<li>${comE ? `<b>${esc(m.e)}</b> · ` : ""}${m.s === "+" ? `<span class="tag nova">${m.txt}</span>` : `<span class="tag sai">NÃO PEGA</span>`} <b>${esc(m.c.nome)}</b> · ${esc(m.c.condominio)} · ${m.c.paes} pães${m.s === "-" ? ` <small>(${esc(m.txt)})</small>` : m.txt === "NOVA" ? " <small>(levar a cesta)</small>" : ""}</li>`).join("")}</ul>` : `<span>Nada mudou.</span>`}</div>`;
   }
@@ -865,6 +883,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       else if (a === "desfazer") desfazer(b.dataset.pid);
       else if (a === "editar") abrirForm(id);
       else if (a === "cred") abrirCred(id);
+      else if (a === "link") copiarLinkCliente(id, b);
       return; }
     const f = e.target.closest("button[data-f]"); if (f) { filtro = f.dataset.f; try { localStorage.setItem("pncg-filtro", filtro); } catch (er) {} render(); return; }
     const c = e.target.closest("button[data-c]"); if (c) { cond = c.dataset.c; if (cond) filtro = "todos"; render(); return; }
