@@ -93,11 +93,12 @@ h1{font:400 38px/1.12 var(--display);margin:0 0 6px;letter-spacing:-.5px;text-wr
 .plan b s,.opt s{display:block;font-size:13px;font-weight:500;opacity:.6;text-align:right}
 .opt s{display:inline}
 .selo{display:inline-block;background:#1f8a4c;color:#fff;font-size:11px;font-weight:700;letter-spacing:.3px;border-radius:999px;padding:3px 9px;vertical-align:2px;white-space:nowrap;box-shadow:0 2px 6px rgba(31,138,76,.35);animation:pulsa 1.6s ease-in-out infinite}
-.selo.cinza{background:#7d5d22;box-shadow:none;animation:none;font-weight:600}
+.selo.cinza{background:#e8590c;box-shadow:0 2px 8px rgba(232,89,12,.45);animation:pulsa 1.3s ease-in-out infinite}
+.falta{display:inline-block;background:#e8590c;color:#fff!important;font-weight:700;border-radius:6px;padding:1px 6px;animation:pulsa 1.3s ease-in-out infinite}
 .regra{flex:1 1 100%;margin:4px 0 0;font-size:13px;color:#1f6b3d;background:#e6eedf;border-radius:8px;padding:8px 12px}
 .selo.flut{position:absolute;top:-12px;right:12px}
 @keyframes pulsa{0%,100%{transform:scale(1)}50%{transform:scale(1.08);box-shadow:0 4px 14px rgba(31,138,76,.5)}}
-@media (prefers-reduced-motion:reduce){.selo{animation:none}}
+@media (prefers-reduced-motion:reduce){.selo,.falta{animation:none}}
 .plan[aria-pressed="true"]{background:var(--brown);border-color:var(--brown);color:var(--on-brown)}
 .plan[aria-pressed="true"] small{color:color-mix(in srgb,var(--on-brown) 80%,transparent)}
 .calc .go{margin:6px 10px 12px;width:calc(100% - 20px)}
@@ -198,7 +199,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
             <label class="wide">Nome<input id="nome" autocomplete="name" placeholder="Seu nome"></label>
             <label>Condomínio<select id="cond"></select></label>
             <label>Casa / rua<input id="casa" placeholder="Ex.: Casa 120"></label>
-            <label class="wide">Começar a receber em<input id="inicio" type="date"></label>
+            <label class="wide">Começar a receber em<input id="inicio" type="date"><small style="font-weight:400;color:var(--muted)">Pode começar no meio da semana: os dias até sexta entram no primeiro pagamento.</small></label>
           </div>
         </section>
       </div>
@@ -284,17 +285,30 @@ const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","ag
 function segundaDe(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); const w = x.getDay(); return mais(x, w === 0 ? 1 : w === 6 ? 2 : 1 - w); }
 const mesDaSemana = seg => mais(seg, 3).getMonth();
 function proximaSegunda(){ const h = new Date(); h.setHours(0, 0, 0, 0); return mais(h, ((8 - h.getDay()) % 7) || 7); }
+// Primeiro dia que dá para receber: amanhã (pedido até 12h) ou depois de amanhã; nunca sábado/domingo
+function primeiroDia(){ const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), h.getHours() < 12 ? 1 : 2); while (d.getDay() === 0 || d.getDay() === 6) d = mais(d, 1); return d; }
+function inicioEscolhido(){
+  let d = $("#inicio") && $("#inicio").value ? parse($("#inicio").value) : proximaSegunda();
+  const p = primeiroDia(); if (d < p) d = p;
+  while (d.getDay() === 0 || d.getDay() === 6) d = mais(d, 1);
+  return d;
+}
 function periodos(){
-  const ini = segundaDe($("#inicio") && $("#inicio").value ? parse($("#inicio").value) : proximaSegunda());
-  // mês cheio: a partir da primeira semana de um mês que comece nesta segunda ou depois
-  let m0 = ini; while (mesDaSemana(mais(m0, -7)) === mesDaSemana(m0)) m0 = mais(m0, 7);
-  let fim = m0, n = 1; while (mesDaSemana(mais(fim, 7)) === mesDaSemana(m0)) { fim = mais(fim, 7); n++; }
+  const inicio = inicioEscolhido();
+  // o plano começa na segunda; se a pessoa começa no meio da semana, os dias até sexta entram avulsos
+  const ini = inicio.getDay() === 1 ? inicio : mais(inicio, 8 - inicio.getDay());
+  const avulsos = []; if (inicio.getDay() !== 1) for (let d = inicio; d.getDay() >= 1 && d.getDay() <= 5 && d < ini; d = mais(d, 1)) if (st.dias.includes(d.getDay())) avulsos.push(d);
+  // mensal: até o fim do mês (semana pertence ao mês da quinta); se sobrar menos de 3 semanas, vai até o fim do mês seguinte
+  let fim = ini, n = 1; while (mesDaSemana(mais(fim, 7)) === mesDaSemana(ini)) { fim = mais(fim, 7); n++; }
+  if (n < 3) { const m2 = mesDaSemana(mais(fim, 7)); while (mesDaSemana(mais(fim, 7)) === m2) { fim = mais(fim, 7); n++; } }
   return {
+    inicio, avulsos,
     semanal: { ini, fim: mais(ini, 4), sem: 1 },
     quinzenal: { ini, fim: mais(ini, 11), sem: 2 },
-    mensal: { ini: m0, fim: mais(fim, 4), sem: n, mes: MESES[mesDaSemana(m0)] }
+    mensal: { ini, fim: mais(fim, 4), sem: n, mes: MESES[mesDaSemana(fim)] }
   };
 }
+const DIASEM = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
 function calc(){
   const nd = st.dias.length;
   if (!nd) return { ok: false, motivo: "Escolha pelo menos um dia." };
@@ -307,14 +321,21 @@ function calc(){
   }
   const semana = Math.round((paes + frios) * 100) / 100;
   const per = periodos();
-  const cheio = Object.fromEntries(Object.entries(per).map(([k, p]) => [k, Math.round(semana * p.sem * 100) / 100]));
+  // dias avulsos desta semana: pão do dia + frios se cair na segunda/quarta
+  let avulso = 0;
+  per.avulsos.forEach(d => { avulso += semanaPaes(st.paes, 1); (CONFIG.diasFrios[d.getDay()] ? (st.frios[d.getDay()] || []) : []).forEach(i => avulso += CONFIG.frios[i] || 0); });
+  avulso = Math.round(avulso * 100) / 100;
+  const cheio = Object.fromEntries(PLANOS.map(k => [k, Math.round(semana * per[k].sem * 100) / 100]));
   const temDesconto = cheio.mensal >= CONFIG.minimoDesconto;
-  const planos = { ...cheio, mensal: temDesconto ? Math.round((cheio.mensal - CONFIG.descontoMensal) * 100) / 100 : cheio.mensal };
+  const planos = Object.fromEntries(PLANOS.map(k => [k, Math.round((cheio[k] - (k === "mensal" && temDesconto ? CONFIG.descontoMensal : 0) + avulso) * 100) / 100]));
   const falta = Math.round((CONFIG.minimoDesconto - cheio.mensal) * 100) / 100;
-  return { ok: true, linhas, semana, per, cheio, planos, temDesconto, falta };
+  const textoAvulso = per.avulsos.length ? per.avulsos.map(d => DIASEM[d.getDay()]).join(" e ") + " (" + per.avulsos.map(ddmm).join(" e ") + ")" : "";
+  if (avulso) linhas.push([`Esta semana: ${textoAvulso}`, avulso]);
+  return { ok: true, linhas, semana, per, cheio: Object.fromEntries(PLANOS.map(k => [k, Math.round((cheio[k] + avulso) * 100) / 100])), planos, temDesconto, falta, avulso, textoAvulso };
 }
 const PLANOS = ["semanal", "quinzenal", "mensal"];
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
+const textoPlano = (c, k) => (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""} + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : textoPeriodo(c.per[k]));
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
 
 function render(){
@@ -322,13 +343,13 @@ function render(){
   $("#dias").innerHTML = DIAS.map(([d, n]) => `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
   $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
   const c = calc();
-  $("#planos").innerHTML = PLANOS.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${NOMEPLANO[k]}${k === "mensal" && c.ok && c.temDesconto ? " " + `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}</b><small>${c.ok ? (k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s> ` : "") + brl(c.planos[k]) + " · " + textoPeriodo(c.per[k]) : "—"}</small></button>`).join("") + `<p class="regra">Pedidos mensais de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto no pagamento mensal.${c.ok && !c.temDesconto ? ` Falta ${brl(c.falta)} no mês para ganhar o desconto.` : ""}</p>`;
+  $("#planos").innerHTML = PLANOS.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${NOMEPLANO[k]}${k === "mensal" && c.ok && c.temDesconto ? " " + `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}</b><small>${c.ok ? (k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s> ` : "") + brl(c.planos[k]) + " · " + textoPlano(c, k) : "—"}</small></button>`).join("") + `<p class="regra">Pedidos mensais de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto no pagamento mensal.${c.ok && !c.temDesconto ? ` <b class="falta">Falta ${brl(c.falta)} no mês para ganhar o desconto</b>` : ""}</p>`;
   $("#resumo").textContent = c.ok ? `${st.paes} pães por dia · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
   $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` : "";
-  $("#calcPlanos").innerHTML = PLANOS.map(k => `<button class="plan${k === "mensal" ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${k === "mensal" && c.ok ? (c.temDesconto ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : `<span class="selo flut cinza">Falta ${brl(c.falta)} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>`) : ""}<span>${NOMEPLANO[k]}${k === "mensal" && c.ok ? " de " + c.per.mensal.mes : ""}<small>${c.ok ? textoPeriodo(c.per[k]) : ""}</small></span><b>${c.ok && k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
+  $("#calcPlanos").innerHTML = PLANOS.map(k => `<button class="plan${k === "mensal" ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${k === "mensal" && c.ok ? (c.temDesconto ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : `<span class="selo flut cinza">Falta ${brl(c.falta)} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>`) : ""}<span>${NOMEPLANO[k]}${k === "mensal" && c.ok ? " de " + c.per.mensal.mes : ""}<small>${c.ok ? textoPlano(c, k) : ""}</small></span><b>${c.ok && k === "mensal" && c.temDesconto ? `<s>${brl(c.cheio.mensal)}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
   $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
   $("#confirmar").disabled = !c.ok; $("#barGo").disabled = !c.ok;
-  $("#mini").innerHTML = PLANOS.map(k => `<button type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><small>${NOMEPLANO[k]}</small><b>${c.ok ? brl(c.planos[k]) : "—"}</b>${k === "mensal" && c.ok ? (c.temDesconto ? `<i class="ok">−${brl(CONFIG.descontoMensal)} desconto</i>` : `<i>falta ${brl(c.falta)} p/ desconto</i>`) : `<i>${c.ok ? c.per[k].sem + (c.per[k].sem > 1 ? " semanas" : " semana") : ""}</i>`}</button>`).join("");
+  $("#mini").innerHTML = PLANOS.map(k => `<button type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><small>${NOMEPLANO[k]}</small><b>${c.ok ? brl(c.planos[k]) : "—"}</b>${k === "mensal" && c.ok ? (c.temDesconto ? `<i class="ok">−${brl(CONFIG.descontoMensal)} desconto</i>` : `<i class="falta">falta ${brl(c.falta)} p/ desconto</i>`) : `<i>${c.ok ? c.per[k].sem + (c.per[k].sem > 1 ? " semanas" : " semana") : ""}</i>`}</button>`).join("");
 }
 
 document.addEventListener("click", e => {
@@ -360,7 +381,7 @@ function textoPedido(c){
     `Pães: ${st.paes} por dia`,
     `Dias: ${DIAS.filter(([d]) => st.dias.includes(d)).map(([, n]) => n).join(", ")}`,
     fr.length ? `Frios: ${fr.join(" | ")}` : "Frios: não",
-    `Plano: ${NOMEPLANO[st.plano]} – ${brl(c.planos[st.plano])} (${textoPeriodo(c.per[st.plano])})`,
+    `Plano: ${NOMEPLANO[st.plano]} – ${brl(c.planos[st.plano])} (${textoPlano(c, st.plano)})`,
     $("#inicio").value ? `Começar em: ${$("#inicio").value.split("-").reverse().join("/")}` : "",
     "", "Segue o comprovante do Pix.",
     "", "Código do pedido (não apague): " + codigoPedido(c)
@@ -370,7 +391,7 @@ function textoPedido(c){
 function dadosPedido(c){
   return { n: $("#nome").value.trim(), c: $("#cond").value, h: $("#casa").value.trim(), p: st.paes, d: st.dias,
     f: Object.fromEntries(Object.entries(st.frios).filter(([d, l]) => st.dias.includes(Number(d)) && l.length)),
-    pl: st.plano, v: c.planos[st.plano], s: c.semana, i: $("#inicio").value, ini: iso(c.per[st.plano].ini), fim: iso(c.per[st.plano].fim), t: TESTE ? 1 : 0 };
+    pl: st.plano, v: c.planos[st.plano], s: c.semana, i: iso(c.per.inicio), ini: iso(c.per.inicio), fim: iso(c.per[st.plano].fim), t: TESTE ? 1 : 0 };
 }
 function codigoPedido(c){ return "PNC1." + btoa(unescape(encodeURIComponent(JSON.stringify(dadosPedido(c))))); }
 // Grava o pedido no banco do Pão na Cesta (aparece em "Pedidos novos" no app de gestão)
@@ -387,7 +408,7 @@ function confirmar(){
   const c = calc(); if (!c.ok) return;
   if (!$("#nome").value.trim() || !$("#casa").value.trim()) { toast("Preencha seu nome e a casa"); $("#s5").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   const valor = c.planos[st.plano];
-  $("#pixPlano").textContent = `${NOMEPLANO[st.plano]} · ${textoPeriodo(c.per[st.plano])} · ${st.paes} pães por dia`;
+  $("#pixPlano").textContent = `${NOMEPLANO[st.plano]} · ${textoPlano(c, st.plano)} · ${st.paes} pães por dia`;
   $("#pixValor").textContent = brl(valor);
   $("#pixResumo").textContent = textoPedido(c).replace(/\*/g, "");
   if (CONFIG.pix.chave) {
@@ -417,7 +438,8 @@ $("#cond").innerHTML = `<option value="" disabled selected>Escolha</option>` + C
 if (qp.get("n")) $("#nome").value = qp.get("n");
 if (qp.get("c")) $("#cond").value = qp.get("c");
 if (qp.get("h")) $("#casa").value = qp.get("h");
-if (!$("#inicio").value) $("#inicio").value = iso(proximaSegunda());
+$("#inicio").min = iso(primeiroDia());
+if (!$("#inicio").value || $("#inicio").value < $("#inicio").min) $("#inicio").value = iso(primeiroDia());
 $("#inicio").addEventListener("change", render);
 $("#avisoTeste").hidden = !TESTE;
 render();
