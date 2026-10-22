@@ -187,7 +187,8 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
 <script>
 // ===== Configuração do Pão na Cesta (preços por SEMANA; null = preço ainda não definido) =====
 const CONFIG = {
-  // R$ 70 por semana para 5 pães em 5 dias = R$ 2,80 por pão por dia; cada quantidade é proporcional
+  // Preço da semana (5 dias): 3 pães R$ 55, 4 pães R$ 63, 5 pães R$ 70; de 6 em diante, R$ 2,80 por pão por dia
+  precoFixo: { 3: 55, 4: 63, 5: 70 },
   precoPaoDia: 2.8,
   quantidades: [3, 4, 5, 6, 7, 8, 9, 10],
   diasFrios: { 1: "Segunda", 3: "Quarta" },
@@ -206,7 +207,7 @@ const NOMEPLANO = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal"
 const st = { paes: 5, dias: [1,2,3,4,5], frios: {}, plano: "semanal" };
 try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
 
-const semanaPaes = (q, nd) => Math.round(q * CONFIG.precoPaoDia * nd * 100) / 100;
+const semanaPaes = (q, nd) => { const cheia = CONFIG.precoFixo[q] ?? q * CONFIG.precoPaoDia * 5; return Math.round(cheia / 5 * nd * 100) / 100; };
 // Datas: cada semana (seg a sex) pertence ao mês da sua quinta-feira. Ex.: out/2026 = 28/09 a 30/10 (5 semanas)
 const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
