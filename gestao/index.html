@@ -462,6 +462,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
 
   const MULT = { semanal: 1, quinzenal: 2, mensal: 4 };
   const preco = (c, t) => t === "mensal" ? c.valor * 4 - 20 : c.valor * MULT[t];
+  // Dias que o cliente já recebeu e ainda não pagou: { valor, txt } (somam no próximo pagamento)
+  const anterior = c => Math.max(0, Number((c.anterior || {}).valor) || 0);
 
   let db = null, cfg = { rotas:{}, pessoal:{}, extras:{} }, raw = [], clientes = [], pags = [], creds = [], pedidos = [];
   let view = "geral", filtro = "todos", busca = "", cond = "", aberto = null, abertos = new Set(), editId = null, ocupado = false, eTab = "Padaria", eData = "";
@@ -593,7 +595,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const ativos = clientes.filter(c => status(c) !== "off" && (c.paes || 0) > 0).length;
     const susp = clientes.filter(c => status(c) === "off").length;
     const recSem = pags.filter(p => p.semana === SEG).reduce((s, p) => s + (p.valor || 0), 0);
-    const falta = dev.reduce((s, c) => s + Math.max(0, (c.valor || 0) - credDe(c.id)), 0);
+    const falta = dev.reduce((s, c) => s + Math.max(0, (c.valor || 0) - credDe(c.id)) + anterior(c), 0);
     const credT = creds.filter(k => !k.usadoEm).reduce((s, k) => s + (Number(k.valor) || 0), 0);
     const stats = [
       { t:"Clientes ativos", v:String(ativos), s:susp ? `${susp} suspenso${susp > 1 ? "s" : ""} agora` : "Nenhum suspenso", i:"users", go:"clientes" },
@@ -632,11 +634,11 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const hs = pags.filter(p => p.clienteId === c.id).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
     let more = "";
     if (aberto === c.id) {
-      more += `<div class="opts">${["semanal","quinzenal","mensal"].map(t => { const cheio = preco(c, t), v = Math.max(0, cheio - cr); return `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="${t}"${ocupado ? " disabled" : ""}><span>Pago ${t}</span><b>${brl(v)}</b>${cr > 0 ? `<small>${brl(cheio)} − crédito ${brl(Math.min(cr, cheio))}</small>` : ""}</button>`; }).join("")}</div>`;
+      more += `<div class="opts">${["semanal","quinzenal","mensal"].map(t => { const cheio = preco(c, t), an = anterior(c), v = Math.max(0, cheio - cr) + an; return `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="${t}"${ocupado ? " disabled" : ""}><span>Pago ${t}</span><b>${brl(v)}</b>${cr > 0 ? `<small>${brl(cheio)} − crédito ${brl(Math.min(cr, cheio))}</small>` : ""}${an ? `<small>+ ${brl(an)} dias anteriores</small>` : ""}</button>`; }).join("")}</div>`;
     }
     if (abertos.has(c.id)) {
       more += `<div class="det"><span><b>${esc(c.paes || 0)}</b> pães/dia</span>${c.endereco ? `<span>${esc(c.endereco)}</span>` : ""}<span>Entregador: <b>${esc(entregadorDe(c))}</b></span>${c.frios ? `<span>Frios: ${esc(c.frios)}</span>` : ""}${Array.isArray(c.dias) && c.dias.length ? `<span>Recebe: ${c.dias.map(d => DOW[d]).join(", ")}</span>` : ""}</div>
-        ${c.suspenso && c.motivo ? `<div class="note">${esc(c.motivo)}</div>` : ""}${c.obs ? `<div class="note">${esc(c.obs)}</div>` : ""}
+        ${anterior(c) ? `<div class="note">Dias já recebidos para pagar: <b>${brl(anterior(c))}</b>${c.anterior.txt ? ` (${esc(c.anterior.txt)})` : ""}. Vai no link para renovar e soma no Pagar.</div>` : ""}${c.suspenso && c.motivo ? `<div class="note">${esc(c.motivo)}</div>` : ""}${c.obs ? `<div class="note">${esc(c.obs)}</div>` : ""}
         <div class="acts"><button class="b sm" type="button" data-a="editar" data-id="${c.id}">${ic("pencil")}Editar</button>${travado ? `<button class="b sm" type="button" data-a="abrir" data-id="${c.id}">Registrar pagamento mesmo assim</button>` : ""}<button class="b sm" type="button" data-a="cred" data-id="${c.id}">${ic("gift")}Lançar crédito</button><button class="b sm" type="button" data-a="link" data-id="${c.id}">${ic("copy")}Link para renovar</button></div>
         <div class="hist">${hs.length ? hs.map((p, i) => `<div class="h"><span class="num">${br(p.data)} · ${esc(p.tipo)} · <b>${brl(p.valor)}</b>${p.credito ? ` <small class="g">(crédito ${brl(p.credito)})</small>` : ""} <small class="muted">→ pago até ${br(p.depois)}</small></span>${i === 0 ? `<button class="b danger sm" type="button" data-a="desfazer" data-pid="${p.id}"${ocupado ? " disabled" : ""}>Desfazer</button>` : ""}</div>`).join("") : `<span class="muted">Nenhum pagamento registrado pelo app ainda.</span>`}</div>`;
     }
@@ -802,6 +804,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     }).filter(Boolean).join(";");
     const q = new URLSearchParams({ n: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), c: c.condominio.replace(/^Valencia/, "Valência"), h: c.endereco || "", p: String(c.paes || 5), d: (Array.isArray(c.dias) && c.dias.length ? c.dias : [1,2,3,4,5]).join(","), pl: c.plano || "semanal" });
     if (f) q.set("f", f);
+    if (anterior(c)) { q.set("a", String(anterior(c))); if (c.anterior.txt) q.set("at", c.anterior.txt); }
     return SITE_CLIENTES + "?" + q.toString();
   }
   async function copiarLinkCliente(id, bt){
@@ -817,7 +820,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   function vFin(){
     const dev = devendo();
     const recSem = pags.filter(p => p.semana === SEG).reduce((s, p) => s + (p.valor || 0), 0);
-    const falta = dev.reduce((s, c) => s + Math.max(0, (c.valor || 0) - credDe(c.id)), 0);
+    const falta = dev.reduce((s, c) => s + Math.max(0, (c.valor || 0) - credDe(c.id)) + anterior(c), 0);
     const abertosK = creds.filter(k => !k.usadoEm).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
     const credT = abertosK.reduce((s, k) => s + (Number(k.valor) || 0), 0);
     const ult = {}; pags.forEach(p => { if (!ult[p.clienteId] || (p.criadoEm || 0) > (ult[p.clienteId].criadoEm || 0)) ult[p.clienteId] = p; });
@@ -846,9 +849,10 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const cheio = preco(c, tipo), ks = credAberto(id);
     const usado = Math.min(cheio, ks.reduce((s, k) => s + (Number(k.valor) || 0), 0));
     try {
-      const ref = await db.collection("pagamentos").add({ clienteId: id, nome: c.nome, tipo, valor: cheio - usado, credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois, criadoEm: Date.now() });
+      const an = anterior(c);
+      const ref = await db.collection("pagamentos").add({ clienteId: id, nome: c.nome, tipo, valor: cheio - usado + an, credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois, criadoEm: Date.now(), ...(an ? { anterior: c.anterior } : {}) });
       for (const k of ks) await db.doc("creditos/" + k.id).update({ usadoEm: ref.id });
-      await db.doc("clientes/" + id).update({ pagoAte: depois, plano: tipo });
+      await db.doc("clientes/" + id).update({ pagoAte: depois, plano: tipo, ...(an ? { anterior: null } : {}) });
       aberto = null; toast(c.nome + ": pago até " + br(depois));
     } catch (e) { toast("Não salvou: " + (e && e.message || "tente de novo"), true); }
     ocupado = false; render();
@@ -857,7 +861,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const p = pags.find(x => x.id === pid); if (!p || !db || ocupado) return;
     ocupado = true; render();
     try {
-      await db.doc("clientes/" + p.clienteId).update({ pagoAte: p.antes || "" });
+      await db.doc("clientes/" + p.clienteId).update({ pagoAte: p.antes || "", ...(p.anterior ? { anterior: p.anterior } : {}) });
       for (const kid of p.creditoIds || []) if (creds.some(k => k.id === kid)) await db.doc("creditos/" + kid).update({ usadoEm: "" });
       await db.doc("pagamentos/" + pid).delete(); toast("Pagamento desfeito");
     } catch (e) { toast("Não desfez: " + (e && e.message || "tente de novo"), true); }
@@ -980,7 +984,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     if (!pedido) { P.innerHTML = $("#pTexto").value.trim() ? `<div class="alertbox">Não achei o código do pedido nessa mensagem. Copie a mensagem inteira, até a linha "Código do pedido".</div>` : ""; $("#pSalvar").disabled = true; return; }
     pedidoAlvo = clientes.find(c => norm(c.nome) === norm(pedido.n) && norm(c.condominio) === norm(pedido.c)) || null;
     const fr = Object.entries(pedido.f || {}).map(([d, l]) => `${DOW[d]}: ${l.join(", ")}`).join(" | ");
-    P.innerHTML = `<div class="note">${pedido.t ? "<b>⚠️ PEDIDO DE TESTE</b> (valores divididos por 10)<br>" : ""}<b>${esc(pedido.n)}</b> · ${esc(pedido.c)} · ${esc(pedido.h)}<br>${pedido.p} pães por dia · ${(pedido.d || []).length === 5 ? "seg a sex" : (pedido.d || []).map(d => DOWC[d]).join(", ")}<br>Frios: ${esc(fr || "não")}<br>Plano ${esc(pedido.pl)}: <b>${brl(pedido.v)}</b> (${br(pedido.ini)} a ${br(pedido.fim)}) · ${brl(pedido.s)} por semana<br>Começa em ${br(pedido.i)}<br><br>${pedidoAlvo ? "Já existe esse cliente: os dados dele serão <b>atualizados</b>." : "Cliente <b>novo</b>: vai entrar na rota a partir do dia de início, com “levar a cesta”."}<br>O pagamento fica como <b>falta pagar</b> até você conferir o Pix e tocar em Pagar.</div>`;
+    P.innerHTML = `<div class="note">${pedido.t ? "<b>⚠️ PEDIDO DE TESTE</b> (valores divididos por 10)<br>" : ""}<b>${esc(pedido.n)}</b> · ${esc(pedido.c)} · ${esc(pedido.h)}<br>${pedido.p} pães por dia · ${(pedido.d || []).length === 5 ? "seg a sex" : (pedido.d || []).map(d => DOWC[d]).join(", ")}<br>Frios: ${esc(fr || "não")}<br>Plano ${esc(pedido.pl)}: <b>${brl(pedido.v)}</b>${pedido.a ? ` (inclui ${brl(pedido.a)} dos dias já recebidos)` : ""} (${br(pedido.ini)} a ${br(pedido.fim)}) · ${brl(pedido.s)} por semana<br>Começa em ${br(pedido.i)}<br><br>${pedidoAlvo ? "Já existe esse cliente: os dados dele serão <b>atualizados</b>." : "Cliente <b>novo</b>: vai entrar na rota a partir do dia de início, com “levar a cesta”."}<br>O pagamento fica como <b>falta pagar</b> até você conferir o Pix e tocar em Pagar.</div>`;
     $("#pSalvar").disabled = false;
   }
   $("#pTexto").addEventListener("input", previa);
