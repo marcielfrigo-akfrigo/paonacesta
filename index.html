@@ -203,7 +203,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
           <div class="fields">
             <label class="wide">Nome<input id="nome" autocomplete="name" placeholder="Seu nome"></label>
             <label>Condomínio<select id="cond"></select></label>
-            <label>Casa / rua<input id="casa" placeholder="Ex.: Casa 120"></label>
+            <label>Casa / rua<input id="casa" placeholder="Número da casa ou rua"></label>
             
           </div>
         </section>
@@ -443,7 +443,9 @@ async function copiar(t, msg){ try { await navigator.clipboard.writeText(t); toa
 
 function confirmar(){
   const c = calc(); if (!c.ok) return;
-  if (!$("#nome").value.trim() || !$("#casa").value.trim()) { toast("Preencha seu nome e a casa"); $("#s5").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  // quem veio pelo link pessoal já é cliente: o Pão na Cesta já sabe onde entregar, a casa não é obrigatória
+  const falta = !$("#nome").value.trim() ? ["nome", "Preencha seu nome"] : !$("#cond").value ? ["cond", "Escolha o seu condomínio"] : !$("#casa").value.trim() && !qp.get("n") ? ["casa", "Preencha o número da sua casa"] : null;
+  if (falta) { toast(falta[1]); $("#" + falta[0]).scrollIntoView({ behavior: "smooth", block: "center" }); $("#" + falta[0]).focus({ preventScroll: true }); return; }
   const valor = c.planos[st.plano];
   $("#pixPlano").textContent = `${NOMEPLANO[st.plano]} · ${textoPlano(c, st.plano)} · ${st.paes} pães por dia`;
   $("#pixValor").textContent = brl(valor);
