@@ -196,7 +196,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
       <div>
         <section class="step" aria-labelledby="s1"><h2 id="s1"><span class="n">1</span>Quantos pães por dia?</h2><p class="hint">Entregamos todos os dias da semana escolhidos abaixo.</p><div class="opts" id="paes"></div></section>
         <section class="step" aria-labelledby="s1b"><h2 id="s1b"><span class="n">2</span>Quando quer começar?</h2><p class="hint">Pode começar no meio da semana: os dias até sexta entram no primeiro pagamento.</p><div class="opts" id="quando"></div><label class="outra" id="outraData" hidden>Escolha a data<input id="inicio" type="date"></label></section>
-        <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">3</span>Em quais dias?</h2><p class="hint">De segunda a sexta. Desmarque os dias em que não quer receber.</p><div class="opts" id="dias"></div></section>
+        <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">3</span>Em quais dias?</h2><p class="hint">De segunda a sexta, mínimo de 3 dias. Desmarque os dias em que não quer receber.</p><div class="opts" id="dias"></div><p class="hint" id="avisoDias" style="color:#b0503a;font-weight:600;margin-top:8px" hidden></p></section>
         <section class="step" aria-labelledby="s3"><h2 id="s3"><span class="n">4</span>Quer frios?</h2><p class="hint">Pacotes de 200 g, que chegam junto com o pão na segunda e na quarta. Toque para escolher.</p><div class="frios" id="frios"></div></section>
         <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">5</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
         <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">6</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
@@ -328,10 +328,11 @@ function periodos(){
   per.disp.slice(0, -1).forEach(k => { per[k].fechaMes = false; });
   return per;
 }
+const MIN_DIAS = 3;   // ninguém assina com menos de 3 dias de entrega por semana
 const DIASEM = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
 function calc(){
   const nd = st.dias.length;
-  if (!nd) return { ok: false, motivo: "Escolha pelo menos um dia." };
+  if (nd < MIN_DIAS) return { ok: false, motivo: `O mínimo é ${MIN_DIAS} dias por semana. Escolha pelo menos ${MIN_DIAS} dias para ver os planos e pagar.` };
   let paes = semanaPaes(st.paes, nd);
   const linhas = [[`${st.paes} pães × ${nd} dia${nd > 1 ? "s" : ""}`, paes]];
   let frios = 0;
@@ -389,6 +390,7 @@ function render(){
   $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` + (ANTERIOR.valor ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Dias que você já recebeu</b>${ANTERIOR.txt ? "<br>" + esc(ANTERIOR.txt) : ""}<br><small>somado no plano abaixo</small></span><b>+ ${brl(ANTERIOR.valor)}</b></div>` : "") + (CREDITO ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Seu crédito</b><br><small>descontado no plano abaixo</small></span><b>− ${brl(CREDITO)}</b></div>` : "") : "";
   $("#calcPlanos").innerHTML = disp.map(k => `<button class="plan${c.ok && (c.desc[k] || c.falta[k]) ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${c.ok && c.desc[k] ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo flut cinza">Falta ${brl(c.falta[k])} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}<span>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]}<small>${c.ok ? textoPlano(c, k) : ""}</small></span><b>${c.ok && c.desc[k] ? `<s>${brl(c.cheio[k])}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
   $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
+  $("#avisoDias").hidden = st.dias.length >= MIN_DIAS; $("#avisoDias").textContent = `O mínimo é ${MIN_DIAS} dias por semana (você marcou ${st.dias.length}).`;
   $("#confirmar").disabled = !c.ok; $("#barGo").disabled = !c.ok;
   $("#mini").style.gridTemplateColumns = `repeat(${disp.length},minmax(0,1fr))`;
   $("#mini").innerHTML = disp.map(k => `<button type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><small>${NOMEPLANO[k]}</small><b>${c.ok ? brl(c.planos[k]) : "—"}</b>${c.ok && c.desc[k] ? `<i class="ok">−${brl(CONFIG.descontoMensal)} desconto</i>` : c.ok && c.falta[k] ? `<i class="falta">falta ${brl(c.falta[k])} p/ desconto</i>` : `<i>${c.ok ? c.per[k].sem + (c.per[k].sem > 1 ? " semanas" : " semana") : ""}</i>`}</button>`).join("");
@@ -451,7 +453,7 @@ function toast(t){ document.querySelectorAll(".toast").forEach(x => x.remove());
 async function copiar(t, msg){ try { await navigator.clipboard.writeText(t); toast(msg); } catch (e) { const r = document.createRange(); r.selectNodeContents($("#pixCode")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selecione e copie o código"); } }
 
 function confirmar(){
-  const c = calc(); if (!c.ok) return;
+  const c = calc(); if (!c.ok) { toast(c.motivo); $("#dias").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   // quem veio pelo link pessoal já é cliente: o Pão na Cesta já sabe onde entregar, a casa não é obrigatória
   const falta = !$("#nome").value.trim() ? ["nome", "Preencha seu nome"] : !$("#cond").value ? ["cond", "Escolha o seu condomínio"] : !$("#casa").value.trim() && !qp.get("n") ? ["casa", "Preencha o número da sua casa"] : null;
   if (falta) { toast(falta[1]); $("#" + falta[0]).scrollIntoView({ behavior: "smooth", block: "center" }); $("#" + falta[0]).focus({ preventScroll: true }); return; }
