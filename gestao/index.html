@@ -866,7 +866,18 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   }
   async function copiarLinkCliente(id, bt){
     const c = clientes.find(x => x.id === id); if (!c) return;
-    const txt = `Oi, ${c.nome.split(" ")[0]}! Seu pedido do Pão na Cesta já está pronto para renovar${devido(c) ? ` (já com ${brl(devido(c))} em aberto: ${textoDevido(c)})` : ""}. É só conferir e fazer o Pix: ${linkCliente(c)}`;
+    const h = agora.getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+    const txt = [
+      `${saud}, ${c.nome.replace(/\s*\((cortesia|teste)\)/i, "").split(/[ /]/)[0]}, tudo bem? 😊`,
+      "Criei um aplicativo para facilitar os pedidos do Pão na Cesta. É só tocar no link abaixo: ele já abre com o seu nome e o seu condomínio.",
+      "Lá você escolhe a quantidade de pães, os frios e os dias em que quer receber. Agora dá para escolher só alguns dias da semana (mínimo de 3), sem precisar pegar a semana inteira. Ótimo para quando for viajar. 🥖",
+      "Depois é só escolher o plano e fazer o Pix pelo próprio aplicativo, tudo bem prático.",
+      devido(c) ? `O valor que ficou em aberto (${brl(devido(c))}${textoDevido(c) ? ", " + textoDevido(c) : ""}) já vem somado no aplicativo.` : "",
+      credDe(c.id) > 0 ? `Seu crédito de ${brl(credDe(c.id))} já vem descontado.` : "",
+      // aviso só da semana de lançamento do aplicativo
+      HOJE <= "2026-11-01" ? "Só nesta primeira semana, quando terminar, me manda um “ok” aqui para eu conferir que deu tudo certo. Das próximas vezes não precisa avisar." : "",
+      linkCliente(c)
+    ].filter(Boolean).join("\n\n");
     try { await navigator.clipboard.writeText(txt); toast("Mensagem com o link copiada. Cole no WhatsApp de " + c.nome.split(" ")[0]); }
     catch (er) { const ta = document.createElement("textarea"); ta.value = txt; ta.rows = 4; ta.style.cssText = "width:100%;margin-top:8px"; bt.closest(".acts").after(ta); ta.select(); toast("Selecione e copie a mensagem"); }
   }
