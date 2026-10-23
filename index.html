@@ -282,6 +282,9 @@ const st = { paes: 5, dias: [1,2,3,4,5], frios: {}, plano: "semanal" };
 try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
 // Dias que o cliente já recebeu e ainda não pagou (vem só no link pessoal: ?a=28&at=quinta e sexta)
 const ANTERIOR = { valor: Math.max(0, Number(qp.get("a")) || 0), txt: (qp.get("at") || "").slice(0, 80) };
+// Valor da semana combinado com o cliente (?v=120): vale enquanto ele mantém os mesmos pães, dias e frios do link
+let COMBINADO = null;
+const cfgAtual = () => JSON.stringify([st.paes, [...st.dias].sort(), Object.keys(st.frios).sort().map(k => [k, [...st.frios[k]].sort()]).filter(([, l]) => l.length)]);
 
 const semanaPaes = (q, nd) => { const cheia = CONFIG.precoFixo[q] ?? q * CONFIG.precoPaoDia * 5; return Math.round(cheia / 5 * nd * 100) / 100; };
 // Datas: cada semana (seg a sex) pertence ao mês da sua quinta-feira. Ex.: out/2026 = 28/09 a 30/10 (5 semanas)
@@ -327,19 +330,20 @@ const DIASEM = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"
 function calc(){
   const nd = st.dias.length;
   if (!nd) return { ok: false, motivo: "Escolha pelo menos um dia." };
-  const paes = semanaPaes(st.paes, nd);
+  let paes = semanaPaes(st.paes, nd);
   const linhas = [[`${st.paes} pães × ${nd} dia${nd > 1 ? "s" : ""}`, paes]];
   let frios = 0;
   for (const [d, nomeDia] of Object.entries(CONFIG.diasFrios)) {
     if (!st.dias.includes(Number(d))) continue;
     (st.frios[d] || []).forEach(i => { const v = CONFIG.frios[i]; if (v != null) { frios += v; linhas.push([`${i} (${nomeDia.toLowerCase()})`, v]); } });
   }
+  if (COMBINADO && COMBINADO.cfg === cfgAtual() && COMBINADO.v > frios) { paes = Math.round((COMBINADO.v - frios) * 100) / 100; linhas[0][1] = paes; }
   const semana = Math.round((paes + frios) * 100) / 100;
   const per = periodos();
   if (!per.disp.includes(st.plano)) st.plano = per.disp[per.disp.length - 1];
   // dias avulsos desta semana: pão do dia + frios se cair na segunda/quarta
   let avulso = 0;
-  per.avulsos.forEach(d => { avulso += semanaPaes(st.paes, 1); (CONFIG.diasFrios[d.getDay()] ? (st.frios[d.getDay()] || []) : []).forEach(i => avulso += CONFIG.frios[i] || 0); });
+  per.avulsos.forEach(d => { avulso += Math.round(paes / nd * 100) / 100; (CONFIG.diasFrios[d.getDay()] ? (st.frios[d.getDay()] || []) : []).forEach(i => avulso += CONFIG.frios[i] || 0); });
   avulso = Math.round(avulso * 100) / 100;
   // desconto: só no plano que fecha até o fim do mês e quando o pagamento chega ao mínimo
   const r2 = v => Math.round(v * 100) / 100;
@@ -484,6 +488,7 @@ if (qp.get("p")) {
   const d = (qp.get("d") || "").split(",").map(Number).filter(x => x >= 1 && x <= 5); st.dias = d.length ? d : [1,2,3,4,5];
   st.frios = {}; (qp.get("f") || "").split(";").forEach(par => { const [dia, itens] = par.split(":"); if (CONFIG.diasFrios[dia] && itens) st.frios[dia] = itens.split(",").filter(i => i in CONFIG.frios); });
   if (["semanal","quinzenal","mensal"].includes(qp.get("pl"))) st.plano = qp.get("pl");
+  if (Number(qp.get("v")) > 0) COMBINADO = { v: Number(qp.get("v")), cfg: cfgAtual() };
   if (qp.get("n")) { const b = document.createElement("div"); b.className = "boasvindas"; b.innerHTML = `<b></b><span>Seu pedido já vem com o que você recebe hoje. Confira, mude o que quiser e faça o Pix.</span>`; b.querySelector("b").textContent = `Olá, ${qp.get("n").split(" ")[0]}!`; $("#tela-pedido").prepend(b); }
 }
 $("#inicio").min = iso(primeiroDia());

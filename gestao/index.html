@@ -824,6 +824,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     }).filter(Boolean).join(";");
     const q = new URLSearchParams({ n: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), c: c.condominio.replace(/^Valencia/, "Valência"), h: c.endereco || "", p: String(c.paes || 5), d: (Array.isArray(c.dias) && c.dias.length ? c.dias : [1,2,3,4,5]).join(","), pl: c.plano || "semanal" });
     if (f) q.set("f", f);
+    if (c.valor > 0) q.set("v", String(c.valor));   // valor da semana do cadastro (o app usa enquanto o pedido não mudar)
     if (devido(c)) { q.set("a", String(devido(c))); if (textoDevido(c)) q.set("at", textoDevido(c)); }
     return SITE_CLIENTES + "?" + q.toString();
   }
