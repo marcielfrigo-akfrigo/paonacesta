@@ -1015,11 +1015,19 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   async function salvarPedido(pd, pedidoId){
     const alvo = clientes.find(c => norm(c.nome.replace(/\s*\(teste\)/i, "")) === norm(pd.n) && norm(c.condominio) === norm(pd.c)) || null;
     const frios = Object.entries(pd.f || {}).map(([d, l]) => `${DOWC[d]}: ${l.map(i => i.toLowerCase()).join(" e ")}`).join(" | ");
+    const linha = `Pedido pelo app em ${br(HOJE)}: ${pd.pl} ${brl(pd.v)}${pd.a ? ` (com ${brl(pd.a)} em atraso)` : ""} (${br(pd.ini)} a ${br(pd.fim)}). Conferir o Pix.${pd.t ? " PEDIDO DE TESTE (valores ÷10)." : ""}`;
     const dados = { nome: pd.n + (pd.t && !/teste/i.test(pd.n) ? " (teste)" : ""), condominio: pd.c, endereco: pd.h || "", plano: pd.pl || "semanal",
-      valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i || "",
-      obs: `Pedido pelo app em ${br(HOJE)}: ${pd.pl} ${brl(pd.v)} (${br(pd.ini)} a ${br(pd.fim)}). Conferir o Pix.${pd.t ? " PEDIDO DE TESTE (valores ÷10)." : ""}` };
+      valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i || "", obs: linha };
     let id;
-    if (alvo) { id = alvo.id; await db.doc("clientes/" + id).update(dados); }
+    if (alvo) {
+      id = alvo.id;
+      // cliente que já existe: mantém as anotações, o endereço cadastrado (se o pedido veio sem casa) e a data de início
+      const antigas = String(alvo.obs || "").split(/\s*·?\s*Pedido pelo app em /)[0].trim();
+      dados.obs = antigas ? antigas + " · " + linha : linha;
+      if (!dados.endereco) dados.endereco = alvo.endereco || "";
+      delete dados.inicio;   // não é cliente novo: não pode aparecer como "levar a cesta" na rota
+      await db.doc("clientes/" + id).update(dados);
+    }
     else { id = slug(pd.c + " " + pd.n) || "cliente"; while (clientes.some(c => c.id === id)) id += "-2"; await db.doc("clientes/" + id).set({ ...dados, pagoAte: "", suspenso: false, suspIni: "", volta: "", motivo: "", recolher: false }); }
     if (pedidoId) await db.doc("pedidos/" + pedidoId).update({ status: "aceito", clienteId: id, aceitoEm: Date.now() });
     return alvo;
