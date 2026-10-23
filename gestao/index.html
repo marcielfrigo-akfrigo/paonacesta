@@ -464,6 +464,26 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   const preco = (c, t) => t === "mensal" ? c.valor * 4 - 20 : c.valor * MULT[t];
   // Dias que o cliente já recebeu e ainda não pagou: { valor, txt } (somam no próximo pagamento)
   const anterior = c => Math.max(0, Number((c.anterior || {}).valor) || 0);
+  // Atraso automático: dias entregues depois do "pago até" até hoje. Quem tem "anterior" anotado à mão usa só ele.
+  const diaria = c => (c.valor || 0) / ((Array.isArray(c.dias) && c.dias.length) || 5);
+  const sextaDe = D => addDays(D, 5 - parse(D).getDay());
+  function atrasoDias(c){
+    if (anterior(c) || (!c.pagoAte && !c.inicio)) return [];
+    const out = []; let D = c.pagoAte ? addDays(c.pagoAte, 1) : c.inicio;
+    for (let i = 0; D <= HOJE && i < 120; i++, D = addDays(D, 1)) if (recebe(c, D)) out.push(D);
+    return out;
+  }
+  const r2 = v => Math.round(v * 100) / 100;
+  const devido = c => r2(anterior(c) + atrasoDias(c).length * diaria(c));
+  function textoDevido(c){
+    if (anterior(c)) return (c.anterior || {}).txt || "";
+    const d = atrasoDias(c); if (!d.length) return "";
+    return `${d.length} dia${d.length > 1 ? "s" : ""} de ${br(d[0])} a ${br(d[d.length - 1])}`;
+  }
+  // Quanto falta receber do cliente: a semana (ou o atraso, se for maior) menos créditos, mais o anotado à mão
+  const faltaDe = c => r2(Math.max(0, Math.max(c.valor || 0, atrasoDias(c).length * diaria(c)) - credDe(c.id)) + anterior(c));
+  // Último dia que o valor devido cobre (a sexta dessa semana): o próximo plano começa depois dele
+  function fimDevido(c){ const d = atrasoDias(c); const ult = d.length ? d[d.length - 1] : anterior(c) ? (c.inicio || "") : ""; return ult ? sextaDe(ult) : ""; }
 
   let db = null, cfg = { rotas:{}, pessoal:{}, extras:{} }, raw = [], clientes = [], pags = [], creds = [], pedidos = [];
   let view = "geral", filtro = "todos", busca = "", cond = "", aberto = null, abertos = new Set(), editId = null, ocupado = false, eTab = "Padaria", eData = "";
@@ -595,7 +615,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const ativos = clientes.filter(c => status(c) !== "off" && (c.paes || 0) > 0).length;
     const susp = clientes.filter(c => status(c) === "off").length;
     const recSem = pags.filter(p => p.semana === SEG).reduce((s, p) => s + (p.valor || 0), 0);
-    const falta = dev.reduce((s, c) => s + Math.max(0, (c.valor || 0) - credDe(c.id)) + anterior(c), 0);
+    const falta = dev.reduce((s, c) => s + faltaDe(c), 0);
     const credT = creds.filter(k => !k.usadoEm).reduce((s, k) => s + (Number(k.valor) || 0), 0);
     const stats = [
       { t:"Clientes ativos", v:String(ativos), s:susp ? `${susp} suspenso${susp > 1 ? "s" : ""} agora` : "Nenhum suspenso", i:"users", go:"clientes" },
@@ -634,11 +654,11 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const hs = pags.filter(p => p.clienteId === c.id).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
     let more = "";
     if (aberto === c.id) {
-      more += `<div class="opts">${["semanal","quinzenal","mensal"].map(t => { const cheio = preco(c, t), an = anterior(c), v = Math.max(0, cheio - cr) + an; return `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="${t}"${ocupado ? " disabled" : ""}><span>Pago ${t}</span><b>${brl(v)}</b>${cr > 0 ? `<small>${brl(cheio)} − crédito ${brl(Math.min(cr, cheio))}</small>` : ""}${an ? `<small>+ ${brl(an)} dias anteriores</small>` : ""}</button>`; }).join("")}</div>`;
+      more += `<div class="opts">${["semanal","quinzenal","mensal"].map(t => { const cheio = preco(c, t), an = devido(c), v = Math.max(0, cheio - cr) + an; return `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="${t}"${ocupado ? " disabled" : ""}><span>Pago ${t}</span><b>${brl(v)}</b>${cr > 0 ? `<small>${brl(cheio)} − crédito ${brl(Math.min(cr, cheio))}</small>` : ""}${an ? `<small>+ ${brl(an)} em atraso</small>` : ""}</button>`; }).join("")}${devido(c) ? `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="atrasado"${ocupado ? " disabled" : ""}><span>Só o atrasado</span><b>${brl(devido(c))}</b><small>${esc(textoDevido(c))}</small></button>` : ""}</div>`;
     }
     if (abertos.has(c.id)) {
       more += `<div class="det"><span><b>${esc(c.paes || 0)}</b> pães/dia</span>${c.endereco ? `<span>${esc(c.endereco)}</span>` : ""}<span>Entregador: <b>${esc(entregadorDe(c))}</b></span>${c.frios ? `<span>Frios: ${esc(c.frios)}</span>` : ""}${Array.isArray(c.dias) && c.dias.length ? `<span>Recebe: ${c.dias.map(d => DOW[d]).join(", ")}</span>` : ""}</div>
-        ${anterior(c) ? `<div class="note">Dias já recebidos para pagar: <b>${brl(anterior(c))}</b>${c.anterior.txt ? ` (${esc(c.anterior.txt)})` : ""}. Vai no link para renovar e soma no Pagar.</div>` : ""}${c.suspenso && c.motivo ? `<div class="note">${esc(c.motivo)}</div>` : ""}${c.obs ? `<div class="note">${esc(c.obs)}</div>` : ""}
+        ${devido(c) ? `<div class="note">Em atraso: <b>${brl(devido(c))}</b>${textoDevido(c) ? ` (${esc(textoDevido(c))})` : ""}. Vai no link para renovar e soma no Pagar.</div>` : ""}${c.suspenso && c.motivo ? `<div class="note">${esc(c.motivo)}</div>` : ""}${c.obs ? `<div class="note">${esc(c.obs)}</div>` : ""}
         <div class="acts"><button class="b sm" type="button" data-a="editar" data-id="${c.id}">${ic("pencil")}Editar</button>${travado ? `<button class="b sm" type="button" data-a="abrir" data-id="${c.id}">Registrar pagamento mesmo assim</button>` : ""}<button class="b sm" type="button" data-a="cred" data-id="${c.id}">${ic("gift")}Lançar crédito</button><button class="b sm" type="button" data-a="link" data-id="${c.id}">${ic("copy")}Link para renovar</button></div>
         <div class="hist">${hs.length ? hs.map((p, i) => `<div class="h"><span class="num">${br(p.data)} · ${esc(p.tipo)} · <b>${brl(p.valor)}</b>${p.credito ? ` <small class="g">(crédito ${brl(p.credito)})</small>` : ""} <small class="muted">→ pago até ${br(p.depois)}</small></span>${i === 0 ? `<button class="b danger sm" type="button" data-a="desfazer" data-pid="${p.id}"${ocupado ? " disabled" : ""}>Desfazer</button>` : ""}</div>`).join("") : `<span class="muted">Nenhum pagamento registrado pelo app ainda.</span>`}</div>`;
     }
@@ -804,12 +824,12 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     }).filter(Boolean).join(";");
     const q = new URLSearchParams({ n: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), c: c.condominio.replace(/^Valencia/, "Valência"), h: c.endereco || "", p: String(c.paes || 5), d: (Array.isArray(c.dias) && c.dias.length ? c.dias : [1,2,3,4,5]).join(","), pl: c.plano || "semanal" });
     if (f) q.set("f", f);
-    if (anterior(c)) { q.set("a", String(anterior(c))); if (c.anterior.txt) q.set("at", c.anterior.txt); }
+    if (devido(c)) { q.set("a", String(devido(c))); if (textoDevido(c)) q.set("at", textoDevido(c)); }
     return SITE_CLIENTES + "?" + q.toString();
   }
   async function copiarLinkCliente(id, bt){
     const c = clientes.find(x => x.id === id); if (!c) return;
-    const txt = `Oi, ${c.nome.split(" ")[0]}! Seu pedido do Pão na Cesta já está pronto para renovar. É só conferir e fazer o Pix: ${linkCliente(c)}`;
+    const txt = `Oi, ${c.nome.split(" ")[0]}! Seu pedido do Pão na Cesta já está pronto para renovar${devido(c) ? ` (já com ${brl(devido(c))} em aberto: ${textoDevido(c)})` : ""}. É só conferir e fazer o Pix: ${linkCliente(c)}`;
     try { await navigator.clipboard.writeText(txt); toast("Mensagem com o link copiada. Cole no WhatsApp de " + c.nome.split(" ")[0]); }
     catch (er) { const ta = document.createElement("textarea"); ta.value = txt; ta.rows = 4; ta.style.cssText = "width:100%;margin-top:8px"; bt.closest(".acts").after(ta); ta.select(); toast("Selecione e copie a mensagem"); }
   }
@@ -820,7 +840,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   function vFin(){
     const dev = devendo();
     const recSem = pags.filter(p => p.semana === SEG).reduce((s, p) => s + (p.valor || 0), 0);
-    const falta = dev.reduce((s, c) => s + Math.max(0, (c.valor || 0) - credDe(c.id)) + anterior(c), 0);
+    const falta = dev.reduce((s, c) => s + faltaDe(c), 0);
     const abertosK = creds.filter(k => !k.usadoEm).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
     const credT = abertosK.reduce((s, k) => s + (Number(k.valor) || 0), 0);
     const ult = {}; pags.forEach(p => { if (!ult[p.clienteId] || (p.criadoEm || 0) > (ult[p.clienteId].criadoEm || 0)) ult[p.clienteId] = p; });
@@ -844,15 +864,19 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const c = clientes.find(x => x.id === id); if (!c || !db || ocupado) return;
     ocupado = true; render();
     const antes = c.pagoAte || "";
-    const base = antes && antes >= SEX ? antes : addDays(SEX, -7);
-    const depois = addDays(base, 7 * MULT[tipo]);
-    const cheio = preco(c, tipo), ks = credAberto(id);
+    const an = devido(c), fimAn = fimDevido(c), soAtraso = tipo === "atrasado";
+    let base = antes && antes >= SEX ? antes : addDays(SEX, -7);
+    if (fimAn && fimAn > base) base = fimAn;
+    // "Só o atrasado": paga até a sexta da semana em atraso, sem plano novo
+    const depois = soAtraso ? (fimAn || antes) : addDays(base, 7 * MULT[tipo]);
+    // dias que faltam nesta semana depois de hoje (o app do cliente cobra como avulso junto com o atraso)
+    let resto = 0; if (an && !soAtraso && fimAn === sextaDe(HOJE)) for (let D = addDays(HOJE, 1); D <= fimAn; D = addDays(D, 1)) if (recebe(c, D)) resto += diaria(c);
+    const cheio = soAtraso ? 0 : r2(preco(c, tipo) + resto), ks = soAtraso ? [] : credAberto(id);
     const usado = Math.min(cheio, ks.reduce((s, k) => s + (Number(k.valor) || 0), 0));
     try {
-      const an = anterior(c);
-      const ref = await db.collection("pagamentos").add({ clienteId: id, nome: c.nome, tipo, valor: cheio - usado + an, credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois, criadoEm: Date.now(), ...(an ? { anterior: c.anterior } : {}) });
+      const ref = await db.collection("pagamentos").add({ clienteId: id, nome: c.nome, tipo, valor: r2(cheio - usado + an), credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois, criadoEm: Date.now(), ...(an ? { atraso: an } : {}), ...(anterior(c) ? { anterior: c.anterior } : {}) });
       for (const k of ks) await db.doc("creditos/" + k.id).update({ usadoEm: ref.id });
-      await db.doc("clientes/" + id).update({ pagoAte: depois, plano: tipo, ...(an ? { anterior: null } : {}) });
+      await db.doc("clientes/" + id).update({ pagoAte: depois, ...(soAtraso ? {} : { plano: tipo }), ...(anterior(c) ? { anterior: null } : {}) });
       aberto = null; toast(c.nome + ": pago até " + br(depois));
     } catch (e) { toast("Não salvou: " + (e && e.message || "tente de novo"), true); }
     ocupado = false; render();
