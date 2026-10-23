@@ -605,10 +605,10 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   const pedidosNovos = () => pedidos.filter(p => p.status === "novo").sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
   function painelPedidos(){
     const lst = pedidosNovos(); if (!lst.length) return "";
-    return `<section class="panel" style="margin-bottom:18px;border-color:color-mix(in srgb,var(--quin) 45%,var(--line))"><div class="ptitle" style="background:var(--quin-bg)"><h2>Pedidos novos pelo app <span class="count">${lst.length}</span></h2><span class="muted">Confira o Pix no banco antes de marcar como pago.</span></div>
+    return `<section class="panel" style="margin-bottom:18px;border-color:color-mix(in srgb,var(--quin) 45%,var(--line))"><div class="ptitle" style="background:var(--quin-bg)"><h2>Pedidos novos pelo app <span class="count">${lst.length}</span></h2><span class="muted">Confira o Pix no banco: aceitar já marca como pago.</span></div>
       <div class="rows">${lst.map(p => { const fr = Object.entries(p.f || {}).map(([d, l]) => `${DOW[d]}: ${l.join(", ")}`).join(" | ");
-        return `<div class="row"><div class="rline" style="align-items:flex-start"><span class="ini" aria-hidden="true">${esc((p.n || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(p.n)}${p.t ? ' <span class="badge off">TESTE</span>' : ""}</strong><small style="white-space:normal">${esc(p.c)} · ${esc(p.h)} · ${p.p} pães · ${(p.d || []).length === 5 ? "seg a sex" : (p.d || []).map(d => DOWC[d]).join(", ")}${fr ? " · " + esc(fr) : ""}</small><small style="white-space:normal">${esc(p.pl)} <b>${brl(p.v)}</b> (${br(p.ini)} a ${br(p.fim)}) · começa ${br(p.i)}</small></div>
-          <div class="acts" style="flex-direction:column;align-items:stretch"><button class="b pri sm" type="button" data-ped="${p.id}">Aceitar</button><button class="b danger sm" type="button" data-pedx="${p.id}">Recusar</button></div></div></div>`; }).join("")}</div></section>`;
+        return `<div class="row"><div class="rline" style="align-items:flex-start"><span class="ini" aria-hidden="true">${esc((p.n || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(p.n)}${p.t ? ' <span class="badge off">TESTE</span>' : ""}</strong><small style="white-space:normal">${esc(p.c)} · ${esc(p.h)} · ${p.p} pães · ${(p.d || []).length === 5 ? "seg a sex" : (p.d || []).map(d => DOWC[d]).join(", ")}${fr ? " · " + esc(fr) : ""}</small><small style="white-space:normal">${esc(p.pl)} <b>${brl(p.v)}</b> (${br(p.ini)} a ${br(p.fim)}) · começa ${br(p.i)}</small><small>${clienteDoPedido(p) ? `<span class="badge">Já é cliente</span>` : `<span class="badge cred">Cliente novo</span>`}</small></div>
+          <div class="acts" style="flex-direction:column;align-items:stretch"><button class="b pri sm" type="button" data-ped="${p.id}">Pix caiu: aceitar e marcar pago</button><button class="b danger sm" type="button" data-pedx="${p.id}">Recusar</button></div></div></div>`; }).join("")}</div></section>`;
   }
   function vGeral(){
     const D = proxEntrega(), M = montar(D), dev = devendo();
@@ -921,7 +921,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const ne = e.target.closest("button[data-ne]"); if (ne) { const cl = clientes.find(x => x.id === ne.dataset.ne); if (cl) abrirCred(cl.id, { valor: valorDia(cl), motivo: "Não entregue em " + br(eData), dataEntrega: eData }); return; }
     const pa = e.target.closest("button[data-ped]");
     if (pa) { const p = pedidos.find(x => x.id === pa.dataset.ped); if (!p || !db) return; pa.disabled = true;
-      try { const alvo = await salvarPedido(p, p.id); toast((alvo ? "Pedido atualizado: " : "Cliente cadastrado: ") + p.n); } catch (er) { pa.disabled = false; toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
+      try { const alvo = await salvarPedido(p, p.id); toast((alvo ? "Pago e atualizado: " : "Cliente cadastrado e pago: ") + p.n + " até " + br(p.fim)); } catch (er) { pa.disabled = false; toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
     const px = e.target.closest("button[data-pedx]");
     if (px) { if (px.dataset.ok !== "1") { px.dataset.ok = "1"; px.textContent = "Confirmar"; return; }
       try { await db.doc("pedidos/" + px.dataset.pedx).update({ status: "recusado" }); toast("Pedido recusado"); } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
@@ -1006,16 +1006,18 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     pedido = lerPedido($("#pTexto").value);
     const P = $("#pPrevia");
     if (!pedido) { P.innerHTML = $("#pTexto").value.trim() ? `<div class="alertbox">Não achei o código do pedido nessa mensagem. Copie a mensagem inteira, até a linha "Código do pedido".</div>` : ""; $("#pSalvar").disabled = true; return; }
-    pedidoAlvo = clientes.find(c => norm(c.nome) === norm(pedido.n) && norm(c.condominio) === norm(pedido.c)) || null;
+    pedidoAlvo = clienteDoPedido(pedido);
     const fr = Object.entries(pedido.f || {}).map(([d, l]) => `${DOW[d]}: ${l.join(", ")}`).join(" | ");
-    P.innerHTML = `<div class="note">${pedido.t ? "<b>⚠️ PEDIDO DE TESTE</b> (valores divididos por 10)<br>" : ""}<b>${esc(pedido.n)}</b> · ${esc(pedido.c)} · ${esc(pedido.h)}<br>${pedido.p} pães por dia · ${(pedido.d || []).length === 5 ? "seg a sex" : (pedido.d || []).map(d => DOWC[d]).join(", ")}<br>Frios: ${esc(fr || "não")}<br>Plano ${esc(pedido.pl)}: <b>${brl(pedido.v)}</b>${pedido.a ? ` (inclui ${brl(pedido.a)} dos dias já recebidos)` : ""} (${br(pedido.ini)} a ${br(pedido.fim)}) · ${brl(pedido.s)} por semana<br>Começa em ${br(pedido.i)}<br><br>${pedidoAlvo ? "Já existe esse cliente: os dados dele serão <b>atualizados</b>." : "Cliente <b>novo</b>: vai entrar na rota a partir do dia de início, com “levar a cesta”."}<br>O pagamento fica como <b>falta pagar</b> até você conferir o Pix e tocar em Pagar.</div>`;
+    P.innerHTML = `<div class="note">${pedido.t ? "<b>⚠️ PEDIDO DE TESTE</b> (valores divididos por 10)<br>" : ""}<b>${esc(pedido.n)}</b> · ${esc(pedido.c)} · ${esc(pedido.h)}<br>${pedido.p} pães por dia · ${(pedido.d || []).length === 5 ? "seg a sex" : (pedido.d || []).map(d => DOWC[d]).join(", ")}<br>Frios: ${esc(fr || "não")}<br>Plano ${esc(pedido.pl)}: <b>${brl(pedido.v)}</b>${pedido.a ? ` (inclui ${brl(pedido.a)} dos dias já recebidos)` : ""} (${br(pedido.ini)} a ${br(pedido.fim)}) · ${brl(pedido.s)} por semana<br>Começa em ${br(pedido.i)}<br><br>${pedidoAlvo ? "Já existe esse cliente: os dados dele serão <b>atualizados</b>." : "Cliente <b>novo</b>: vai entrar na rota a partir do dia de início, com “levar a cesta”."}<br>Ao salvar, o pagamento de <b>${brl(pedido.v)}</b> já fica registrado (pago até ${br(pedido.fim)}). Salve só depois de conferir o Pix.</div>`;
     $("#pSalvar").disabled = false;
   }
   $("#pTexto").addEventListener("input", previa);
+  const clienteDoPedido = pd => clientes.find(c => norm(c.nome.replace(/\s*\((teste|cortesia)\)/i, "")) === norm(pd.n) && norm(c.condominio) === norm(pd.c)) || null;
+  // Aceitar o pedido = o Pix já foi conferido: atualiza o cliente e já registra o pagamento
   async function salvarPedido(pd, pedidoId){
-    const alvo = clientes.find(c => norm(c.nome.replace(/\s*\(teste\)/i, "")) === norm(pd.n) && norm(c.condominio) === norm(pd.c)) || null;
+    const alvo = clienteDoPedido(pd);
     const frios = Object.entries(pd.f || {}).map(([d, l]) => `${DOWC[d]}: ${l.map(i => i.toLowerCase()).join(" e ")}`).join(" | ");
-    const linha = `Pedido pelo app em ${br(HOJE)}: ${pd.pl} ${brl(pd.v)}${pd.a ? ` (com ${brl(pd.a)} em atraso)` : ""} (${br(pd.ini)} a ${br(pd.fim)}). Conferir o Pix.${pd.t ? " PEDIDO DE TESTE (valores ÷10)." : ""}`;
+    const linha = `Pedido pelo app em ${br(HOJE)}: ${pd.pl} ${brl(pd.v)}${pd.a ? ` (com ${brl(pd.a)} em atraso)` : ""} (${br(pd.ini)} a ${br(pd.fim)}). Pix conferido.${pd.t ? " PEDIDO DE TESTE (valores ÷10)." : ""}`;
     const dados = { nome: pd.n + (pd.t && !/teste/i.test(pd.n) ? " (teste)" : ""), condominio: pd.c, endereco: pd.h || "", plano: pd.pl || "semanal",
       valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i || "", obs: linha };
     let id;
@@ -1029,6 +1031,12 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       await db.doc("clientes/" + id).update(dados);
     }
     else { id = slug(pd.c + " " + pd.n) || "cliente"; while (clientes.some(c => c.id === id)) id += "-2"; await db.doc("clientes/" + id).set({ ...dados, pagoAte: "", suspenso: false, suspIni: "", volta: "", motivo: "", recolher: false }); }
+    if (!pd.t && pd.v && pd.fim) {
+      const antes = alvo ? alvo.pagoAte || "" : "";
+      await db.collection("pagamentos").add({ clienteId: id, nome: dados.nome, tipo: pd.pl || "semanal", valor: pd.v, credito: 0, creditoIds: [], data: HOJE, semana: SEG, antes, depois: pd.fim, criadoEm: Date.now(), pedidoId: pedidoId || "",
+        ...(alvo && devido(alvo) ? { atraso: devido(alvo) } : {}), ...(alvo && anterior(alvo) ? { anterior: alvo.anterior } : {}) });
+      await db.doc("clientes/" + id).update({ pagoAte: pd.fim, ...(alvo && anterior(alvo) ? { anterior: null } : {}) });
+    }
     if (pedidoId) await db.doc("pedidos/" + pedidoId).update({ status: "aceito", clienteId: id, aceitoEm: Date.now() });
     return alvo;
   }
@@ -1036,7 +1044,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     e.preventDefault(); if (!db || !pedido) return;
     try {
       const alvo = await salvarPedido(pedido);
-      dlgP.close(); toast(alvo ? "Pedido atualizado: " + pedido.n : "Cliente cadastrado: " + pedido.n);
+      dlgP.close(); toast((alvo ? "Pago e atualizado: " : "Cliente cadastrado e pago: ") + pedido.n + " até " + br(pedido.fim));
       filtro = "todos"; cond = ""; busca = pedido.n; ir("clientes");
     } catch (err) { toast("Não salvou: " + (err && err.message || "tente de novo"), true); }
   });
