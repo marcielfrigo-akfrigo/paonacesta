@@ -451,6 +451,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     { id:"geral", nome:"Visão geral", ic:"dash" },
     { id:"clientes", nome:"Clientes", ic:"users" },
     { id:"entregas", nome:"Entregas", ic:"truck" },
+    { id:"cobranca", nome:"Cobrança", ic:"copy" },
     { id:"fin", nome:"Financeiro", ic:"wallet" }
   ];
 
@@ -486,7 +487,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function fimDevido(c){ const d = atrasoDias(c); const ult = d.length ? d[d.length - 1] : anterior(c) ? (c.inicio || "") : ""; return ult ? sextaDe(ult) : ""; }
 
   let db = null, cfg = { rotas:{}, pessoal:{}, extras:{} }, raw = [], clientes = [], pags = [], creds = [], pedidos = [];
-  let view = "geral", filtro = "todos", busca = "", cond = "", aberto = null, abertos = new Set(), editId = null, ocupado = false, eTab = "Padaria", eData = "";
+  let cobCond = "", view = "geral", filtro = "todos", busca = "", cond = "", aberto = null, abertos = new Set(), editId = null, ocupado = false, eTab = "Padaria", eData = "";
   let loaded = { cli:false };
   try { view = localStorage.getItem("pncg-view") || "geral"; filtro = localStorage.getItem("pncg-filtro") || "todos"; } catch (e) {}
   if (!VIEWS.some(v => v.id === view)) view = "geral";
@@ -584,7 +585,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function render(){
     const v = VIEWS.find(x => x.id === view);
     const nDev = devendo().length;
-    const navHtml = VIEWS.map(x => `<button type="button" data-go="${x.id}"${x.id === view ? ' aria-current="page"' : ""}>${ic(x.ic)}<span>${x.nome}</span>${x.id === "clientes" && nDev ? `<b>${nDev}</b>` : ""}${x.id === "geral" && pedidosNovos().length ? `<b style="background:var(--quin)">${pedidosNovos().length}</b>` : ""}</button>`).join("");
+    const navHtml = VIEWS.map(x => `<button type="button" data-go="${x.id}"${x.id === view ? ' aria-current="page"' : ""}>${ic(x.ic)}<span>${x.nome}</span>${x.id === "clientes" && nDev ? `<b>${nDev}</b>` : ""}${x.id === "cobranca" && cobFaltam() ? `<b>${cobFaltam()}</b>` : ""}${x.id === "geral" && pedidosNovos().length ? `<b style="background:var(--quin)">${pedidosNovos().length}</b>` : ""}</button>`).join("");
     $("#nav").innerHTML = navHtml;
     $("#crumb").textContent = v.nome;
     const V = $("#view");
@@ -592,6 +593,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     if (view === "geral") V.innerHTML = vGeral();
     else if (view === "clientes") V.innerHTML = vClientes();
     else if (view === "entregas") V.innerHTML = vEntregas();
+    else if (view === "cobranca") V.innerHTML = vCobranca();
     else V.innerHTML = vFin();
     paintIcons(V);
     V.querySelectorAll("img[data-logo]").forEach(i => i.src = LOGOS[i.dataset.logo]);
@@ -690,6 +692,39 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       <div class="legend"><span><i style="background:var(--due)"></i>Falta pagar</span><span><i style="background:var(--sem)"></i>Semanal</span><span><i style="background:var(--quin)"></i>Quinzenal</span><span><i style="background:var(--men)"></i>Mensal</span><span><i style="background:var(--sus)"></i>Suspenso</span></div>
       <div class="panel"><div class="ptitle"><h2>${cond ? esc(cond) : "Seus clientes"} <span class="count">${lst.length}</span></h2><span class="muted">Toque no nome para ver detalhes e histórico.</span></div>
       ${!clientes.length ? `<div class="empty">${ic("basket")}<h3>Seu primeiro bom dia começa aqui.</h3><p>Toque em “Novo cliente” para cadastrar.</p></div>` : lst.length ? `<div class="rows">${lst.map(c => linha(c)).join("")}</div>` : `<div class="empty">${ic("search")}<h3>Ninguém neste filtro.</h3><p>Tente outra busca ou outro condomínio.</p></div>`}</div>`;
+  }
+
+  // ---------- Cobrança: quem precisa receber o link para pagar a próxima semana ----------
+  // Na sexta (e no fim de semana) a cobrança é da semana que vem; de segunda a quinta, da semana atual
+  const cobAlvo = () => dow === 5 ? addDays(SEX, 7) : SEX;
+  function naCobranca(c){
+    const alvo = cobAlvo();
+    if (c.recolher || !(c.valor > 0) || !(c.paes > 0)) return false;
+    if ((c.pagoAte || "") >= alvo) return false;
+    // suspenso a semana inteira da cobrança: não manda link agora
+    if (c.suspenso && (!c.suspIni || c.suspIni <= addDays(alvo, -4)) && (!c.volta || c.volta > alvo)) return false;
+    return true;
+  }
+  const cobEnviado = c => !!c.linkEnviado && c.linkEnviado >= addDays(cobAlvo(), -7);
+  const cobValor = c => r2(Math.max(0, (c.valor || 0) - credDe(c.id)) + devido(c));
+  const cobLista = () => clientes.filter(naCobranca);
+  const cobFaltam = () => cobLista().filter(c => !cobEnviado(c)).length;
+  function vCobranca(){
+    const alvo = cobAlvo(), todos = cobLista();
+    const nomesCond = [...new Set(todos.map(c => c.condominio))].sort((a, b) => a.localeCompare(b));
+    if (cobCond && !nomesCond.includes(cobCond)) cobCond = "";
+    const lst = todos.filter(c => !cobCond || c.condominio === cobCond).sort((a, b) => cobEnviado(a) - cobEnviado(b) || a.condominio.localeCompare(b.condominio) || a.nome.localeCompare(b.nome));
+    const falta = n => todos.filter(c => (!n || c.condominio === n) && !cobEnviado(c)).length;
+    const total = r2(lst.reduce((s, c) => s + cobValor(c), 0)), env = lst.filter(cobEnviado).length;
+    const row = c => {
+      const ok = cobEnviado(c), dv = devido(c), cr = credDe(c.id);
+      return `<div class="row st-${ok ? c.plano : "due"}"><div class="rline" style="flex-wrap:wrap"><span class="ini" aria-hidden="true">${esc((c.nome || "?").trim().slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default;flex:1 1 200px;min-width:0"><strong>${esc(c.nome)}</strong><small style="white-space:normal">${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""} · ${c.paes || 0} pães · pago até ${br(c.pagoAte)}</small><small style="white-space:normal">Semanal <b>${brl(cobValor(c))}</b>${dv ? ` · inclui ${brl(dv)} em atraso` : ""}${cr ? ` · crédito ${brl(cr)}` : ""}${c.suspenso && c.volta ? ` · volta ${br(c.volta)}` : ""}</small></div>
+        <div class="acts" style="flex:1 1 100%;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap">${ok ? `<span class="badge semanal">Enviado ${br(c.linkEnviado)}</span>` : `<span class="badge due">Mandar link</span>`}<button class="b ${ok ? "" : "pri "}sm" type="button" data-cob="${c.id}">${ic("copy")}${ok ? "Copiar de novo" : "Copiar link"}</button></div></div></div>`;
+    };
+    return head("Cobrança · semana de " + br(addDays(alvo, -4)) + " a " + br(alvo), "Links da semana.", `Quem precisa pagar para receber de ${br(addDays(alvo, -4))} a ${br(alvo)}. Toque em Copiar link e cole no WhatsApp do cliente.`) +
+      `<div class="conds" role="group" aria-label="Condomínios"><button type="button" data-cc="" aria-pressed="${cobCond === ""}">Todos os condomínios${falta("") ? `<span class="n">${falta("")}</span>` : ""}</button>${nomesCond.map(n => `<button type="button" data-cc="${esc(n)}" aria-pressed="${cobCond === n}">${esc(n)}${falta(n) ? `<span class="n">${falta(n)}</span>` : ""}</button>`).join("")}</div>
+      <div class="panel"><div class="ptitle"><h2>${cobCond ? esc(cobCond) : "Todos"} <span class="count">${lst.length}</span></h2><span class="muted">${env} de ${lst.length} enviados · ${brl(total)} no semanal</span></div>
+      ${lst.length ? `<div class="rows">${lst.map(row).join("")}</div>` : `<div class="empty">${ic("check")}<h3>Ninguém para cobrar aqui.</h3><p>Todos já estão pagos até ${br(alvo)}.</p></div>`}</div>`;
   }
 
   function vEntregas(){
@@ -918,6 +953,12 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       else if (a === "link") copiarLinkCliente(id, b);
       return; }
     const f = e.target.closest("button[data-f]"); if (f) { filtro = f.dataset.f; try { localStorage.setItem("pncg-filtro", filtro); } catch (er) {} render(); return; }
+    const cc = e.target.closest("button[data-cc]"); if (cc) { cobCond = cc.dataset.cc; render(); return; }
+    const cb = e.target.closest("button[data-cob]");
+    if (cb) { const id = cb.dataset.cob; await copiarLinkCliente(id, cb);
+      const cl = clientes.find(x => x.id === id);
+      if (cl && db && cl.linkEnviado !== HOJE) { try { await db.doc("clientes/" + id).update({ linkEnviado: HOJE }); } catch (er) { toast("Copiado, mas não marcou como enviado", true); } }
+      return; }
     const c = e.target.closest("button[data-c]"); if (c) { cond = c.dataset.c; if (cond) filtro = "todos"; render(); return; }
     const t = e.target.closest("button[data-t]"); if (t) { eTab = t.dataset.t; render(); return; }
     const ne = e.target.closest("button[data-ne]"); if (ne) { const cl = clientes.find(x => x.id === ne.dataset.ne); if (cl) abrirCred(cl.id, { valor: valorDia(cl), motivo: "Não entregue em " + br(eData), dataEntrega: eData }); return; }
