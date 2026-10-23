@@ -434,7 +434,8 @@ function codigoPedido(c){ return "PNC1." + btoa(unescape(encodeURIComponent(JSON
 // Grava o pedido no banco do Pão na Cesta (aparece em "Pedidos novos" no app de gestão)
 let ultimoEnviado = "";
 async function enviarAoBanco(c){
-  const d = dadosPedido(c), chave = JSON.stringify(d);
+  // as regras do banco só aceitam os campos de sempre: o atraso ("a") já está somado em "v" e vai só no código do WhatsApp
+  const { a, ...d } = dadosPedido(c), chave = JSON.stringify(d);
   if (chave === ultimoEnviado || !window.gravarPedido) return;
   try { await window.gravarPedido({ ...d, status: "novo", criadoEm: Date.now() }); ultimoEnviado = chave; } catch (e) {}
 }
