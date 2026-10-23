@@ -824,7 +824,8 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     }).filter(Boolean).join(";");
     const q = new URLSearchParams({ n: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), c: c.condominio.replace(/^Valencia/, "Valência"), h: c.endereco || "", p: String(c.paes || 5), d: (Array.isArray(c.dias) && c.dias.length ? c.dias : [1,2,3,4,5]).join(","), pl: c.plano || "semanal" });
     if (f) q.set("f", f);
-    if (c.valor > 0) q.set("v", String(c.valor));   // valor da semana do cadastro (o app usa enquanto o pedido não mudar)
+    if (c.valor > 0) q.set("v", String(c.valor));
+    if (credDe(c.id) > 0) q.set("k", String(r2(credDe(c.id))));   // créditos em aberto: o app desconta e o aceite marca como usados   // valor da semana do cadastro (o app usa enquanto o pedido não mudar)
     if (devido(c)) { q.set("a", String(devido(c))); if (textoDevido(c)) q.set("at", textoDevido(c)); }
     return SITE_CLIENTES + "?" + q.toString();
   }
@@ -1033,9 +1034,10 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     }
     else { id = slug(pd.c + " " + pd.n) || "cliente"; while (clientes.some(c => c.id === id)) id += "-2"; await db.doc("clientes/" + id).set({ ...dados, pagoAte: "", suspenso: false, suspIni: "", volta: "", motivo: "", recolher: false }); }
     if (!pd.t && pd.v && pd.fim) {
-      const antes = alvo ? alvo.pagoAte || "" : "";
-      await db.collection("pagamentos").add({ clienteId: id, nome: dados.nome, tipo: pd.pl || "semanal", valor: pd.v, credito: 0, creditoIds: [], data: HOJE, semana: SEG, antes, depois: pd.fim, criadoEm: Date.now(), pedidoId: pedidoId || "",
+      const antes = alvo ? alvo.pagoAte || "" : "", ks = alvo ? credAberto(alvo.id) : [], usado = r2(ks.reduce((s, k) => s + (Number(k.valor) || 0), 0));
+      const ref = await db.collection("pagamentos").add({ clienteId: id, nome: dados.nome, tipo: pd.pl || "semanal", valor: pd.v, credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois: pd.fim, criadoEm: Date.now(), pedidoId: pedidoId || "",
         ...(alvo && devido(alvo) ? { atraso: devido(alvo) } : {}), ...(alvo && anterior(alvo) ? { anterior: alvo.anterior } : {}) });
+      for (const k of ks) await db.doc("creditos/" + k.id).update({ usadoEm: ref.id });
       await db.doc("clientes/" + id).update({ pagoAte: pd.fim, ...(alvo && anterior(alvo) ? { anterior: null } : {}) });
     }
     if (pedidoId) await db.doc("pedidos/" + pedidoId).update({ status: "aceito", clienteId: id, aceitoEm: Date.now() });

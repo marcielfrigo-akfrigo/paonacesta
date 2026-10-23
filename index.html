@@ -282,6 +282,8 @@ const st = { paes: 5, dias: [1,2,3,4,5], frios: {}, plano: "semanal" };
 try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
 // Dias que o cliente já recebeu e ainda não pagou (vem só no link pessoal: ?a=28&at=quinta e sexta)
 const ANTERIOR = { valor: Math.max(0, Number(qp.get("a")) || 0), txt: (qp.get("at") || "").slice(0, 80) };
+// Crédito do cliente (entrega que faltou etc.), vem no link pessoal: ?k=25.2 (descontado do total)
+const CREDITO = Math.max(0, Number(qp.get("k")) || 0);
 // Valor da semana combinado com o cliente (?v=120): vale enquanto ele mantém os mesmos pães, dias e frios do link
 let COMBINADO = null;
 const cfgAtual = () => JSON.stringify([st.paes, [...st.dias].sort(), Object.keys(st.frios).sort().map(k => [k, [...st.frios[k]].sort()]).filter(([, l]) => l.length)]);
@@ -355,6 +357,7 @@ function calc(){
     falta[k] = per[k].fechaMes && !desc[k] ? r2(CONFIG.minimoDesconto - cheio[k]) : 0;
     // dias anteriores entram no total a pagar (fora da conta do desconto)
     if (ANTERIOR.valor) { cheio[k] = r2(cheio[k] + ANTERIOR.valor); planos[k] = r2(planos[k] + ANTERIOR.valor); }
+    if (CREDITO) { const usa = Math.min(CREDITO, planos[k]); cheio[k] = r2(cheio[k] - usa); planos[k] = r2(planos[k] - usa); }
   });
   const textoAvulso = per.avulsos.length ? per.avulsos.map(d => DIASEM[d.getDay()]).join(" e ") + " (" + per.avulsos.map(ddmm).join(" e ") + ")" : "";
   if (avulso) linhas.push([`Esta semana: ${textoAvulso}`, avulso]);
@@ -362,7 +365,7 @@ function calc(){
 }
 const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMensal || c.per.fimMes)})` : NOMEPLANO[k];
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
-const textoPlano = (c, k) => (ANTERIOR.valor ? "dias já recebidos + " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""} + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : textoPeriodo(c.per[k]));
+const textoPlano = (c, k) => (ANTERIOR.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""} + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : textoPeriodo(c.per[k]));
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
 
 function opcoesInicio(){
@@ -383,7 +386,7 @@ function render(){
   const seloDe = k => c.ok && c.desc[k] ? `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo cinza">falta ${brl(c.falta[k])} p/ desconto</span>` : "";
   $("#planos").innerHTML = disp.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]} ${seloDe(k)}</b><small>${c.ok ? (c.desc[k] ? `<s>${brl(c.cheio[k])}</s> ` : "") + brl(c.planos[k]) + " · " + textoPlano(c, k) : "—"}</small></button>`).join("") + `<p class="regra">Pagando até o fim do mês, pedidos de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto.${c.ok && c.per.restam === 2 ? ` Faltam só 2 semanas em ${c.per.mes}: o quinzenal fecha o mês.` : c.ok && c.per.restam === 1 ? ` Última semana de ${c.per.mes}: o mensal já inclui ${c.per.mesMensal} inteiro.` : ""}</p>`;
   $("#resumo").textContent = c.ok ? `${st.paes} pães por dia · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
-  $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` + (ANTERIOR.valor ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Dias que você já recebeu</b>${ANTERIOR.txt ? "<br>" + esc(ANTERIOR.txt) : ""}<br><small>somado no plano abaixo</small></span><b>+ ${brl(ANTERIOR.valor)}</b></div>` : "") : "";
+  $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` + (ANTERIOR.valor ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Dias que você já recebeu</b>${ANTERIOR.txt ? "<br>" + esc(ANTERIOR.txt) : ""}<br><small>somado no plano abaixo</small></span><b>+ ${brl(ANTERIOR.valor)}</b></div>` : "") + (CREDITO ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Seu crédito</b><br><small>descontado no plano abaixo</small></span><b>− ${brl(CREDITO)}</b></div>` : "") : "";
   $("#calcPlanos").innerHTML = disp.map(k => `<button class="plan${c.ok && (c.desc[k] || c.falta[k]) ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${c.ok && c.desc[k] ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo flut cinza">Falta ${brl(c.falta[k])} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}<span>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]}<small>${c.ok ? textoPlano(c, k) : ""}</small></span><b>${c.ok && c.desc[k] ? `<s>${brl(c.cheio[k])}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
   $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
   $("#confirmar").disabled = !c.ok; $("#barGo").disabled = !c.ok;
@@ -423,6 +426,7 @@ function textoPedido(c){
     fr.length ? `Frios: ${fr.join(" | ")}` : "Frios: não",
     `Plano: ${NOMEPLANO[st.plano]} – ${brl(c.planos[st.plano])} (${textoPlano(c, st.plano)})`,
     ANTERIOR.valor ? `Inclui ${brl(ANTERIOR.valor)} dos dias já recebidos${ANTERIOR.txt ? " (" + ANTERIOR.txt + ")" : ""}` : null,
+    CREDITO ? `Crédito descontado: ${brl(CREDITO)}` : null,
     $("#inicio").value ? `Começar em: ${$("#inicio").value.split("-").reverse().join("/")}` : "",
     "", "Segue o comprovante do Pix.",
     "", "Código do pedido (não apague): " + codigoPedido(c)
