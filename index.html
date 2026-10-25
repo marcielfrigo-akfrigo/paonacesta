@@ -253,6 +253,8 @@ const CONFIG = {
   precoPaoDia: 2.8,
   quantidades: [3, 4, 5, 6, 7, 8, 9, 10],
   diasFrios: { 1: "Segunda", 3: "Quarta" },
+  // Feriados sem entrega: o valor desses dias sai do plano (mesma lista do app de gestão)
+  feriados: { "2026-11-02": "Finados", "2026-11-20": "Consciência Negra", "2026-12-25": "Natal", "2027-01-01": "Ano Novo" },
   // Pacote de 200 g, valor por semana em cada dia escolhido
   descontoMensal: 20,   // R$ 20 a menos no plano mensal…
   minimoDesconto: 250,  // …quando o mês (pães + frios, antes do desconto) fecha em R$ 250 ou mais
@@ -300,7 +302,7 @@ const mesDaSemana = seg => mais(seg, 3).getMonth();
 function proximaSegunda(){ const h = new Date(); h.setHours(0, 0, 0, 0); return mais(h, ((8 - h.getDay()) % 7) || 7); }
 // Primeiro dia que dá para receber: amanhã (pedido até 12h) ou depois de amanhã; nunca sábado/domingo
 // Quem já é cliente (link pessoal) já está na rota: pode seguir no próximo dia útil a qualquer hora
-function primeiroDia(){ const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), h.getHours() < 12 || qp.get("n") ? 1 : 2); while (d.getDay() === 0 || d.getDay() === 6) d = mais(d, 1); return d; }
+function primeiroDia(){ const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), h.getHours() < 12 || qp.get("n") ? 1 : 2); while (d.getDay() === 0 || d.getDay() === 6 || CONFIG.feriados[iso(d)]) d = mais(d, 1); return d; }
 function inicioEscolhido(){
   let d = $("#inicio") && $("#inicio").value ? parse($("#inicio").value) : proximaSegunda();
   const p = primeiroDia(); if (d < p) d = p;
@@ -311,7 +313,7 @@ function periodos(){
   const inicio = inicioEscolhido();
   // o plano começa na segunda; se a pessoa começa no meio da semana, os dias até sexta entram avulsos
   const ini = inicio.getDay() === 1 ? inicio : mais(inicio, 8 - inicio.getDay());
-  const avulsos = []; if (inicio.getDay() !== 1) for (let d = inicio; d.getDay() >= 1 && d.getDay() <= 5 && d < ini; d = mais(d, 1)) if (st.dias.includes(d.getDay())) avulsos.push(d);
+  const avulsos = []; if (inicio.getDay() !== 1) for (let d = inicio; d.getDay() >= 1 && d.getDay() <= 5 && d < ini; d = mais(d, 1)) if (st.dias.includes(d.getDay()) && !CONFIG.feriados[iso(d)]) avulsos.push(d);
   // semanas que faltam no mês (cada semana pertence ao mês da sua quinta-feira); nenhum plano passa do fim do mês
   let fim = ini, r = 1; while (mesDaSemana(mais(fim, 7)) === mesDaSemana(ini)) { fim = mais(fim, 7); r++; }
   const plano = sem => ({ ini, fim: mais(ini, 7 * sem - 3), sem, fechaMes: sem === r });
@@ -351,9 +353,13 @@ function calc(){
   avulso = Math.round(avulso * 100) / 100;
   // desconto: só no plano que fecha até o fim do mês e quando o pagamento chega ao mínimo
   const r2 = v => Math.round(v * 100) / 100;
-  const cheio = {}, planos = {}, desc = {}, falta = {};
+  // feriados dentro de cada plano, nos dias escolhidos: não tem entrega, então não paga
+  const valorDoDia = w => r2(paes / nd + (CONFIG.diasFrios[w] ? (st.frios[w] || []).reduce((s, i) => s + (CONFIG.frios[i] || 0), 0) : 0));
+  const feriadosDe = k => Object.keys(CONFIG.feriados).filter(D => D >= iso(per[k].ini) && D <= iso(per[k].fim) && st.dias.includes(parse(D).getDay()));
+  const cheio = {}, planos = {}, desc = {}, falta = {}, fer = {};
   per.disp.forEach(k => {
-    cheio[k] = r2(semana * per[k].sem + avulso);
+    fer[k] = feriadosDe(k);
+    cheio[k] = r2(semana * per[k].sem + avulso - fer[k].reduce((s, D) => s + valorDoDia(parse(D).getDay()), 0));
     desc[k] = per[k].fechaMes && cheio[k] >= CONFIG.minimoDesconto;
     planos[k] = desc[k] ? r2(cheio[k] - CONFIG.descontoMensal) : cheio[k];
     falta[k] = per[k].fechaMes && !desc[k] ? r2(CONFIG.minimoDesconto - cheio[k]) : 0;
@@ -363,11 +369,12 @@ function calc(){
   });
   const textoAvulso = per.avulsos.length ? per.avulsos.map(d => DIASEM[d.getDay()]).join(" e ") + " (" + per.avulsos.map(ddmm).join(" e ") + ")" : "";
   if (avulso) linhas.push([`Esta semana: ${textoAvulso}`, avulso]);
-  return { ok: true, linhas, semana, per, cheio, planos, desc, falta, avulso, textoAvulso };
+  return { ok: true, linhas, semana, per, cheio, planos, desc, falta, avulso, textoAvulso, fer };
 }
 const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMensal || c.per.fimMes)})` : NOMEPLANO[k];
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
-const textoPlano = (c, k) => (ANTERIOR.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""} + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : textoPeriodo(c.per[k]));
+const textoFeriado = (c, k) => c.fer && c.fer[k] && c.fer[k].length ? ` · sem entrega em ${c.fer[k].map(D => ddmm(parse(D)) + " (" + CONFIG.feriados[D] + ")").join(", ")}, já descontado` : "";
+const textoPlano = (c, k) => (ANTERIOR.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""} + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : textoPeriodo(c.per[k])) + textoFeriado(c, k);
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
 
 function opcoesInicio(){

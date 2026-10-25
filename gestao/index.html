@@ -446,6 +446,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   const DOW = ["dom","seg","ter","qua","qui","sex","sab"];
   const DOWL = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
   const ENT = ["Careca","Dennis","Miro","Marciel"];
+  // Feriados sem entrega (não entregamos sábado, domingo e feriados). Mesma lista do app dos clientes.
+  const FERIADOS = { "2026-11-02": "Finados", "2026-11-20": "Consciência Negra", "2026-12-25": "Natal", "2027-01-01": "Ano Novo" };
   const COR = { Careca:"#B5541E", Dennis:"#6b4a2e", Miro:"#1E5FBF", Marciel:"#2E6B4F" };
   const VIEWS = [
     { id:"geral", nome:"Visão geral", ic:"dash" },
@@ -475,6 +477,9 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     return out;
   }
   const r2 = v => Math.round(v * 100) / 100;
+  // Valor dos feriados que caem nos dias de entrega do cliente entre ini e fim (sai do preço do plano)
+  function feriadosNo(c, ini, fim){ return Object.keys(FERIADOS).filter(D => D >= ini && D <= fim && (() => { const w = parse(D).getDay(); return w >= 1 && w <= 5 && (!(Array.isArray(c.dias) && c.dias.length) || c.dias.includes(w)); })()); }
+  const descFeriados = (c, ini, fim) => r2(feriadosNo(c, ini, fim).length * diaria(c));
   const devido = c => r2(anterior(c) + atrasoDias(c).length * diaria(c));
   function textoDevido(c){
     if (anterior(c)) return (c.anterior || {}).txt || "";
@@ -522,12 +527,12 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   // ---------- Entregas: mesma regra do app atual ----------
   function proxEntrega(){
     let d = new Date(hoje); if (agora.getHours() >= 12 || d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+    while (d.getDay() === 0 || d.getDay() === 6 || FERIADOS[iso(d)]) d.setDate(d.getDate() + 1);
     return iso(d);
   }
-  function diaAnterior(D){ let d = parse(D); do d.setDate(d.getDate() - 1); while (d.getDay() === 0 || d.getDay() === 6); return iso(d); }
+  function diaAnterior(D){ let d = parse(D); do d.setDate(d.getDate() - 1); while (d.getDay() === 0 || d.getDay() === 6 || FERIADOS[iso(d)]); return iso(d); }
   function recebe(c, D){
-    const w = parse(D).getDay(); if (w < 1 || w > 5) return false;
+    const w = parse(D).getDay(); if (w < 1 || w > 5 || FERIADOS[D]) return false;
     if (suspNaData(c, D)) return false;
     if (c.inicio && D < c.inicio) return false;
     if (Array.isArray(c.dias) && c.dias.length && !c.dias.includes(w)) return false;
@@ -660,7 +665,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const hs = pags.filter(p => p.clienteId === c.id).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
     let more = "";
     if (aberto === c.id) {
-      more += `<div class="opts">${["semanal","quinzenal","mensal"].map(t => { const cheio = preco(c, t), an = devido(c), v = Math.max(0, cheio - cr) + an; return `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="${t}"${ocupado ? " disabled" : ""}><span>Pago ${t}</span><b>${brl(v)}</b>${cr > 0 ? `<small>${brl(cheio)} − crédito ${brl(Math.min(cr, cheio))}</small>` : ""}${an ? `<small>+ ${brl(an)} em atraso</small>` : ""}</button>`; }).join("")}${devido(c) ? `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="atrasado"${ocupado ? " disabled" : ""}><span>Só o atrasado</span><b>${brl(devido(c))}</b><small>${esc(textoDevido(c))}</small></button>` : ""}</div>`;
+      more += `<div class="opts">${["semanal","quinzenal","mensal"].map(t => { const cheio = precoPlano(c, t), an = devido(c), v = Math.max(0, cheio - cr) + an; return `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="${t}"${ocupado ? " disabled" : ""}><span>Pago ${t}</span><b>${brl(v)}</b>${cr > 0 ? `<small>${brl(cheio)} − crédito ${brl(Math.min(cr, cheio))}</small>` : ""}${an ? `<small>+ ${brl(an)} em atraso</small>` : ""}${cheio < preco(c, t) ? `<small>sem entrega em ${feriadosNo(c, addDays(basePagamento(c), 3), addDays(basePagamento(c), 7 * MULT[t])).map(br).join(", ")} (feriado)</small>` : ""}</button>`; }).join("")}${devido(c) ? `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="atrasado"${ocupado ? " disabled" : ""}><span>Só o atrasado</span><b>${brl(devido(c))}</b><small>${esc(textoDevido(c))}</small></button>` : ""}</div>`;
     }
     if (abertos.has(c.id)) {
       more += `<div class="det"><span><b>${esc(c.paes || 0)}</b> pães/dia</span>${c.endereco ? `<span>${esc(c.endereco)}</span>` : ""}<span>Entregador: <b>${esc(entregadorDe(c))}</b></span>${c.frios ? `<span>Frios: ${esc(c.frios)}</span>` : ""}${Array.isArray(c.dias) && c.dias.length ? `<span>Recebe: ${c.dias.map(d => DOW[d]).join(", ")}</span>` : ""}</div>
@@ -713,7 +718,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   }
   const cobPorCredito = c => credDe(c.id) > 0 && credDe(c.id) >= (c.valor || 0) + devido(c);
   const cobEnviado = c => !!c.linkEnviado && c.linkEnviado >= addDays(cobAlvo(), -7);
-  const cobValor = c => r2(Math.max(0, (c.valor || 0) - credDe(c.id)) + devido(c));
+  const cobValor = c => r2(Math.max(0, (c.valor || 0) - descFeriados(c, addDays(cobAlvo(), -4), cobAlvo()) - credDe(c.id)) + devido(c));
   const cobLista = () => clientes.filter(naCobranca);
   const cobFaltam = () => cobLista().filter(c => !cobEnviado(c)).length;
   function vCobranca(){
@@ -916,6 +921,13 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   }
 
   // ---------- Ações ----------
+  function basePagamento(c){
+    const antes = c.pagoAte || "", fimAn = fimDevido(c);
+    let base = antes && antes >= SEX ? antes : addDays(SEX, -7);
+    if (fimAn && fimAn > base) base = fimAn;
+    return base;
+  }
+  const precoPlano = (c, t) => r2(preco(c, t) - descFeriados(c, addDays(basePagamento(c), 3), addDays(basePagamento(c), 7 * MULT[t])));
   async function pagar(id, tipo){
     const c = clientes.find(x => x.id === id); if (!c || !db || ocupado) return;
     ocupado = true; render();
@@ -927,7 +939,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const depois = soAtraso ? (fimAn || antes) : addDays(base, 7 * MULT[tipo]);
     // dias que faltam nesta semana depois de hoje (o app do cliente cobra como avulso junto com o atraso)
     let resto = 0; if (an && !soAtraso && fimAn === sextaDe(HOJE)) for (let D = addDays(HOJE, 1); D <= fimAn; D = addDays(D, 1)) if (recebe(c, D)) resto += diaria(c);
-    const cheio = soAtraso ? 0 : r2(preco(c, tipo) + resto), ks = soAtraso ? [] : credAberto(id);
+    const cheio = soAtraso ? 0 : r2(precoPlano(c, tipo) + resto), ks = soAtraso ? [] : credAberto(id);
     const usado = Math.min(cheio, ks.reduce((s, k) => s + (Number(k.valor) || 0), 0));
     try {
       const ref = await db.collection("pagamentos").add({ clienteId: id, nome: c.nome, tipo, valor: r2(cheio - usado + an), credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois, criadoEm: Date.now(), ...(an ? { atraso: an } : {}), ...(anterior(c) ? { anterior: c.anterior } : {}) });
