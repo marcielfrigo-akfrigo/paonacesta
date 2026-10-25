@@ -299,7 +299,8 @@ function segundaDe(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); const w = 
 const mesDaSemana = seg => mais(seg, 3).getMonth();
 function proximaSegunda(){ const h = new Date(); h.setHours(0, 0, 0, 0); return mais(h, ((8 - h.getDay()) % 7) || 7); }
 // Primeiro dia que dá para receber: amanhã (pedido até 12h) ou depois de amanhã; nunca sábado/domingo
-function primeiroDia(){ const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), h.getHours() < 12 ? 1 : 2); while (d.getDay() === 0 || d.getDay() === 6) d = mais(d, 1); return d; }
+// Quem já é cliente (link pessoal) já está na rota: pode seguir no próximo dia útil a qualquer hora
+function primeiroDia(){ const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), h.getHours() < 12 || qp.get("n") ? 1 : 2); while (d.getDay() === 0 || d.getDay() === 6) d = mais(d, 1); return d; }
 function inicioEscolhido(){
   let d = $("#inicio") && $("#inicio").value ? parse($("#inicio").value) : proximaSegunda();
   const p = primeiroDia(); if (d < p) d = p;
