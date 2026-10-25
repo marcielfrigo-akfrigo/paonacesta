@@ -703,8 +703,11 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     if ((c.pagoAte || "") >= alvo) return false;
     // suspenso a semana inteira da cobrança: não manda link agora
     if (c.suspenso && (!c.suspIni || c.suspIni <= addDays(alvo, -4)) && (!c.volta || c.volta > alvo)) return false;
+    // crédito lançado que paga a semana inteira (e o que estiver em atraso): não cobra agora
+    if (cobPorCredito(c)) return false;
     return true;
   }
+  const cobPorCredito = c => credDe(c.id) > 0 && credDe(c.id) >= (c.valor || 0) + devido(c);
   const cobEnviado = c => !!c.linkEnviado && c.linkEnviado >= addDays(cobAlvo(), -7);
   const cobValor = c => r2(Math.max(0, (c.valor || 0) - credDe(c.id)) + devido(c));
   const cobLista = () => clientes.filter(naCobranca);
@@ -724,7 +727,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     return head("Cobrança · semana de " + br(addDays(alvo, -4)) + " a " + br(alvo), "Links da semana.", `Quem precisa pagar para receber de ${br(addDays(alvo, -4))} a ${br(alvo)}. Toque em Copiar link e cole no WhatsApp do cliente.`) +
       `<div class="conds" role="group" aria-label="Condomínios"><button type="button" data-cc="" aria-pressed="${cobCond === ""}">Todos os condomínios${falta("") ? `<span class="n">${falta("")}</span>` : ""}</button>${nomesCond.map(n => `<button type="button" data-cc="${esc(n)}" aria-pressed="${cobCond === n}">${esc(n)}${falta(n) ? `<span class="n">${falta(n)}</span>` : ""}</button>`).join("")}</div>
       <div class="panel"><div class="ptitle"><h2>${cobCond ? esc(cobCond) : "Todos"} <span class="count">${lst.length}</span></h2><span class="muted">${env} de ${lst.length} enviados · ${brl(total)} no semanal</span></div>
-      ${lst.length ? `<div class="rows">${lst.map(row).join("")}</div>` : `<div class="empty">${ic("check")}<h3>Ninguém para cobrar aqui.</h3><p>Todos já estão pagos até ${br(alvo)}.</p></div>`}</div>`;
+      ${lst.length ? `<div class="rows">${lst.map(row).join("")}</div>` : `<div class="empty">${ic("check")}<h3>Ninguém para cobrar aqui.</h3><p>Todos já estão pagos até ${br(alvo)}.</p></div>`}</div>
+      ${(() => { const cr = clientes.filter(c => (!cobCond || c.condominio === cobCond) && (c.pagoAte || "") < alvo && !c.recolher && cobPorCredito(c)); return cr.length ? `<div class="panel" style="margin-top:14px"><div class="ptitle"><h2>Crédito cobre a semana <span class="count">${cr.length}</span></h2><span class="muted">Não precisa mandar link. Toque em Pagar na ficha do cliente para usar o crédito.</span></div><div class="rows">${cr.map(c => `<div class="row"><div class="rline"><span class="ini" aria-hidden="true">${esc(c.nome.slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(c.nome)}</strong><small>${esc(c.condominio)} · crédito ${brl(credDe(c.id))} · semana ${brl(c.valor)}</small></div></div></div>`).join("")}</div></div>` : ""; })()}`;
   }
 
   function vEntregas(){
