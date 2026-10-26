@@ -507,7 +507,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function suspNaData(c, D){ if (!c.suspenso) return false; if (c.suspIni && D < c.suspIni) return false; if (c.volta && D >= c.volta) return false; return true; }
   function suspAgora(c){
     if (!c.suspenso) return false;
-    if (c.suspIni && HOJE < c.suspIni) return false;
+    // suspensão que começa na próxima entrega (ex.: hoje domingo, suspenso a partir de segunda) já conta hoje
+    if (c.suspIni && HOJE < c.suspIni && c.suspIni > proxEntrega()) return false;
     if (c.volta){ const lib = parse(addDays(c.volta, -1)); lib.setHours(12,0,0,0); if (agora >= lib) return false; }
     return true;
   }
