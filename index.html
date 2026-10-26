@@ -506,6 +506,8 @@ $("#enviarWa").addEventListener("click", () => {
 $("#cond").innerHTML = `<option value="" disabled selected>Escolha</option>` + CONFIG.condominios.map(c => `<option>${c}</option>`).join("");
 // Link pessoal: ?n=Nome&c=Condomínio&h=Casa preenche os dados do cliente
 if (qp.get("n")) $("#nome").value = qp.get("n");
+// condomínio que ainda não está na lista (ex.: um que acabou de abrir): entra como opção para o link pessoal
+if (qp.get("c") && ![...$("#cond").options].some(o => o.value === qp.get("c"))) { const o = document.createElement("option"); o.textContent = qp.get("c"); $("#cond").insertBefore(o, $("#cond").lastElementChild); }
 if (qp.get("c")) $("#cond").value = qp.get("c");
 if (qp.get("h")) $("#casa").value = qp.get("h");
 if (qp.get("p")) {

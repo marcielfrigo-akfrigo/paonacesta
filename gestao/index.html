@@ -455,7 +455,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     { id:"entregas", nome:"Entregas", ic:"truck" },
     { id:"cobranca", nome:"Cobrança", ic:"copy" },
     { id:"fin", nome:"Financeiro", ic:"wallet" },
-    { id:"prosp", nome:"Próximos condomínios", ic:"leaf" }
+    { id:"prosp", nome:"Lista de espera", ic:"leaf" }
   ];
 
   const agora = new Date();
@@ -495,7 +495,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function fimDevido(c){ const d = atrasoDias(c); const ult = d.length ? d[d.length - 1] : anterior(c) ? (c.inicio || "") : ""; return ult ? sextaDe(ult) : ""; }
 
   let db = null, cfg = { rotas:{}, pessoal:{}, extras:{} }, raw = [], clientes = [], pags = [], creds = [], pedidos = [];
-  let prosp = [], prospSel = "", cobCond = "", view = "geral", filtro = "todos", busca = "", cond = "", aberto = null, abertos = new Set(), editId = null, ocupado = false, eTab = "Padaria", eData = "";
+  let prosp = [], prospSel = "", prospEdit = -1, cobCond = "", view = "geral", filtro = "todos", busca = "", cond = "", aberto = null, abertos = new Set(), editId = null, ocupado = false, eTab = "Padaria", eData = "";
   let loaded = { cli:false };
   try { view = localStorage.getItem("pncg-view") || "geral"; filtro = localStorage.getItem("pncg-filtro") || "todos"; } catch (e) {}
   if (!VIEWS.some(v => v.id === view)) view = "geral";
@@ -756,26 +756,48 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       ${(() => { const cr = clientes.filter(c => (!cobCond || c.condominio === cobCond) && (c.pagoAte || "") < alvo && !c.recolher && cobPorCredito(c)); return cr.length ? `<div class="panel" style="margin-top:14px"><div class="ptitle"><h2>Crédito cobre a semana <span class="count">${cr.length}</span></h2><span class="muted">Não precisa mandar link. Toque em Pagar na ficha do cliente para usar o crédito.</span></div><div class="rows">${cr.map(c => `<div class="row"><div class="rline"><span class="ini" aria-hidden="true">${esc(c.nome.slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(c.nome)}</strong><small>${esc(c.condominio)} · crédito ${brl(credDe(c.id))} · semana ${brl(c.valor)}</small></div></div></div>`).join("")}</div></div>` : ""; })()}`;
   }
 
-  // ---------- Próximos condomínios: onde ainda não entregamos, com a lista de moradores para contato ----------
+  // ---------- Lista de espera: condomínios que ainda não atendemos e os moradores interessados ----------
+  const META_ROTA = 10;   // interessados para abrir a rota num condomínio novo
+  const PRECO_FRIO = { "Presunto": 14, "Mussarela": 20, "Peito de peru": 20, "Queijo prato": 23, "Mortadela": 14 };
+  const precoSemana = (paes, frios) => r2(({ 3: 55, 4: 63, 5: 70 })[paes] ?? paes * 14) +
+    String(frios || "").split("|").filter(sg => sg.includes(":")).reduce((s, sg) => s + friosItens(sg.split(":").slice(1).join(":")).reduce((t, i) => t + (PRECO_FRIO[i] || 0), 0), 0);
+  const esperando = p => (p.moradores || []).filter(m => !m.clienteId);
   function vProsp(){
-    const lst = prosp.slice().sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+    const lst = prosp.slice().sort((a, b) => esperando(b).length - esperando(a).length || (a.nome || "").localeCompare(b.nome || ""));
     if (prospSel && !lst.some(p => p.id === prospSel)) prospSel = "";
     const sel = lst.find(p => p.id === prospSel) || null, mor = sel ? (sel.moradores || []) : [];
-    const total = lst.reduce((s, p) => s + (p.moradores || []).length, 0);
-    return head("Prospecção", "Próximos condomínios.", `${lst.length} condomínio${lst.length === 1 ? "" : "s"} · ${total} morador${total === 1 ? "" : "es"} anotado${total === 1 ? "" : "s"}. Escolha um condomínio para ver e adicionar moradores.`) +
+    const total = lst.reduce((s, p) => s + esperando(p).length, 0);
+    const barra = n => `<div style="height:6px;border-radius:9px;background:var(--line);overflow:hidden;margin-top:6px"><div style="height:100%;width:${Math.min(100, n / META_ROTA * 100)}%;background:${n >= META_ROTA ? "var(--sem)" : "var(--gold)"}"></div></div>`;
+    const ed = prospEdit >= 0 ? mor[prospEdit] || null : null;
+    const val = k => ed ? esc(ed[k] || "") : "";
+    return head("Lista de espera", "Próximos condomínios.", `${lst.length} condomínio${lst.length === 1 ? "" : "s"} · ${total} interessado${total === 1 ? "" : "s"}. A rota abre com ${META_ROTA} interessados no condomínio.`) +
       `<form class="filters" data-form="prospCond"><label class="search">${ic("plus")}<input name="nome" placeholder="Novo condomínio (ex.: Golden Village)" autocomplete="off" required></label><button class="b pri" type="submit">Adicionar condomínio</button></form>
-      <div class="conds" role="group" aria-label="Condomínios em prospecção">${lst.map(p => `<button type="button" data-pc="${p.id}" aria-pressed="${prospSel === p.id}">${esc(p.nome)}<span class="n">${(p.moradores || []).length}</span></button>`).join("")}</div>
-      ${!lst.length ? `<div class="panel"><div class="empty">${ic("leaf")}<h3>Nenhum condomínio ainda.</h3><p>Adicione acima os condomínios onde quer começar a entregar.</p></div></div>` : !sel ? `<div class="panel"><div class="empty">${ic("users")}<h3>Escolha um condomínio.</h3><p>Toque em um dos condomínios acima para ver os moradores.</p></div></div>` :
-      `<div class="panel"><div class="ptitle"><h2>${esc(sel.nome)} <span class="count">${mor.length}</span></h2><button class="b danger sm" type="button" data-pcdel="${sel.id}">Apagar condomínio</button></div>
+      ${lst.length ? `<div class="panel" style="margin-bottom:14px"><div class="rows">${lst.map(p => { const n = esperando(p).length; return `<button type="button" class="row" data-pc="${p.id}" style="display:block;width:100%;text-align:left;background:${prospSel === p.id ? "var(--quin-bg)" : "transparent"};border:0;cursor:pointer;padding:12px 16px"><div style="display:flex;justify-content:space-between;gap:8px"><strong>${esc(p.nome)}</strong><span class="muted">${n} de ${META_ROTA}${n >= META_ROTA ? " · pronto para abrir" : ""}</span></div>${barra(n)}</button>`; }).join("")}</div></div>` : ""}
+      ${!lst.length ? `<div class="panel"><div class="empty">${ic("leaf")}<h3>Nenhum condomínio ainda.</h3><p>Adicione acima os condomínios onde quer começar a entregar.</p></div></div>` : !sel ? `<div class="panel"><div class="empty">${ic("users")}<h3>Escolha um condomínio.</h3><p>Toque em um condomínio acima para ver e adicionar interessados.</p></div></div>` :
+      `<div class="panel"><div class="ptitle"><h2>${esc(sel.nome)} <span class="count">${esperando(sel).length} de ${META_ROTA}</span></h2><div class="acts">${esperando(sel).length ? `<button class="b sm" type="button" data-pcabrir="${sel.id}">${ic("check")}Abrir rota: virar clientes</button>` : ""}<button class="b danger sm" type="button" data-pcdel="${sel.id}">Apagar condomínio</button></div></div>
         <form class="fgrid" data-form="prospMor" style="padding:14px 16px;border-bottom:1px solid var(--line)">
-          <label>Nome<input name="nome" required autocomplete="off" placeholder="Nome do morador"></label>
-          <label>Casa<input name="casa" autocomplete="off" placeholder="Ex.: Casa 120"></label>
-          <label>Telefone<input name="tel" type="tel" inputmode="tel" autocomplete="off" placeholder="(18) 99999-9999"></label>
-          <label>Observação<input name="obs" autocomplete="off" placeholder="Ex.: indicado pela Ana, já provou o pão"></label>
-          <div class="wide"><button class="b pri" type="submit">${ic("plus")}Adicionar morador</button></div>
+          ${ed ? `<p class="wide" style="margin:0"><b>Editando ${esc(ed.nome)}</b> · <button class="b ghost sm" type="button" data-pmcancel="1">Cancelar</button></p>` : ""}
+          <label>Nome<input name="nome" required autocomplete="off" placeholder="Nome do morador" value="${val("nome")}"></label>
+          <label>Casa<input name="casa" autocomplete="off" placeholder="Ex.: Casa 120" value="${val("casa")}"></label>
+          <label>Telefone<input name="tel" type="tel" inputmode="tel" autocomplete="off" placeholder="(18) 99999-9999" value="${val("tel")}"></label>
+          <label>Pães por dia<input name="paes" type="number" min="3" max="10" inputmode="numeric" placeholder="5" value="${val("paes")}"></label>
+          <label class="wide">Frios<input name="frios" autocomplete="off" placeholder="Ex.: seg: presunto e mussarela" value="${val("frios")}"></label>
+          <label class="wide">Observação<input name="obs" autocomplete="off" placeholder="Ex.: indicado pela Ana" value="${val("obs")}"></label>
+          <div class="wide"><button class="b pri" type="submit">${ic(ed ? "check" : "plus")}${ed ? "Salvar alterações" : "Adicionar interessado"}</button></div>
         </form>
-        ${mor.length ? `<div class="rows">${mor.map((m, i) => `<div class="row"><div class="rline" style="flex-wrap:wrap"><span class="ini" aria-hidden="true">${esc((m.nome || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default;flex:1 1 200px;min-width:0"><strong>${esc(m.nome)}</strong><small style="white-space:normal">${[m.casa, m.tel, m.obs].filter(Boolean).map(esc).join(" · ") || "sem detalhes"}</small></div><div class="acts"><button class="b danger sm" type="button" data-pmdel="${i}">Remover</button></div></div></div>`).join("")}</div>` : `<div class="empty">${ic("users")}<h3>Nenhum morador ainda.</h3><p>Use o formulário acima para ir adicionando.</p></div>`}
+        ${mor.length ? `<div class="rows">${mor.map((m, i) => `<div class="row"><div class="rline" style="flex-wrap:wrap"><span class="ini" aria-hidden="true">${esc((m.nome || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default;flex:1 1 200px;min-width:0"><strong>${esc(m.nome)}${m.clienteId ? ' <span class="badge semanal">Já é cliente</span>' : ""}</strong><small style="white-space:normal">${[m.casa, m.tel, m.paes ? m.paes + " pães" : "", m.frios ? "frios " + m.frios : "", m.obs].filter(Boolean).map(esc).join(" · ") || "sem detalhes"}</small></div>
+          <div class="acts" style="flex:1 1 100%;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">${m.clienteId ? "" : `<button class="b sm" type="button" data-pmcli="${i}">Virar cliente</button>`}<button class="b sm" type="button" data-pmed="${i}">${ic("pencil")}Editar</button><button class="b danger sm" type="button" data-pmdel="${i}">Remover</button></div></div></div>`).join("")}</div>` : `<div class="empty">${ic("users")}<h3>Nenhum interessado ainda.</h3><p>Use o formulário acima para ir adicionando.</p></div>`}
       </div>`}`;
+  }
+  // Interessado vira cliente: entra suspenso até pagar o primeiro pedido pelo link (o pagamento tira a suspensão)
+  async function virarCliente(p, idx){
+    const m = (p.moradores || [])[idx]; if (!m || m.clienteId) return null;
+    let id = slug(p.nome + " " + m.nome) || "cliente"; while (clientes.some(c => c.id === id)) id += "-2";
+    const paes = Number(m.paes) || 5;
+    await db.doc("clientes/" + id).set({ nome: m.nome, condominio: p.nome, endereco: m.casa || "", plano: "semanal", valor: precoSemana(paes, m.frios), paes, frios: m.frios || "", dias: [],
+      pagoAte: "", inicio: "", suspenso: true, suspIni: "", volta: "", motivo: "Lista de espera: aguardando o primeiro pedido pelo link", recolher: false,
+      obs: [m.tel ? "Tel " + m.tel : "", m.obs || "", "Veio da lista de espera"].filter(Boolean).join(" · ") });
+    return id;
   }
 
   function vEntregas(){
@@ -1023,10 +1045,19 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       else if (a === "link") { await copiarLinkCliente(id, b); marcarEnviado([id]); }
       return; }
     const f = e.target.closest("button[data-f]"); if (f) { filtro = f.dataset.f; try { localStorage.setItem("pncg-filtro", filtro); } catch (er) {} render(); return; }
-    const pc = e.target.closest("button[data-pc]"); if (pc) { prospSel = prospSel === pc.dataset.pc ? "" : pc.dataset.pc; render(); return; }
+    const pc = e.target.closest("button[data-pc]"); if (pc) { prospSel = prospSel === pc.dataset.pc ? "" : pc.dataset.pc; prospEdit = -1; render(); return; }
+    const pme = e.target.closest("button[data-pmed]"); if (pme) { prospEdit = Number(pme.dataset.pmed); render(); const f = document.querySelector("form[data-form=prospMor]"); if (f) { f.scrollIntoView({ behavior: "smooth", block: "center" }); f.querySelector("input").focus({ preventScroll: true }); } return; }
+    const pmx = e.target.closest("button[data-pmcancel]"); if (pmx) { prospEdit = -1; render(); return; }
+    const pmc = e.target.closest("button[data-pmcli]");
+    if (pmc) { const p = prosp.find(x => x.id === prospSel); if (!p || !db) return; const i = Number(pmc.dataset.pmcli);
+      try { const id = await virarCliente(p, i); if (id) { const mor = (p.moradores || []).map((m, k) => k === i ? { ...m, clienteId: id } : m); await db.doc("prospeccao/" + p.id).update({ moradores: mor }); toast(mor[i].nome + " virou cliente (suspenso até pagar o 1º pedido)"); } } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
+    const pab = e.target.closest("button[data-pcabrir]");
+    if (pab) { const p = prosp.find(x => x.id === pab.dataset.pcabrir); if (!p || !db) return; if (pab.dataset.ok !== "1") { pab.dataset.ok = "1"; pab.textContent = `Confirmar: ${esperando(p).length} viram clientes`; return; }
+      try { const mor = [...(p.moradores || [])]; let n = 0; for (let i = 0; i < mor.length; i++) { const id = await virarCliente({ ...p, moradores: mor }, i); if (id) { mor[i] = { ...mor[i], clienteId: id }; n++; } }
+        await db.doc("prospeccao/" + p.id).update({ moradores: mor }); toast(`${n} interessados viraram clientes de ${p.nome}. Defina o entregador da rota e mande os links.`); } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
     const pmd = e.target.closest("button[data-pmdel]");
     if (pmd) { const p = prosp.find(x => x.id === prospSel); if (!p || !db) return; if (pmd.dataset.ok !== "1") { pmd.dataset.ok = "1"; pmd.textContent = "Confirmar"; return; }
-      const mor = (p.moradores || []).filter((_, i) => i !== Number(pmd.dataset.pmdel));
+      const mor = (p.moradores || []).filter((_, i) => i !== Number(pmd.dataset.pmdel)); prospEdit = -1;
       try { await db.doc("prospeccao/" + p.id).update({ moradores: mor }); toast("Morador removido"); } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
     const pcd = e.target.closest("button[data-pcdel]");
     if (pcd) { if (pcd.dataset.ok !== "1") { pcd.dataset.ok = "1"; pcd.textContent = "Confirmar: apagar com os moradores"; return; }
@@ -1075,11 +1106,14 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
         if (!v.nome) return;
         if (prosp.some(p => norm(p.nome) === norm(v.nome))) { prospSel = prosp.find(p => norm(p.nome) === norm(v.nome)).id; render(); toast("Esse condomínio já está na lista"); return; }
         let id = slug(v.nome) || "condominio"; while (prosp.some(p => p.id === id)) id += "-2";
-        prospSel = id; await db.doc("prospeccao/" + id).set({ nome: v.nome, moradores: [], criadoEm: Date.now() }); render(); toast("Condomínio adicionado: " + v.nome);
+        prospSel = id; await db.doc("prospeccao/" + id).set({ nome: v.nome, moradores: [], criadoEm: Date.now() }); render(); prospEdit = -1; toast("Condomínio adicionado: " + v.nome);
       } else if (f.dataset.form === "prospMor") {
         const p = prosp.find(x => x.id === prospSel); if (!p || !v.nome) return;
-        await db.doc("prospeccao/" + p.id).update({ moradores: [...(p.moradores || []), { nome: v.nome, casa: v.casa || "", tel: v.tel || "", obs: v.obs || "", criadoEm: Date.now() }] });
-        f.reset(); f.querySelector("input").focus(); toast("Morador adicionado em " + p.nome);
+        const dados = { nome: v.nome, casa: v.casa || "", tel: v.tel || "", paes: Number(v.paes) || "", frios: v.frios || "", obs: v.obs || "" };
+        const mor = [...(p.moradores || [])], editando = prospEdit >= 0 && mor[prospEdit];
+        if (editando) mor[prospEdit] = { ...mor[prospEdit], ...dados }; else mor.push({ ...dados, criadoEm: Date.now() });
+        prospEdit = -1; await db.doc("prospeccao/" + p.id).update({ moradores: mor });
+        f.reset(); render(); toast((editando ? "Alterado: " : "Adicionado em " + p.nome + ": ") + v.nome);
       }
     } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); }
   });
@@ -1174,7 +1208,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       const antigas = String(alvo.obs || "").split(/\s*·?\s*Pedido pelo app em /)[0].trim();
       dados.obs = antigas ? antigas + " · " + linha : linha;
       if (!dados.endereco) dados.endereco = alvo.endereco || "";
-      delete dados.inicio;   // não é cliente novo: não pode aparecer como "levar a cesta" na rota
+      if (alvo.pagoAte) delete dados.inicio;   // já era cliente: não pode aparecer como "levar a cesta" na rota
       await db.doc("clientes/" + id).update(dados);
     }
     else { id = slug(pd.c + " " + pd.n) || "cliente"; while (clientes.some(c => c.id === id)) id += "-2"; await db.doc("clientes/" + id).set({ ...dados, pagoAte: "", suspenso: false, suspIni: "", volta: "", motivo: "", recolher: false }); }
