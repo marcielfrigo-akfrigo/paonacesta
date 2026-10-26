@@ -517,6 +517,10 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   const credAberto = id => creds.filter(k => k.clienteId === id && !k.usadoEm);
   const credDe = id => credAberto(id).reduce((s, k) => s + (Number(k.valor) || 0), 0);
   const devendo = () => clientes.filter(c => status(c) === "due");
+  // Pagou para receber a partir de "ini": se a suspensão cobre esse dia, ela acaba (campos para gravar no cliente)
+  const fimSuspensao = (c, ini) => c.suspenso && ini && (!c.suspIni || c.suspIni <= ini) && (!c.volta || c.volta > ini) ? { suspenso: false, suspIni: "", volta: "", motivo: "" } : {};
+  // Suspenso agora, mas com um pagamento feito depois de suspender que cobre hoje: provavelmente esqueceram de tirar a suspensão
+  const suspensoPago = () => clientes.filter(c => status(c) === "off" && pags.some(p => p.clienteId === c.id && (!c.suspIni || p.data >= c.suspIni) && (p.antes || "") < HOJE && (p.depois || "") >= HOJE));
 
   function toast(t, err){ document.querySelectorAll(".toast").forEach(x => x.remove()); const el = document.createElement("div"); el.className = "toast" + (err ? " err" : ""); el.setAttribute("role","status"); el.innerHTML = (err ? ic("info") : ic("check")) + "<span></span>"; el.querySelector("span").textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
   function aviso(t){ const a = $("#aviso"); a.textContent = t; a.hidden = !t; }
@@ -643,6 +647,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
         <div class="wbrand"><img class="logo" src="" data-logo="pnc" alt="Pão na Cesta" width="375" height="270"><div class="partner"><img src="" data-logo="chantilly" alt="Chantilly Fábrica de Delícias" width="290" height="290"><span>Em parceria com<b>Chantilly</b><small>Fábrica de Delícias</small></span></div></div></section>
       <section class="stats">${stats.map(s => `<button type="button" class="stat${s.alert ? " alert" : ""}" data-go="${s.go}"${s.f ? ` data-f="${s.f}"` : ""}><div><span>${s.t}</span>${ic(s.i)}</div><strong>${s.v}</strong><small>${s.s}</small></button>`).join("")}</section>
       ${painelPedidos()}
+      ${suspensoPago().length ? `<section class="panel" style="margin-bottom:18px;border-color:var(--due)"><div class="ptitle"><h2>Suspenso, mas já pagou <span class="count">${suspensoPago().length}</span></h2><span class="muted">Pagaram para receber e o cadastro continua suspenso. Abra e tire a suspensão em Editar.</span></div><div class="rows">${suspensoPago().map(c => linha(c, true)).join("")}</div></section>` : ""}
       <section class="grid2">
         <div class="panel"><div class="ptitle"><h2>Faltam pagar <span class="count">${dev.length}</span></h2>${dev.length > 6 ? `<button class="b ghost sm" type="button" data-go="clientes" data-f="falta">Ver todos ${ic("arrow")}</button>` : ""}</div>
           ${lista.length ? `<div class="rows">${lista.map(c => linha(c, true)).join("")}</div>` : `<div class="empty">${ic("basket")}<h3>Tudo tranquilo por aqui.</h3><p>Todos os clientes desta semana já pagaram.</p></div>`}</div>
@@ -951,7 +956,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     try {
       const ref = await db.collection("pagamentos").add({ clienteId: id, nome: c.nome, tipo, valor: r2(cheio - usado + an), credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois, criadoEm: Date.now(), ...(an ? { atraso: an } : {}), ...(anterior(c) ? { anterior: c.anterior } : {}) });
       for (const k of ks) await db.doc("creditos/" + k.id).update({ usadoEm: ref.id });
-      await db.doc("clientes/" + id).update({ pagoAte: depois, ...(soAtraso ? {} : { plano: tipo }), ...(anterior(c) ? { anterior: null } : {}) });
+      await db.doc("clientes/" + id).update({ pagoAte: depois, ...(soAtraso ? {} : { plano: tipo, ...fimSuspensao(c, addDays(base, 3)) }), ...(anterior(c) ? { anterior: null } : {}) });
       aberto = null; toast(c.nome + ": pago até " + br(depois));
     } catch (e) { toast("Não salvou: " + (e && e.message || "tente de novo"), true); }
     ocupado = false; render();
@@ -1127,7 +1132,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       const ref = await db.collection("pagamentos").add({ clienteId: id, nome: dados.nome, tipo: pd.pl || "semanal", valor: pd.v, credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois: pd.fim, criadoEm: Date.now(), pedidoId: pedidoId || "",
         ...(alvo && devido(alvo) ? { atraso: devido(alvo) } : {}), ...(alvo && anterior(alvo) ? { anterior: alvo.anterior } : {}) });
       for (const k of ks) await db.doc("creditos/" + k.id).update({ usadoEm: ref.id });
-      await db.doc("clientes/" + id).update({ pagoAte: pd.fim, ...(alvo && anterior(alvo) ? { anterior: null } : {}) });
+      await db.doc("clientes/" + id).update({ pagoAte: pd.fim, ...(alvo && anterior(alvo) ? { anterior: null } : {}), ...(alvo ? fimSuspensao(alvo, pd.i || pd.ini) : {}) });
     }
     if (pedidoId) {
       await db.doc("pedidos/" + pedidoId).update({ status: "aceito", clienteId: id, aceitoEm: Date.now() });
