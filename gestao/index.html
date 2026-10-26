@@ -454,7 +454,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     { id:"clientes", nome:"Clientes", ic:"users" },
     { id:"entregas", nome:"Entregas", ic:"truck" },
     { id:"cobranca", nome:"Cobrança", ic:"copy" },
-    { id:"fin", nome:"Financeiro", ic:"wallet" }
+    { id:"fin", nome:"Financeiro", ic:"wallet" },
+    { id:"prosp", nome:"Próximos condomínios", ic:"leaf" }
   ];
 
   const agora = new Date();
@@ -494,7 +495,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function fimDevido(c){ const d = atrasoDias(c); const ult = d.length ? d[d.length - 1] : anterior(c) ? (c.inicio || "") : ""; return ult ? sextaDe(ult) : ""; }
 
   let db = null, cfg = { rotas:{}, pessoal:{}, extras:{} }, raw = [], clientes = [], pags = [], creds = [], pedidos = [];
-  let cobCond = "", view = "geral", filtro = "todos", busca = "", cond = "", aberto = null, abertos = new Set(), editId = null, ocupado = false, eTab = "Padaria", eData = "";
+  let prosp = [], prospSel = "", cobCond = "", view = "geral", filtro = "todos", busca = "", cond = "", aberto = null, abertos = new Set(), editId = null, ocupado = false, eTab = "Padaria", eData = "";
   let loaded = { cli:false };
   try { view = localStorage.getItem("pncg-view") || "geral"; filtro = localStorage.getItem("pncg-filtro") || "todos"; } catch (e) {}
   if (!VIEWS.some(v => v.id === view)) view = "geral";
@@ -606,6 +607,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     else if (view === "clientes") V.innerHTML = vClientes();
     else if (view === "entregas") V.innerHTML = vEntregas();
     else if (view === "cobranca") V.innerHTML = vCobranca();
+    else if (view === "prosp") V.innerHTML = vProsp();
     else V.innerHTML = vFin();
     paintIcons(V);
     V.querySelectorAll("img[data-logo]").forEach(i => i.src = LOGOS[i.dataset.logo]);
@@ -752,6 +754,28 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       <div class="panel"><div class="ptitle"><h2>${cobCond ? esc(cobCond) : "Todos"} <span class="count">${lst.length}</span></h2><span class="muted">${env} de ${lst.length} enviados · ${brl(total)} no semanal</span>${env < lst.length ? `<button class="b sm" type="button" data-cobtodos="1">${ic("check")}Marcar ${cobCond ? "todos daqui" : "todos"} como enviados</button>` : ""}</div>
       ${lst.length ? `<div class="rows">${lst.map(row).join("")}</div>` : `<div class="empty">${ic("check")}<h3>Ninguém para cobrar aqui.</h3><p>Todos já estão pagos até ${br(alvo)}.</p></div>`}</div>
       ${(() => { const cr = clientes.filter(c => (!cobCond || c.condominio === cobCond) && (c.pagoAte || "") < alvo && !c.recolher && cobPorCredito(c)); return cr.length ? `<div class="panel" style="margin-top:14px"><div class="ptitle"><h2>Crédito cobre a semana <span class="count">${cr.length}</span></h2><span class="muted">Não precisa mandar link. Toque em Pagar na ficha do cliente para usar o crédito.</span></div><div class="rows">${cr.map(c => `<div class="row"><div class="rline"><span class="ini" aria-hidden="true">${esc(c.nome.slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(c.nome)}</strong><small>${esc(c.condominio)} · crédito ${brl(credDe(c.id))} · semana ${brl(c.valor)}</small></div></div></div>`).join("")}</div></div>` : ""; })()}`;
+  }
+
+  // ---------- Próximos condomínios: onde ainda não entregamos, com a lista de moradores para contato ----------
+  function vProsp(){
+    const lst = prosp.slice().sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+    if (prospSel && !lst.some(p => p.id === prospSel)) prospSel = "";
+    const sel = lst.find(p => p.id === prospSel) || null, mor = sel ? (sel.moradores || []) : [];
+    const total = lst.reduce((s, p) => s + (p.moradores || []).length, 0);
+    return head("Prospecção", "Próximos condomínios.", `${lst.length} condomínio${lst.length === 1 ? "" : "s"} · ${total} morador${total === 1 ? "" : "es"} anotado${total === 1 ? "" : "s"}. Escolha um condomínio para ver e adicionar moradores.`) +
+      `<form class="filters" data-form="prospCond"><label class="search">${ic("plus")}<input name="nome" placeholder="Novo condomínio (ex.: Golden Village)" autocomplete="off" required></label><button class="b pri" type="submit">Adicionar condomínio</button></form>
+      <div class="conds" role="group" aria-label="Condomínios em prospecção">${lst.map(p => `<button type="button" data-pc="${p.id}" aria-pressed="${prospSel === p.id}">${esc(p.nome)}<span class="n">${(p.moradores || []).length}</span></button>`).join("")}</div>
+      ${!lst.length ? `<div class="panel"><div class="empty">${ic("leaf")}<h3>Nenhum condomínio ainda.</h3><p>Adicione acima os condomínios onde quer começar a entregar.</p></div></div>` : !sel ? `<div class="panel"><div class="empty">${ic("users")}<h3>Escolha um condomínio.</h3><p>Toque em um dos condomínios acima para ver os moradores.</p></div></div>` :
+      `<div class="panel"><div class="ptitle"><h2>${esc(sel.nome)} <span class="count">${mor.length}</span></h2><button class="b danger sm" type="button" data-pcdel="${sel.id}">Apagar condomínio</button></div>
+        <form class="fgrid" data-form="prospMor" style="padding:14px 16px;border-bottom:1px solid var(--line)">
+          <label>Nome<input name="nome" required autocomplete="off" placeholder="Nome do morador"></label>
+          <label>Casa<input name="casa" autocomplete="off" placeholder="Ex.: Casa 120"></label>
+          <label>Telefone<input name="tel" type="tel" inputmode="tel" autocomplete="off" placeholder="(18) 99999-9999"></label>
+          <label>Observação<input name="obs" autocomplete="off" placeholder="Ex.: indicado pela Ana, já provou o pão"></label>
+          <div class="wide"><button class="b pri" type="submit">${ic("plus")}Adicionar morador</button></div>
+        </form>
+        ${mor.length ? `<div class="rows">${mor.map((m, i) => `<div class="row"><div class="rline" style="flex-wrap:wrap"><span class="ini" aria-hidden="true">${esc((m.nome || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default;flex:1 1 200px;min-width:0"><strong>${esc(m.nome)}</strong><small style="white-space:normal">${[m.casa, m.tel, m.obs].filter(Boolean).map(esc).join(" · ") || "sem detalhes"}</small></div><div class="acts"><button class="b danger sm" type="button" data-pmdel="${i}">Remover</button></div></div></div>`).join("")}</div>` : `<div class="empty">${ic("users")}<h3>Nenhum morador ainda.</h3><p>Use o formulário acima para ir adicionando.</p></div>`}
+      </div>`}`;
   }
 
   function vEntregas(){
@@ -999,6 +1023,14 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       else if (a === "link") { await copiarLinkCliente(id, b); marcarEnviado([id]); }
       return; }
     const f = e.target.closest("button[data-f]"); if (f) { filtro = f.dataset.f; try { localStorage.setItem("pncg-filtro", filtro); } catch (er) {} render(); return; }
+    const pc = e.target.closest("button[data-pc]"); if (pc) { prospSel = prospSel === pc.dataset.pc ? "" : pc.dataset.pc; render(); return; }
+    const pmd = e.target.closest("button[data-pmdel]");
+    if (pmd) { const p = prosp.find(x => x.id === prospSel); if (!p || !db) return; if (pmd.dataset.ok !== "1") { pmd.dataset.ok = "1"; pmd.textContent = "Confirmar"; return; }
+      const mor = (p.moradores || []).filter((_, i) => i !== Number(pmd.dataset.pmdel));
+      try { await db.doc("prospeccao/" + p.id).update({ moradores: mor }); toast("Morador removido"); } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
+    const pcd = e.target.closest("button[data-pcdel]");
+    if (pcd) { if (pcd.dataset.ok !== "1") { pcd.dataset.ok = "1"; pcd.textContent = "Confirmar: apagar com os moradores"; return; }
+      try { await db.doc("prospeccao/" + pcd.dataset.pcdel).delete(); prospSel = ""; toast("Condomínio apagado"); } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
     const cc = e.target.closest("button[data-cc]"); if (cc) { cobCond = cc.dataset.cc; render(); return; }
     const cb = e.target.closest("button[data-cob]");
     if (cb) { const id = cb.dataset.cob; await copiarLinkCliente(id, cb); marcarEnviado([id]); return; }
@@ -1034,6 +1066,22 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       try { await navigator.clipboard.writeText(txt); toast(cp.dataset.copy === "rota" ? "Rota do " + eTab + " copiada" : "Pedido copiado"); }
       catch (er) { const ta = document.createElement("textarea"); ta.value = txt; ta.rows = 8; ta.style.cssText = "width:100%;margin-top:10px"; cp.after(ta); ta.select(); toast("Selecione e copie o texto"); }
     }
+  });
+  document.addEventListener("submit", async e => {
+    const f = e.target.closest("form[data-form]"); if (!f) return; e.preventDefault(); if (!db) return;
+    const v = Object.fromEntries([...new FormData(f)].map(([k, x]) => [k, String(x).trim()]));
+    try {
+      if (f.dataset.form === "prospCond") {
+        if (!v.nome) return;
+        if (prosp.some(p => norm(p.nome) === norm(v.nome))) { prospSel = prosp.find(p => norm(p.nome) === norm(v.nome)).id; render(); toast("Esse condomínio já está na lista"); return; }
+        let id = slug(v.nome) || "condominio"; while (prosp.some(p => p.id === id)) id += "-2";
+        prospSel = id; await db.doc("prospeccao/" + id).set({ nome: v.nome, moradores: [], criadoEm: Date.now() }); render(); toast("Condomínio adicionado: " + v.nome);
+      } else if (f.dataset.form === "prospMor") {
+        const p = prosp.find(x => x.id === prospSel); if (!p || !v.nome) return;
+        await db.doc("prospeccao/" + p.id).update({ moradores: [...(p.moradores || []), { nome: v.nome, casa: v.casa || "", tel: v.tel || "", obs: v.obs || "", criadoEm: Date.now() }] });
+        f.reset(); f.querySelector("input").focus(); toast("Morador adicionado em " + p.nome);
+      }
+    } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); }
   });
   document.addEventListener("input", e => {
     if (e.target.id === "busca") { busca = e.target.value; const pos = e.target.selectionStart; render(); const b = $("#busca"); if (b) { b.focus(); try { b.setSelectionRange(pos, pos); } catch (er) {} } }
@@ -1182,6 +1230,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     db.collection("pagamentos").onSnapshot(s => { pags = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
     db.collection("creditos").onSnapshot(s => { creds = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
     db.collection("pedidos").onSnapshot(s => { pedidos = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
+    db.collection("prospeccao").onSnapshot(s => { prosp = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
   })();
 })();
 </script>
