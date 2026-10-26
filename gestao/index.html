@@ -618,7 +618,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const lst = pedidosNovos(); if (!lst.length) return "";
     return `<section class="panel" style="margin-bottom:18px;border-color:color-mix(in srgb,var(--quin) 45%,var(--line))"><div class="ptitle" style="background:var(--quin-bg)"><h2>Pedidos novos pelo app <span class="count">${lst.length}</span></h2><span class="muted">Confira o Pix no banco: aceitar já marca como pago.</span></div>
       <div class="rows">${lst.map(p => { const fr = Object.entries(p.f || {}).map(([d, l]) => `${DOW[d]}: ${l.join(", ")}`).join(" | ");
-        return `<div class="row"><div class="rline" style="align-items:flex-start"><span class="ini" aria-hidden="true">${esc((p.n || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(p.n)}${p.t ? ' <span class="badge off">TESTE</span>' : ""}</strong><small style="white-space:normal">${esc(p.c)} · ${esc(p.h)} · ${p.p} pães · ${(p.d || []).length === 5 ? "seg a sex" : (p.d || []).map(d => DOWC[d]).join(", ")}${fr ? " · " + esc(fr) : ""}</small><small style="white-space:normal">${esc(p.pl)} <b>${brl(p.v)}</b> (${br(p.ini)} a ${br(p.fim)}) · começa ${br(p.i)}</small><small>${clienteDoPedido(p) ? `<span class="badge">Já é cliente</span>` : `<span class="badge cred">Cliente novo</span>`}${pedidosAnteriores(p).length ? ` <span class="badge off">Refez o pedido: vale este, o anterior (${pedidosAnteriores(p).map(x => `${esc(x.pl)} ${brl(x.v)}`).join(", ")}) será descartado</span>` : ""}</small></div>
+        return `<div class="row"><div class="rline" style="align-items:flex-start"><span class="ini" aria-hidden="true">${esc((p.n || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(p.n)}${p.t ? ' <span class="badge off">TESTE</span>' : ""}</strong><small style="white-space:normal">${esc(p.c)} · ${esc(p.h)} · ${p.p} pães · ${(p.d || []).length === 5 ? "seg a sex" : (p.d || []).map(d => DOWC[d]).join(", ")}${fr ? " · " + esc(fr) : ""}</small><small style="white-space:normal">${esc(p.pl)} <b>${brl(p.v)}</b> (${br(p.ini)} a ${br(p.fim)}) · começa ${br(p.i)}</small><small>${clienteDoPedido(p) ? `<span class="badge">Já é cliente${norm(clienteDoPedido(p).nome) !== norm(p.n) ? ": " + esc(clienteDoPedido(p).nome) : ""}</span>` : `<span class="badge cred">Cliente novo</span>`}${pedidosAnteriores(p).length ? ` <span class="badge off">Refez o pedido: vale este, o anterior (${pedidosAnteriores(p).map(x => `${esc(x.pl)} ${brl(x.v)}`).join(", ")}) será descartado</span>` : ""}</small></div>
           <div class="acts" style="flex-direction:column;align-items:stretch"><button class="b pri sm" type="button" data-ped="${p.id}">Pix caiu: aceitar e marcar pago</button><button class="b danger sm" type="button" data-pedx="${p.id}">Recusar</button></div></div></div>`; }).join("")}</div></section>`;
   }
   function vGeral(){
@@ -1093,7 +1093,16 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     $("#pSalvar").disabled = false;
   }
   $("#pTexto").addEventListener("input", previa);
-  const clienteDoPedido = pd => clientes.find(c => norm(c.nome.replace(/\s*\((teste|cortesia)\)/i, "")) === norm(pd.n) && norm(c.condominio) === norm(pd.c)) || null;
+  const nomeLimpo = c => norm(c.nome.replace(/\s*\((teste|cortesia)\)/i, "")).trim();
+  // Acha o cliente do pedido: nome igual no condomínio; se a pessoa mudou o nome (ex.: "Jennifer" → "Jennifer Brito"),
+  // aceita um único cliente do mesmo condomínio cujo nome começa igual, ou com o mesmo primeiro nome e a mesma casa
+  const clienteDoPedido = pd => {
+    const n = norm(pd.n).trim(), noCond = clientes.filter(c => norm(c.condominio) === norm(pd.c) && !/duplicado/i.test(c.nome));
+    const igual = noCond.find(c => nomeLimpo(c) === n); if (igual) return igual;
+    const prim = s => s.split(/[\s/]+/)[0], casa = norm(pd.h || "").replace(/\D/g, "");
+    const parecidos = noCond.filter(c => { const b = nomeLimpo(c); return n.startsWith(b + " ") || b.startsWith(n + " ") || (prim(b) === prim(n) && casa && norm(c.endereco || "").replace(/\D/g, "") === casa); });
+    return parecidos.length === 1 ? parecidos[0] : null;
+  };
   // Aceitar o pedido = o Pix já foi conferido: atualiza o cliente e já registra o pagamento
   async function salvarPedido(pd, pedidoId){
     const alvo = clienteDoPedido(pd);
