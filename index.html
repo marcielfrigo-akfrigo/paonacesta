@@ -301,8 +301,18 @@ function segundaDe(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); const w = 
 const mesDaSemana = seg => mais(seg, 3).getMonth();
 function proximaSegunda(){ const h = new Date(); h.setHours(0, 0, 0, 0); return mais(h, ((8 - h.getDay()) % 7) || 7); }
 // Primeiro dia que dá para receber: amanhã (pedido até 12h) ou depois de amanhã; nunca sábado/domingo
+// Link pessoal de quem já é cliente: o plano começa na segunda da semana que está sendo cobrada
+// (?ini=AAAA-MM-DD vindo do app de gestão; sem ele, de segunda a quinta é a segunda desta semana)
+const INICIO_SEMANA = (() => {
+  if (!qp.get("n")) return null;
+  const h = new Date(); h.setHours(0, 0, 0, 0); const segAtual = mais(h, h.getDay() === 0 ? -6 : 1 - h.getDay());
+  const ini = qp.get("ini");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ini || "")) { const d = parse(ini); if (d.getDay() === 1 && d >= segAtual && d <= mais(segAtual, 14)) return d; }
+  return h.getDay() >= 1 && h.getDay() <= 4 ? segAtual : null;
+})();
 // Quem já é cliente (link pessoal) já está na rota: pode seguir no próximo dia útil a qualquer hora
-function primeiroDia(){ const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), h.getHours() < 12 || qp.get("n") ? 1 : 2); while (d.getDay() === 0 || d.getDay() === 6 || CONFIG.feriados[iso(d)]) d = mais(d, 1); return d; }
+function primeiroDia(){
+  if (INICIO_SEMANA) return new Date(INICIO_SEMANA); const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), h.getHours() < 12 || qp.get("n") ? 1 : 2); while (d.getDay() === 0 || d.getDay() === 6 || CONFIG.feriados[iso(d)]) d = mais(d, 1); return d; }
 function inicioEscolhido(){
   let d = $("#inicio") && $("#inicio").value ? parse($("#inicio").value) : proximaSegunda();
   const p = primeiroDia(); if (d < p) d = p;
@@ -378,6 +388,8 @@ const textoPlano = (c, k) => (ANTERIOR.valor ? "dias já recebidos + " : "") + (
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
 
 function opcoesInicio(){
+  if (INICIO_SEMANA) { const a = INICIO_SEMANA, b = mais(a, 7), hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    return [[iso(a), a <= hoje ? "Esta semana" : "Segunda, " + ddmm(a), `${ddmm(a)} a ${ddmm(mais(a, 4))}`], [iso(b), "Semana seguinte", `${ddmm(b)} a ${ddmm(mais(b, 4))}`]]; }
   const p = primeiroDia(), seg = p.getDay() === 1 ? p : mais(p, 8 - p.getDay());
   const o = [[iso(p), `${p.getDay() === mais(new Date(), 1).getDay() ? "Amanhã" : DIASEM[p.getDay()][0].toUpperCase() + DIASEM[p.getDay()].slice(1)}`, `${DIASEM[p.getDay()]}, ${ddmm(p)}`]];
   if (iso(seg) !== iso(p)) o.push([iso(seg), "Segunda que vem", ddmm(seg)]);
@@ -506,7 +518,7 @@ if (qp.get("p")) {
   if (qp.get("n")) { const b = document.createElement("div"); b.className = "boasvindas"; b.innerHTML = `<b></b><span>Seu pedido já vem com o que você recebe hoje. Confira, mude o que quiser e faça o Pix.</span>`; b.querySelector("b").textContent = `Olá, ${qp.get("n").split(" ")[0]}!`; $("#tela-pedido").prepend(b); }
 }
 $("#inicio").min = iso(primeiroDia());
-if (!$("#inicio").value || $("#inicio").value < $("#inicio").min) $("#inicio").value = iso(primeiroDia());
+if (!$("#inicio").value || $("#inicio").value < $("#inicio").min || INICIO_SEMANA) $("#inicio").value = iso(primeiroDia());
 $("#inicio").addEventListener("change", render);
 $("#avisoTeste").hidden = !TESTE;
 render();
