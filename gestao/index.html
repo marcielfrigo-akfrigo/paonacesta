@@ -503,8 +503,15 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   // Junta os dados de entrega guardados em config/app com o que foi editado no próprio cliente
   function mesclar(){
     clientes = raw.map(c => { const e = Object.assign({}, (cfg.extras || {})[c.id] || {}); for (const k in c) if (c[k] !== undefined) e[k] = c[k]; e.id = c.id; return e; });
+    // Condomínio digitado com outro acento/maiúscula ("Valência 1" e "Valencia 1") vira um só: vale a grafia mais usada
+    const conta = {};
+    clientes.forEach(c => { const k = chaveCond(c.condominio), g = String(c.condominio || "").trim(); (conta[k] = conta[k] || {})[g] = (conta[k][g] || 0) + 1; });
+    clientes.forEach(c => { const v = conta[chaveCond(c.condominio)]; c.condominio = Object.keys(v).sort((a, b) => v[b] - v[a])[0]; });
   }
-  const entregadorDe = c => (cfg.rotas || {})[c.condominio] || "Sem rota";
+  const chaveCond = s => norm(s).replace(/\s+/g, " ").trim();
+  // Grafia já usada do condomínio (para gravar igual aos outros); se for novo, fica como foi digitado
+  const condCanon = s => (clientes.find(c => chaveCond(c.condominio) === chaveCond(s)) || {}).condominio || String(s || "").trim();
+  const entregadorDe = c => { const r = cfg.rotas || {}; if (r[c.condominio]) return r[c.condominio]; const k = Object.keys(r).find(n => chaveCond(n) === chaveCond(c.condominio)); return k ? r[k] : "Sem rota"; };
 
   // Suspensão: vale até o dia da volta; a partir do meio-dia da véspera o cliente já volta para a lista normal
   function suspNaData(c, D){ if (!c.suspenso) return false; if (c.suspIni && D < c.suspIni) return false; if (c.volta && D >= c.volta) return false; return true; }
@@ -794,7 +801,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const m = (p.moradores || [])[idx]; if (!m || m.clienteId) return null;
     let id = slug(p.nome + " " + m.nome) || "cliente"; while (clientes.some(c => c.id === id)) id += "-2";
     const paes = Number(m.paes) || 5;
-    await db.doc("clientes/" + id).set({ nome: m.nome, condominio: p.nome, endereco: m.casa || "", plano: "semanal", valor: precoSemana(paes, m.frios), paes, frios: m.frios || "", dias: [],
+    await db.doc("clientes/" + id).set({ nome: m.nome, condominio: condCanon(p.nome), endereco: m.casa || "", plano: "semanal", valor: precoSemana(paes, m.frios), paes, frios: m.frios || "", dias: [],
       pagoAte: "", inicio: "", suspenso: true, suspIni: "", volta: "", motivo: "Lista de espera: aguardando o primeiro pedido pelo link", recolher: false,
       obs: [m.tel ? "Tel " + m.tel : "", m.obs || "", "Veio da lista de espera"].filter(Boolean).join(" · ") });
     return id;
@@ -1143,7 +1150,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   $("#formC").addEventListener("submit", async e => {
     e.preventDefault(); if (!db) return;
     const dias = [...document.querySelectorAll("#fDias input")].filter(i => i.checked).map(i => Number(i.value));
-    const dados = { nome: $("#fNome").value.trim(), condominio: $("#fCond").value.trim(), endereco: $("#fEnd").value.trim(), plano: $("#fPlano").value,
+    const dados = { nome: $("#fNome").value.trim(), condominio: condCanon($("#fCond").value), endereco: $("#fEnd").value.trim(), plano: $("#fPlano").value,
       valor: Number($("#fValor").value) || 0, paes: Number($("#fPaes").value) || 0, pagoAte: $("#fPago").value || "", frios: $("#fFrios").value.trim(),
       dias: dias.length === 5 ? [] : dias, inicio: $("#fInicio").value || "", suspenso: $("#fSusp").checked, suspIni: $("#fSuspIni").value || "",
       volta: $("#fVolta").value || "", motivo: $("#fMotivo").value.trim(), recolher: $("#fRecolher").checked, obs: $("#fObs").value.trim() };
@@ -1199,7 +1206,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const alvo = clienteDoPedido(pd);
     const frios = Object.entries(pd.f || {}).map(([d, l]) => `${DOWC[d]}: ${l.map(i => i.toLowerCase()).join(" e ")}`).join(" | ");
     const linha = `Pedido pelo app em ${br(HOJE)}: ${pd.pl} ${brl(pd.v)}${pd.a ? ` (com ${brl(pd.a)} em atraso)` : ""} (${br(pd.ini)} a ${br(pd.fim)}). Pix conferido.${pd.t ? " PEDIDO DE TESTE (valores ÷10)." : ""}`;
-    const dados = { nome: pd.n + (pd.t && !/teste/i.test(pd.n) ? " (teste)" : ""), condominio: pd.c, endereco: pd.h || "", plano: pd.pl || "semanal",
+    const dados = { nome: pd.n + (pd.t && !/teste/i.test(pd.n) ? " (teste)" : ""), condominio: condCanon(pd.c), endereco: pd.h || "", plano: pd.pl || "semanal",
       valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i || "", obs: linha };
     let id;
     if (alvo) {
