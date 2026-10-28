@@ -1,0 +1,200 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#513624">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Rota">
+<link rel="apple-touch-icon" href="../logo-pao-na-cesta.png"><link rel="icon" href="../logo-pao-na-cesta.png">
+<title>Rota · Pão na Cesta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Libre+Caslon+Display&display=swap">
+<style>
+/* Rota do entregador: lista do dia pronta, botão Ir (Google Maps / Waze), Entregue e salvar o local da casa */
+:root{--bg:#f9f7f1;--card:#fffefa;--line:#e9e4d9;--ink:#3b2a1d;--muted:#7c6a58;--brown:#513624;--cream:#fff7e8;--ok:#2e6b4f;--okbg:#e6f1ea;--red:#b0503a;--redbg:#fbecE7;--yel:#fff4c2;--cor:#6b4a2e}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "DM Sans",system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+[hidden]{display:none!important}
+header{background:var(--brown);color:var(--cream);padding:16px 16px 14px;position:sticky;top:0;z-index:5;padding-top:calc(16px + env(safe-area-inset-top,0px))}
+header .top{display:flex;align-items:center;gap:10px}
+header img{width:40px;height:40px;border-radius:10px;background:var(--cream);object-fit:contain;padding:3px}
+header h1{font:400 23px/1.1 "Libre Caslon Display",Georgia,serif;margin:0}
+header small{display:block;opacity:.8;font-size:13px;margin-top:2px}
+.bar{height:8px;border-radius:8px;background:rgba(255,247,232,.22);margin-top:12px;overflow:hidden}.bar i{display:block;height:100%;background:#9fd3b2;border-radius:8px;transition:width .3s}
+.prog{display:flex;justify-content:space-between;font-size:13px;margin-top:6px;opacity:.92}
+.dias{display:flex;gap:6px;margin-top:12px;overflow-x:auto}
+.dias button{flex:0 0 auto;border:1px solid rgba(255,247,232,.35);background:transparent;color:var(--cream);border-radius:999px;padding:7px 13px;font:600 14px "DM Sans",sans-serif}
+.dias button[aria-pressed=true]{background:var(--cream);color:var(--brown)}
+main{padding:14px 12px 120px;max-width:640px;margin:0 auto}
+.box{border-radius:14px;padding:12px 14px;margin:0 0 12px;font-size:15px}
+.box h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 6px}
+.box ul{margin:0;padding-left:18px}.box li{margin:3px 0}
+.box.red{background:var(--redbg);border:1px solid #efc9bd}.box.red h2{color:var(--red)}
+.box.inf{background:var(--card);border:1px solid var(--line)}.box.inf h2{color:var(--muted)}
+.box.yel{background:var(--yel);border:1px solid #e8d48a}
+.cond{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:18px 4px 8px}
+.st{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:0 0 10px;display:grid;grid-template-columns:34px 1fr auto;gap:4px 10px;align-items:start}
+.st .n{width:34px;height:34px;border-radius:50%;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:14px}
+.st .nm{font-weight:700;font-size:18px;line-height:1.2}.st .nm b{font-weight:800}
+.st .ru{color:var(--muted);font-size:14px}
+.st .fr{color:var(--red);font-weight:600;font-size:14px;margin-top:2px}
+.st .tg{display:inline-block;background:var(--okbg);color:var(--ok);font-size:12px;font-weight:700;border-radius:6px;padding:2px 7px;margin-top:4px}
+.st .pa{background:var(--brown);color:var(--cream);border-radius:999px;padding:5px 11px;font-weight:700;font-size:15px;white-space:nowrap}
+.st .acts{grid-column:1/-1;display:flex;gap:8px;margin-top:10px}
+.st .acts a,.st .acts button{flex:1;min-height:48px;border-radius:12px;font:700 16px "DM Sans",sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.st .acts .ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.st .loc{grid-column:1/-1;background:none;border:0;color:var(--muted);font:500 13px "DM Sans",sans-serif;text-decoration:underline;padding:8px 0 0;text-align:left}
+.st .loc.semloc{color:#7a5d12;background:var(--yel);border-radius:10px;padding:9px 10px;margin-top:8px;text-decoration:none;font-weight:600}
+.st.prox{border:2px solid var(--cor);box-shadow:0 6px 18px rgba(59,42,29,.12)}
+.st.prox .n{background:var(--cor);border-color:var(--cor);color:#fff}
+.st.feito{opacity:.55;padding:10px 14px}.st.feito .acts{margin-top:6px}.st.feito .acts a{display:none}
+.st.feito .acts .ok{background:var(--okbg);color:var(--ok);border-color:#bfdccb;min-height:40px;font-size:14px}
+.ordem{display:flex;gap:8px;margin:0 0 12px}
+.ordem button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font:600 14px "DM Sans",sans-serif;color:var(--ink)}
+.fim{text-align:center;padding:26px 12px;background:var(--okbg);border-radius:16px;color:var(--ok);font-weight:700;font-size:18px;margin-bottom:12px}
+.vazio{text-align:center;color:var(--muted);padding:40px 16px}
+footer{font-size:13px;color:var(--muted);text-align:center;margin-top:24px}
+footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans",sans-serif;text-decoration:underline}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:12px;padding:12px 16px;font-size:15px;z-index:20;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+</style></head><body>
+<header><div class="top"><img src="../logo-pao-na-cesta.png" alt=""><div><h1 id="tit">Rota</h1><small id="sub">Carregando…</small></div></div>
+<div class="bar" aria-hidden="true"><i id="barra" style="width:0"></i></div><div class="prog"><span id="prog"></span><span id="paes"></span></div>
+<div class="dias" id="dias" role="tablist"></div></header>
+<main id="main"><p class="vazio">Carregando a rota…</p></main>
+<script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyCDjC2i08rrbegFaBAPRg33wJLuHLjmEWk","authDomain":"pao-na-cesta.firebaseapp.com","projectId":"pao-na-cesta","storageBucket":"pao-na-cesta.firebasestorage.app","messagingSenderId":"562755057813","appId":"1:562755057813:web:61f7132e3d23bb211c039c"};</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, onSnapshot, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[ch]));
+const iso = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+const DOWL = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+const nomeDia = D => { const [y,m,d] = D.split("-").map(Number); return DOWL[new Date(y, m-1, d).getDay()] + ", " + D.slice(8,10) + "/" + D.slice(5,7); };
+const ls = { get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+function toast(t){ document.querySelectorAll(".toast").forEach(x => x.remove()); const el = document.createElement("div"); el.className = "toast"; el.setAttribute("role", "status"); el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
+
+const cod = location.hash.replace(/^#/, "").trim();
+const HOJE = iso(new Date());
+let R = null, dia = null, app = ls.get("rota-app") || "google";
+const locais = {};          // locais salvos agora neste celular (antes de a gestão gravar no cliente)
+let pos = null;             // última posição do GPS
+
+if (!cod) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Link incompleto. Peça de novo o link da sua rota ao Marciel.</p>`; }
+else {
+  const fs = getFirestore(initializeApp(window.FIREBASE_CONFIG));
+  const ref = doc(fs, "rotas", cod);
+  onSnapshot(ref, s => {
+    if (!s.exists()) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Rota não encontrada. Peça de novo o link ao Marciel.</p>`; return; }
+    R = s.data(); render();
+  }, () => { $("#sub").textContent = "Sem conexão"; $("#main").innerHTML = `<p class="vazio">Não consegui abrir a rota. Confira a internet e abra de novo.</p>`; });
+
+  // Entregue / desfazer
+  document.addEventListener("click", async e => {
+    const b = e.target.closest("[data-ok]"); if (b) {
+      const id = b.dataset.ok, feito = !!((R.entregues || {})[dia] || {})[id];
+      R.entregues = R.entregues || {}; R.entregues[dia] = { ...(R.entregues[dia] || {}) };
+      if (feito) delete R.entregues[dia][id]; else R.entregues[dia][id] = Date.now();
+      render();
+      try { await updateDoc(ref, { ["entregues." + dia + "." + id]: feito ? deleteField() : Date.now() }); }
+      catch (er) { toast("Sem internet: tente marcar de novo daqui a pouco."); }
+      if (!feito) window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    const l = e.target.closest("[data-loc]"); if (l) {
+      const it = itensDia().find(x => x.id === l.dataset.loc); if (!it) return;
+      if (!confirm(`Você está parado na frente da casa de ${it.nome}${it.casa ? " (" + it.casa + ")" : ""}?\n\nO celular vai gravar este lugar como o local da casa.`)) return;
+      if (!navigator.geolocation) { toast("Este celular não deixa usar o GPS aqui."); return; }
+      toast("Pegando o local pelo GPS…");
+      navigator.geolocation.getCurrentPosition(async p => {
+        const loc = { lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6), prec: Math.round(p.coords.accuracy), em: Date.now() };
+        locais[it.id] = loc; render();
+        try { await updateDoc(ref, { ["novosLocais." + it.id]: loc }); toast("Local da casa salvo ✓"); }
+        catch (er) { toast("Sem internet: o local não foi salvo. Tente de novo."); }
+      }, () => toast("Não consegui o GPS. Libere a localização para o navegador e tente de novo."), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+      return;
+    }
+    const d = e.target.closest("[data-dia]"); if (d) { dia = d.dataset.dia; render(); window.scrollTo(0, 0); return; }
+    if (e.target.closest("[data-ordenar]")) { ordenarPeloCaminho(); return; }
+    if (e.target.closest("[data-original]")) { ls.set("rota-ordem-" + dia, null); render(); toast("Voltou para a ordem da lista"); return; }
+    const a = e.target.closest("[data-app]"); if (a) { app = a.dataset.app; ls.set("rota-app", app); render(); return; }
+  });
+}
+
+const itensDia = () => ((R && R.dias && R.dias[dia]) || {}).itens || [];
+const locDe = it => locais[it.id] || (it.lat && it.lng ? { lat: it.lat, lng: it.lng } : null);
+function linkIr(it){
+  const l = locDe(it);
+  if (l) return app === "waze" ? `https://waze.com/ul?ll=${l.lat},${l.lng}&navigate=yes` : `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}&travelmode=driving`;
+  const q = [it.rua, it.casa, it.cond, "Presidente Prudente - SP"].filter(Boolean).join(", ");
+  return app === "waze" ? `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+
+// Ordem pelo caminho: a partir de onde o entregador está, vai sempre para a casa mais perto
+// (por condomínio: termina um antes de ir para o próximo). Casas sem local ficam no fim do condomínio.
+const dist = (a, b) => { const k = Math.PI / 180, x = (b.lng - a.lng) * k * Math.cos((a.lat + b.lat) / 2 * k), y = (b.lat - a.lat) * k; return Math.hypot(x, y); };
+function ordenarPeloCaminho(){
+  if (!navigator.geolocation) { toast("Este celular não deixa usar o GPS aqui."); return; }
+  toast("Vendo onde você está…");
+  navigator.geolocation.getCurrentPosition(p => {
+    pos = { lat: p.coords.latitude, lng: p.coords.longitude };
+    const itens = itensDia(), grupos = {};
+    itens.forEach(it => (grupos[it.cond] = grupos[it.cond] || []).push(it));
+    const centro = g => { const c = g.map(locDe).filter(Boolean); return c.length ? { lat: c.reduce((s, l) => s + l.lat, 0) / c.length, lng: c.reduce((s, l) => s + l.lng, 0) / c.length } : null; };
+    let aqui = pos; const ordem = [];
+    const conds = Object.keys(grupos), comLoc = conds.filter(c => centro(grupos[c])), semLoc = conds.filter(c => !centro(grupos[c]));
+    while (comLoc.length) {
+      comLoc.sort((a, b) => dist(aqui, centro(grupos[a])) - dist(aqui, centro(grupos[b])));
+      const g = grupos[comLoc.shift()], resto = g.filter(locDe);
+      while (resto.length) { resto.sort((a, b) => dist(aqui, locDe(a)) - dist(aqui, locDe(b))); const it = resto.shift(); ordem.push(it.id); aqui = locDe(it); }
+      g.filter(it => !locDe(it)).forEach(it => ordem.push(it.id));
+    }
+    semLoc.forEach(c => grupos[c].forEach(it => ordem.push(it.id)));
+    ls.set("rota-ordem-" + dia, ordem); render(); toast("Rota organizada pelo caminho ✓");
+  }, () => toast("Não consegui o GPS. Libere a localização para o navegador."), { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
+}
+
+function render(){
+  if (!R) return;
+  const dias = Object.keys(R.dias || {}).filter(D => D >= HOJE).sort();
+  if (!dia || !dias.includes(dia)) dia = dias[0];
+  document.documentElement.style.setProperty("--cor", R.cor || "#6b4a2e");
+  $("#tit").textContent = "Rota do " + (R.entregador || "");
+  document.title = "Rota do " + (R.entregador || "") + " · Pão na Cesta";
+  $("#dias").innerHTML = dias.slice(0, 3).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}</button>`).join("");
+  if (!dia) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Nenhuma rota publicada para os próximos dias.</p>`; return; }
+  const X = R.dias[dia], ok = (R.entregues || {})[dia] || {};
+  // ordem: a salva pelo "Organizar pelo caminho" (se ainda serve) ou a da lista da gestão
+  const salva = ls.get("rota-ordem-" + dia), base = X.itens || [];
+  let itens = base;
+  if (Array.isArray(salva)) { const p = new Map(salva.map((id, i) => [id, i])); itens = base.slice().sort((a, b) => (p.has(a.id) ? p.get(a.id) : 1e3 + base.indexOf(a)) - (p.has(b.id) ? p.get(b.id) : 1e3 + base.indexOf(b))); }
+  const num = new Map(itens.map((it, i) => [it.id, i + 1]));
+  const falta = itens.filter(it => !ok[it.id]), feitos = itens.filter(it => ok[it.id]);
+  const nOk = feitos.length, tot = itens.length;
+  $("#sub").textContent = nomeDia(dia) + (dia === HOJE ? " · hoje" : "");
+  $("#barra").style.width = tot ? Math.round(nOk / tot * 100) + "%" : "0";
+  $("#prog").textContent = `${nOk} de ${tot} entregues`;
+  $("#paes").textContent = `${X.paes || 0} pães${(X.pessoal || []).length ? " (com sua sacola)" : ""}`;
+
+  const card = (it, prox) => {
+    const l = locDe(it), feito = !!ok[it.id];
+    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}"><span class="n">${num.get(it.id)}</span>
+      <div><div class="nm">${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">+ ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<span class="tg">CLIENTE NOVA · LEVAR A CESTA</span>` : ""}</div>
+      <span class="pa">${it.paes} pães</span>
+      <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a><button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div>
+      ${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">Corrigir o local desta casa</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Sem local salvo: toque aqui quando estiver na frente da casa</button>`}</div>`;
+  };
+  let h = "";
+  if ((X.recolher || []).length) h += `<div class="box red"><h2>Recolher a cesta (não entregar)</h2><ul>${X.recolher.map(r => `<li><b>${esc(r.nome)}</b>${r.casa ? " " + esc(r.casa) : ""} · ${esc(r.cond)}</li>`).join("")}</ul></div>`;
+  if (falta.length) {
+    h += `<div class="ordem"><button type="button" data-ordenar>📍 Organizar pelo caminho</button>${Array.isArray(salva) ? `<button type="button" data-original>Ordem da lista</button>` : ""}</div>`;
+    let cond = "";
+    falta.forEach((it, i) => { if (it.cond !== cond) { cond = it.cond; h += `<div class="cond">${esc(cond)}</div>`; } h += card(it, i === 0); });
+  } else if (tot) h += `<div class="fim">Todas as ${tot} entregas feitas. Bom trabalho! 🥖</div>`;
+  else h += `<p class="vazio">Nenhuma entrega neste dia.</p>`;
+  if ((X.fora || []).length) h += `<div class="box inf"><h2>Não entregar neste dia</h2><ul>${X.fora.map(f => `<li>${esc(f.nome)} · ${esc(f.cond)} <span style="color:var(--muted)">(${esc(f.txt)})</span></li>`).join("")}</ul></div>`;
+  if ((X.pessoal || []).length) h += `<div class="box inf"><h2>Sua sacola</h2>${X.pessoal.join(" + ")} pães</div>`;
+  if (feitos.length) { h += `<div class="cond">Entregues (${feitos.length})</div>`; feitos.forEach(it => h += card(it, false)); }
+  h += `<footer>Abrir o caminho no: <button type="button" data-app="google"${app === "google" ? ' style="font-weight:800"' : ""}>Google Maps</button> · <button type="button" data-app="waze"${app === "waze" ? ' style="font-weight:800"' : ""}>Waze</button><br>A rota atualiza sozinha quando o Marciel muda alguma coisa.</footer>`;
+  $("#main").innerHTML = h;
+}
+</script>
+</body></html>

@@ -599,10 +599,56 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     return { D, P, porE, sacT, friT, sacN, paesT, entT };
   }
   const tit = D => DOWL[parse(D).getDay()] + "-feira, " + br(D);
+  // ---------- Rota no celular do entregador (paonacesta.com.br/rota/#código) ----------
+  // A gestão publica em rotas/{código} a rota dos próximos dias; o entregador só lê, marca "entregue" e salva o local da casa
+  const ROTA_URL = "https://paonacesta.com.br/rota/#";
+  let rotasDocs = {}, pubTimer = null; const pubUltimo = {};
+  const codigoNovo = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+  const ehEntrega = D => { const w = parse(D).getDay(); return w >= 1 && w <= 5 && !FERIADOS[D]; };
+  function diasRota(){ const out = []; let D = HOJE; while (out.length < 4) { if (ehEntrega(D)) out.push(D); D = addDays(D, 1); } return out; }
+  function casaRua(end){ const m = String(end || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i); return m ? { casa: m[2], rua: m[1] } : { casa: "", rua: String(end || "").trim() }; }
+  const parada = c => { const { casa, rua } = casaRua(c.endereco); return { id: c.id, nome: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), cond: c.condominio, casa, rua, ...(c.lat && c.lng ? { lat: c.lat, lng: c.lng } : {}) }; };
+  function rotaDoDia(e, M){
+    const x = M.porE[e] || { lista: [], paes: 0, mud: [], recolher: [] };
+    return { paes: x.paes, pessoal: (cfg.pessoal || {})[e] || [],
+      itens: x.lista.map(({ c, f }) => ({ ...parada(c), paes: c.paes, frios: f, nova: c.inicio === M.D })),
+      recolher: x.recolher.map(parada),
+      fora: x.mud.filter(m => m.s === "-").map(m => ({ nome: parada(m.c).nome, cond: m.c.condominio, txt: m.txt })) };
+  }
+  function agendarRotas(){ clearTimeout(pubTimer); pubTimer = setTimeout(publicarRotas, 1500); }
+  async function publicarRotas(){
+    if (!db || !loaded.cli || !loaded.rotas) return;
+    const cod = Object.assign({}, cfg.rotaCod || {});
+    const faltam = ENT.filter(e => e !== "Marciel" && !cod[e]);
+    if (faltam.length) { faltam.forEach(e => cod[e] = codigoNovo()); try { await db.doc("config/app").update({ rotaCod: cod }); } catch (err) {} return; }   // a gravação volta pelo onSnapshot e publica
+    const Ms = diasRota().map(montar);
+    for (const e of Object.keys(cod)) {
+      const dados = { entregador: e, cor: COR[e] || "", dias: Object.fromEntries(Ms.map(M => [M.D, rotaDoDia(e, M)])) };
+      const txt = JSON.stringify(dados); if (pubUltimo[e] === txt) continue;
+      try {
+        const ref = db.doc("rotas/" + cod[e]);
+        if (rotasDocs[cod[e]]) await ref.update({ ...dados, atualizadoEm: Date.now() });
+        else await ref.set({ ...dados, atualizadoEm: Date.now(), entregues: {}, novosLocais: {} });
+        pubUltimo[e] = txt;
+      } catch (err) {}
+    }
+  }
+  // Local da casa salvo pelo entregador: passa para o cadastro do cliente e limpa o pedido
+  async function guardarLocais(){
+    for (const [cod, r] of Object.entries(rotasDocs)) {
+      const novos = Object.entries(r.novosLocais || {}); if (!novos.length) continue;
+      try {
+        for (const [id, l] of novos) if (clientes.some(c => c.id === id) && l && l.lat && l.lng) await db.doc("clientes/" + id).update({ lat: l.lat, lng: l.lng });
+        await db.doc("rotas/" + cod).update({ novosLocais: {} });
+      } catch (err) {}
+    }
+  }
+  const entreguesDe = (e, D) => { const r = rotasDocs[(cfg.rotaCod || {})[e]]; return (r && r.entregues && r.entregues[D]) || {}; };
   const valorDia = c => { const n = Array.isArray(c.dias) && c.dias.length ? c.dias.length : 5; return Math.round((c.valor || 0) / n * 100) / 100; };
 
   // ---------- Telas ----------
   function render(){
+    agendarRotas();
     const v = VIEWS.find(x => x.id === view);
     const nDev = devendo().length;
     const navHtml = VIEWS.map(x => `<button type="button" data-go="${x.id}"${x.id === view ? ' aria-current="page"' : ""}>${ic(x.ic)}<span>${x.nome}</span>${x.id === "clientes" && nDev ? `<b>${nDev}</b>` : ""}${x.id === "cobranca" && cobFaltam() ? `<b>${cobFaltam()}</b>` : ""}${x.id === "geral" && pedidosNovos().length ? `<b style="background:var(--quin)">${pedidosNovos().length}</b>` : ""}</button>`).join("");
@@ -834,16 +880,18 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     } else {
       const x = pe[eTab] || { lista: [], sac: {}, paes: 0, mud: [], recolher: [] };
       let rows = "", condAtual = "", i = 0;
+      const ok = entreguesDe(eTab, D), nOk = x.lista.filter(({ c }) => ok[c.id]).length, cod = (cfg.rotaCod || {})[eTab];
       x.lista.forEach(({ c, f }) => {
         if (c.condominio !== condAtual) { condAtual = c.condominio; rows += `<tr class="condh"><td colspan="3"><span>${esc(condAtual)}</span></td></tr>`; }
         i++;
         const tags = (c.inicio === D ? `<span class="tag nova">LEVAR CESTA</span>` : "") + (/cortesia/i.test(c.nome + " " + (c.obs || "")) ? `<span class="tag cort">CORTESIA</span>` : "");
         const jaCred = creds.some(k => k.clienteId === c.id && k.dataEntrega === D);
-        rows += `<tr><td class="rn">${String(i).padStart(2, "0")}</td><td><b>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</b>${tags}${c.endereco ? `<br><span class="muted">${esc(c.endereco)}</span>` : ""}${f.length ? `<br><span class="fr">+ ${f.join(", ")}</span>` : ""}<br>${jaCred ? `<span class="badge cred">Crédito lançado</span>` : `<button class="mini" type="button" data-ne="${c.id}">Não entregue</button>`}</td><td class="r"><span class="qt">${c.paes} pães</span></td></tr>`;
+        rows += `<tr><td class="rn">${String(i).padStart(2, "0")}</td><td>${ok[c.id] ? `<span class="badge cred">✓ Entregue ${new Date(ok[c.id]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> ` : ""}<b>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</b>${tags}${c.lat ? "" : ` <span class="muted" title="O entregador ainda não salvou o local desta casa">· sem local</span>`}${c.endereco ? `<br><span class="muted">${esc(c.endereco)}</span>` : ""}${f.length ? `<br><span class="fr">+ ${f.join(", ")}</span>` : ""}${ok[c.id] ? "" : `<br>${jaCred ? `<span class="badge cred">Crédito lançado</span>` : `<button class="mini" type="button" data-ne="${c.id}">Não entregue</button>`}`}</td><td class="r"><span class="qt">${c.paes} pães</span></td></tr>`;
       });
       const novas = x.lista.filter(({ c }) => c.inicio === D);
       const pes = (cfg.pessoal || {})[eTab] || [];
       corpo = `<div class="panel"><div class="ptitle"><h2><span style="color:${COR[eTab] || "inherit"}">●</span> Rota do ${esc(eTab)} <span class="count">${x.lista.length + pes.length} entregas · ${x.paes} pães</span></h2><div class="acts"><button class="b pri sm" type="button" data-arq="rota">${ic("arrow")}Baixar rota para o WhatsApp</button><button class="b sm" type="button" data-copy="rota">${ic("copy")}Copiar texto</button></div></div>
+        ${cod ? `<div class="blk"><h3>Rota no celular</h3>${x.lista.length ? `<b>${nOk} de ${x.lista.length}</b> entregues · ` : ""}O ${esc(eTab)} abre este link e segue a rota pronta: <a href="${ROTA_URL + cod}" target="_blank" rel="noopener">${ROTA_URL.replace("https://", "") + cod}</a><br><button class="b sm" type="button" data-rotalink="${esc(eTab)}" style="margin-top:8px">${ic("copy")}Copiar link do ${esc(eTab)}</button></div>` : ""}
         <div class="ovx"><table class="tbl">${rows || `<tr><td>Nenhuma entrega neste dia.</td></tr>`}</table></div>
         ${novas.length ? `<div class="blk green"><h3>Clientes novos: levar a cesta</h3><ul>${novas.map(({ c }) => `<li>${esc(c.nome)} · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
         ${x.recolher.length ? `<div class="blk red"><h3>Recolher a cesta, não entregar</h3><ul>${x.recolher.map(c => `<li>${esc(c.nome)} · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
@@ -1097,6 +1145,12 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       catch (er) { if (!er || er.code !== "declined") toast("Não salvou o arquivo. Use “Copiar texto”.", true); }
       return;
     }
+    const rl = e.target.closest("button[data-rotalink]");
+    if (rl) {
+      const e2 = rl.dataset.rotalink, txt = `Bom dia, ${e2}! Sua rota do Pão na Cesta fica sempre neste link (salve na tela do celular): ${ROTA_URL + (cfg.rotaCod || {})[e2]}`;
+      try { await navigator.clipboard.writeText(txt); toast("Link do " + e2 + " copiado"); } catch (er) { prompt("Copie o link:", txt); }
+      return;
+    }
     const cp = e.target.closest("button[data-copy]");
     if (cp) {
       const M = montar(eData || proxEntrega()), tam = Object.keys(M.sacT).map(Number).sort((a, b) => b - a);
@@ -1271,6 +1325,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     db.collection("pagamentos").onSnapshot(s => { pags = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
     db.collection("creditos").onSnapshot(s => { creds = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
     db.collection("pedidos").onSnapshot(s => { pedidos = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
+    db.collection("rotas").onSnapshot(s => { rotasDocs = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); loaded.rotas = true; guardarLocais(); render(); }, () => {});
     db.collection("prospeccao").onSnapshot(s => { prosp = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
   })();
 })();
