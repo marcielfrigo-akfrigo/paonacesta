@@ -61,8 +61,8 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 <main id="main"><p class="vazio">Carregando a rota…</p></main>
 <script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyCDjC2i08rrbegFaBAPRg33wJLuHLjmEWk","authDomain":"pao-na-cesta.firebaseapp.com","projectId":"pao-na-cesta","storageBucket":"pao-na-cesta.firebasestorage.app","messagingSenderId":"562755057813","appId":"1:562755057813:web:61f7132e3d23bb211c039c"};</script>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, onSnapshot, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// O Firebase é carregado depois (import dinâmico): a rota aparece primeiro por uma leitura simples, que funciona em qualquer celular
+const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[ch]));
@@ -78,14 +78,37 @@ let R = null, dia = null, app = ls.get("rota-app") || "google";
 const locais = {};          // locais salvos agora neste celular (antes de a gestão gravar no cliente)
 let pos = null;             // última posição do GPS
 
+const naoAchou = () => { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Rota não encontrada. Peça de novo o link ao Marciel.</p>`; };
+const semConexao = () => { if (R) return; $("#sub").textContent = "Sem conexão"; $("#main").innerHTML = `<p class="vazio">Não consegui abrir a rota. Confira a internet.<br><br><button type="button" class="ok" onclick="location.reload()">Tentar de novo</button></p>`; };
+// valor do Firestore REST -> valor normal
+const val = v => "mapValue" in v ? campos(v.mapValue.fields) : "arrayValue" in v ? (v.arrayValue.values || []).map(val)
+  : "integerValue" in v ? Number(v.integerValue) : "doubleValue" in v ? v.doubleValue : "booleanValue" in v ? v.booleanValue
+  : "stringValue" in v ? v.stringValue : "timestampValue" in v ? v.timestampValue : null;
+const campos = f => Object.fromEntries(Object.entries(f || {}).map(([k, v]) => [k, val(v)]));
+let fb = null;              // { ref, updateDoc, deleteField } quando o Firebase terminar de carregar
+let fbPronto;
+const fbEspera = new Promise(r => fbPronto = r);
+async function gravar(campo, valor) {   // valor null = apagar
+  const f = await Promise.race([fbEspera, new Promise((_, n) => setTimeout(n, 15000))]);
+  await f.updateDoc(f.ref, { [campo]: valor === null ? f.deleteField() : valor });
+}
+
 if (!cod) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Link incompleto. Peça de novo o link da sua rota ao Marciel.</p>`; }
 else {
-  const fs = getFirestore(initializeApp(window.FIREBASE_CONFIG));
-  const ref = doc(fs, "rotas", cod);
-  onSnapshot(ref, s => {
-    if (!s.exists()) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Rota não encontrada. Peça de novo o link ao Marciel.</p>`; return; }
-    R = s.data(); render();
-  }, () => { $("#sub").textContent = "Sem conexão"; $("#main").innerHTML = `<p class="vazio">Não consegui abrir a rota. Confira a internet e abra de novo.</p>`; });
+  const C = window.FIREBASE_CONFIG;
+  fetch(`https://firestore.googleapis.com/v1/projects/${C.projectId}/databases/(default)/documents/rotas/${encodeURIComponent(cod)}?key=${C.apiKey}`, { cache: "no-store" })
+    .then(r => r.status === 404 ? (R || naoAchou(), null) : r.ok ? r.json() : Promise.reject())
+    .then(j => { if (j && !R) { R = campos(j.fields); render(); } })
+    .catch(() => {});
+  setTimeout(semConexao, 15000);
+  (async () => {
+    const { initializeApp } = await import(SDK + "firebase-app.js");
+    const { initializeFirestore, doc, onSnapshot, updateDoc, deleteField } = await import(SDK + "firebase-firestore.js");
+    const db = initializeFirestore(initializeApp(C), { experimentalForceLongPolling: true });
+    const ref = doc(db, "rotas", cod);
+    fb = { ref, updateDoc, deleteField }; fbPronto(fb);
+    onSnapshot(ref, s => { if (!s.exists()) return naoAchou(); R = s.data(); render(); }, () => {});
+  })().catch(() => {});
 
   // Entregue / desfazer
   document.addEventListener("click", async e => {
@@ -94,7 +117,7 @@ else {
       R.entregues = R.entregues || {}; R.entregues[dia] = { ...(R.entregues[dia] || {}) };
       if (feito) delete R.entregues[dia][id]; else R.entregues[dia][id] = Date.now();
       render();
-      try { await updateDoc(ref, { ["entregues." + dia + "." + id]: feito ? deleteField() : Date.now() }); }
+      try { await gravar("entregues." + dia + "." + id, feito ? null : Date.now()); }
       catch (er) { toast("Sem internet: tente marcar de novo daqui a pouco."); }
       if (!feito) window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -107,7 +130,7 @@ else {
       navigator.geolocation.getCurrentPosition(async p => {
         const loc = { lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6), prec: Math.round(p.coords.accuracy), em: Date.now() };
         locais[it.id] = loc; render();
-        try { await updateDoc(ref, { ["novosLocais." + it.id]: loc }); toast("Local da casa salvo ✓"); }
+        try { await gravar("novosLocais." + it.id, loc); toast("Local da casa salvo ✓"); }
         catch (er) { toast("Sem internet: o local não foi salvo. Tente de novo."); }
       }, () => toast("Não consegui o GPS. Libere a localização para o navegador e tente de novo."), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
       return;
