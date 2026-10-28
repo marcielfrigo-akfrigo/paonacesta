@@ -30,23 +30,26 @@ main{padding:14px 12px 120px;max-width:640px;margin:0 auto}
 .box.red{background:var(--redbg);border:1px solid #efc9bd}.box.red h2{color:var(--red)}
 .box.inf{background:var(--card);border:1px solid var(--line)}.box.inf h2{color:var(--muted)}
 .box.yel{background:var(--yel);border:1px solid #e8d48a}
-.cond{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:18px 4px 8px}
-.st{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:0 0 10px;display:grid;grid-template-columns:34px 1fr auto;gap:4px 10px;align-items:start}
-.st .n{width:34px;height:34px;border-radius:50%;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:14px}
-.st .nm{font-weight:700;font-size:18px;line-height:1.2}.st .nm b{font-weight:800}
-.st .ru{color:var(--muted);font-size:14px}
-.st .fr{color:var(--red);font-weight:600;font-size:14px;margin-top:2px}
-.st .tg{display:inline-block;background:var(--okbg);color:var(--ok);font-size:12px;font-weight:700;border-radius:6px;padding:2px 7px;margin-top:4px}
-.st .pa{background:var(--brown);color:var(--cream);border-radius:999px;padding:5px 11px;font-weight:700;font-size:15px;white-space:nowrap}
-.st .acts{grid-column:1/-1;display:flex;gap:8px;margin-top:10px}
-.st .acts a,.st .acts button{flex:1;min-height:48px;border-radius:12px;font:700 16px "DM Sans",sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.cond{position:sticky;top:var(--hh,0px);z-index:3;display:flex;align-items:baseline;justify-content:space-between;gap:8px;background:var(--cor);color:#fff;font-size:18px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;margin:16px -12px 8px;padding:9px 14px;box-shadow:0 2px 6px rgba(59,42,29,.18)}
+.cond small{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;opacity:.9;white-space:nowrap}
+.cond.cinza{background:var(--line);color:var(--muted);font-size:14px;box-shadow:none}
+.st{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:0 0 6px;display:grid;grid-template-columns:24px 1fr auto;gap:2px 8px;align-items:center}
+.st .n{width:24px;height:24px;border-radius:50%;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:12px}
+.st .nm{font-weight:600;font-size:15px;line-height:1.2}.st .nm b{font-weight:800}
+.st .ru{color:var(--muted);font-size:12.5px;line-height:1.25}
+.st .fr{color:var(--red);font-weight:600;font-size:12.5px}
+.st .tg{display:inline-block;background:var(--okbg);color:var(--ok);font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin-top:2px}
+.st .pa{background:var(--brown);color:var(--cream);border-radius:999px;padding:3px 9px;font-weight:700;font-size:13px;white-space:nowrap}
+.st .acts{grid-column:1/-1;display:flex;gap:6px;margin-top:6px}
+.st .acts a,.st .acts button{flex:1;min-height:38px;border-radius:9px;font:700 14px "DM Sans",sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;text-decoration:none;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 .st .acts .ok{background:var(--ok);border-color:var(--ok);color:#fff}
-.st .loc{grid-column:1/-1;background:none;border:0;color:var(--muted);font:500 13px "DM Sans",sans-serif;text-decoration:underline;padding:8px 0 0;text-align:left}
-.st .loc.semloc{color:#7a5d12;background:var(--yel);border-radius:10px;padding:9px 10px;margin-top:8px;text-decoration:none;font-weight:600}
-.st.prox{border:2px solid var(--cor);box-shadow:0 6px 18px rgba(59,42,29,.12)}
+.st .acts .loc{flex:.9;font-size:12.5px;font-weight:600;color:var(--muted)}
+.st .acts .semloc{background:var(--yel);border-color:#e8d48a;color:#7a5d12}
+.st .acts .ok{flex:1.2}
+.st.prox{border:2px solid var(--cor);box-shadow:0 4px 12px rgba(59,42,29,.12)}
 .st.prox .n{background:var(--cor);border-color:var(--cor);color:#fff}
-.st.feito{opacity:.55;padding:10px 14px}.st.feito .acts{margin-top:6px}.st.feito .acts a{display:none}
-.st.feito .acts .ok{background:var(--okbg);color:var(--ok);border-color:#bfdccb;min-height:40px;font-size:14px}
+.st.feito{opacity:.55;padding:6px 10px}.st.feito .acts{margin-top:4px}.st.feito .acts a{display:none}
+.st.feito .acts .ok{background:var(--okbg);color:var(--ok);border-color:#bfdccb;min-height:32px;font-size:13px}
 .ordem{display:flex;gap:8px;margin:0 0 12px}
 .ordem button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font:600 14px "DM Sans",sans-serif;color:var(--ink)}
 .fim{text-align:center;padding:26px 12px;background:var(--okbg);border-radius:16px;color:var(--ok);font-weight:700;font-size:18px;margin-bottom:12px}
@@ -202,22 +205,33 @@ function render(){
     return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}"><span class="n">${num.get(it.id)}</span>
       <div><div class="nm">${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">+ ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<span class="tg">CLIENTE NOVA · LEVAR A CESTA</span>` : ""}</div>
       <span class="pa">${it.paes} pães</span>
-      <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a><button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div>
-      ${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">Corrigir o local desta casa</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Sem local salvo: toque aqui quando estiver na frente da casa</button>`}</div>`;
+      <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a>${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">📍 Corrigir local</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Salvar local</button>`}<button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div></div>`;
   };
   let h = "";
   if ((X.recolher || []).length) h += `<div class="box red"><h2>Recolher a cesta (não entregar)</h2><ul>${X.recolher.map(r => `<li><b>${esc(r.nome)}</b>${r.casa ? " " + esc(r.casa) : ""} · ${esc(r.cond)}</li>`).join("")}</ul></div>`;
   if (falta.length) {
     h += `<div class="ordem"><button type="button" data-ordenar>📍 Organizar pelo caminho</button>${Array.isArray(salva) ? `<button type="button" data-original>Ordem da lista</button>` : ""}</div>`;
     let cond = "";
-    falta.forEach((it, i) => { if (it.cond !== cond) { cond = it.cond; h += `<div class="cond">${esc(cond)}</div>`; } h += card(it, i === 0); });
+    falta.forEach((it, i) => {
+      if (it.cond !== cond) {
+        cond = it.cond; let n = 0, p = 0;
+        for (let j = i; j < falta.length && falta[j].cond === cond; j++) { n++; p += falta[j].paes || 0; }
+        h += `${i ? "</section>" : ""}<section><div class="cond">${esc(cond)}<small>${n} ${n === 1 ? "entrega" : "entregas"} · ${p} pães</small></div>`;
+      }
+      h += card(it, i === 0);
+    });
+    h += "</section>";   // cada condomínio numa seção: o título só fica grudado no topo enquanto a lista dele está na tela
   } else if (tot) h += `<div class="fim">Todas as ${tot} entregas feitas. Bom trabalho! 🥖</div>`;
   else h += `<p class="vazio">Nenhuma entrega neste dia.</p>`;
   if ((X.fora || []).length) h += `<div class="box inf"><h2>Não entregar neste dia</h2><ul>${X.fora.map(f => `<li>${esc(f.nome)} · ${esc(f.cond)} <span style="color:var(--muted)">(${esc(f.txt)})</span></li>`).join("")}</ul></div>`;
   if ((X.pessoal || []).length) h += `<div class="box inf"><h2>Sua sacola</h2>${X.pessoal.join(" + ")} pães</div>`;
-  if (feitos.length) { h += `<div class="cond">Entregues (${feitos.length})</div>`; feitos.forEach(it => h += card(it, false)); }
+  if (feitos.length) { h += `<section><div class="cond cinza">Entregues (${feitos.length})</div>`; feitos.forEach(it => h += card(it, false)); h += "</section>"; }
   h += `<footer>Abrir o caminho no: <button type="button" data-app="google"${app === "google" ? ' style="font-weight:800"' : ""}>Google Maps</button> · <button type="button" data-app="waze"${app === "waze" ? ' style="font-weight:800"' : ""}>Waze</button><br>A rota atualiza sozinha quando o Marciel muda alguma coisa.</footer>`;
   $("#main").innerHTML = h;
+  alturaTopo();
 }
+// o nome do condomínio gruda logo abaixo do topo marrom ao rolar
+function alturaTopo(){ document.documentElement.style.setProperty("--hh", document.querySelector("header").offsetHeight + "px"); }
+addEventListener("resize", alturaTopo);
 </script>
 </body></html>
