@@ -39,7 +39,8 @@ main{padding:14px 12px 120px;max-width:640px;margin:0 auto}
 .st .n{width:24px;height:24px;border-radius:50%;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:12px}
 .st .nm{font-weight:600;font-size:15px;line-height:1.2}.st .nm b{font-weight:800}
 .st .ru{color:var(--muted);font-size:12.5px;line-height:1.25}
-.st .fr{color:var(--red);font-weight:600;font-size:12.5px}
+.st .fr{display:inline-block;background:#e07a1f;color:#fff;font-weight:800;font-size:13.5px;border-radius:7px;padding:3px 8px;margin-top:4px;letter-spacing:.02em}
+.st.temfr{border:2px solid #e07a1f;background:#fff4e8}
 .st .tg{display:inline-block;background:var(--okbg);color:var(--ok);font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin-top:2px}
 .st .pa{background:var(--brown);color:var(--cream);border-radius:999px;padding:3px 9px;font-weight:700;font-size:13px;white-space:nowrap}
 .st .acts{grid-column:1/-1;display:flex;gap:6px;margin-top:6px}
@@ -61,6 +62,7 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:12px;padding:12px 16px;font-size:15px;z-index:20;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
 /* Mapa próprio: cada casa com número, nome, casa e pães (frios em laranja) */
 .cond .mapa{border:0;font-family:"DM Sans",sans-serif}
+.dias button .q{background:#e07a1f;color:#fff;border-radius:999px;padding:0 6px;margin-left:4px;font-size:12px}
 #mapa{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;flex-direction:column}
 #mapa .mt{background:var(--brown);color:var(--cream);display:flex;align-items:center;gap:10px;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
 #mapa .mt b{flex:1;font-size:16px;text-transform:uppercase;letter-spacing:.03em}
@@ -301,7 +303,7 @@ function render(){
   document.documentElement.style.setProperty("--cor", R.cor || "#6b4a2e");
   $("#tit").textContent = "Rota do " + (R.entregador || "");
   document.title = "Rota do " + (R.entregador || "") + " · Pão na Cesta";
-  $("#dias").innerHTML = dias.slice(0, 3).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}</button>`).join("");
+  $("#dias").innerHTML = dias.slice(0, 5).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}${(R.dias[D].itens || []).some(it => it.frios && it.frios.length) ? `<span class="q">🧀</span>` : ""}</button>`).join("");
   if (!dia) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Nenhuma rota publicada para os próximos dias.</p>`; return; }
   const X = R.dias[dia], ok = (R.entregues || {})[dia] || {};
   // ordem: a salva pelo "Organizar pelo caminho" (se ainda serve) ou a da lista da gestão
@@ -319,8 +321,8 @@ function render(){
 
   const card = (it, prox) => {
     const l = locDe(it), feito = !!ok[it.id];
-    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}"><span class="n">${num.get(it.id)}</span>
-      <div><div class="nm">${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">+ ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<span class="tg">CLIENTE NOVA · LEVAR A CESTA</span>` : ""}</div>
+    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}${it.frios && it.frios.length ? " temfr" : ""}"><span class="n">${num.get(it.id)}</span>
+      <div><div class="nm">${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 LEVAR FRIOS: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<span class="tg">CLIENTE NOVA · LEVAR A CESTA</span>` : ""}</div>
       <span class="pa">${it.paes} pães</span>
       <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a>${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">📍 Corrigir local</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Salvar local</button>`}<button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div></div>`;
   };
