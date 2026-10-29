@@ -31,7 +31,9 @@ main{padding:14px 12px 120px;max-width:640px;margin:0 auto}
 .box.inf{background:var(--card);border:1px solid var(--line)}.box.inf h2{color:var(--muted)}
 .box.yel{background:var(--yel);border:1px solid #e8d48a}
 .cond{position:sticky;top:var(--hh,0px);z-index:3;display:flex;align-items:baseline;justify-content:space-between;gap:8px;background:var(--cor);color:#fff;font-size:18px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;margin:16px -12px 8px;padding:9px 14px;box-shadow:0 2px 6px rgba(59,42,29,.18)}
-.cond small{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;opacity:.9;white-space:nowrap}
+.cond{align-items:center}.cond span{min-width:0}
+.cond small{display:block;font-size:12.5px;font-weight:600;letter-spacing:0;text-transform:none;opacity:.9;margin-top:1px}
+.cond .mapa{flex:0 0 auto;background:#fff;color:var(--cor);border-radius:9px;padding:8px 12px;font-size:14px;font-weight:800;letter-spacing:0;text-transform:none;text-decoration:none}
 .cond.cinza{background:var(--line);color:var(--muted);font-size:14px;box-shadow:none}
 .st{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:0 0 6px;display:grid;grid-template-columns:24px 1fr auto;gap:2px 8px;align-items:center}
 .st .n{width:24px;height:24px;border-radius:50%;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:12px}
@@ -147,6 +149,12 @@ else {
 
 const itensDia = () => ((R && R.dias && R.dias[dia]) || {}).itens || [];
 const locDe = it => locais[it.id] || (it.lat && it.lng ? { lat: it.lat, lng: it.lng } : null);
+// Google Maps com as casas do condomínio que faltam, em sequência (sai do local atual; o app aceita até 10 paradas)
+function linkMapa(lista){
+  const ps = lista.map(it => { const l = locDe(it); return l ? l.lat + "," + l.lng : [it.rua, it.casa, it.cond, "Presidente Prudente - SP"].filter(Boolean).join(", "); }).slice(0, 10);
+  const fim = ps.pop();
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fim)}${ps.length ? "&waypoints=" + encodeURIComponent(ps.join("|")) : ""}&travelmode=driving`;
+}
 function linkIr(it){
   const l = locDe(it);
   if (l) return app === "waze" ? `https://waze.com/ul?ll=${l.lat},${l.lng}&navigate=yes` : `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}&travelmode=driving`;
@@ -214,9 +222,10 @@ function render(){
     let cond = "";
     falta.forEach((it, i) => {
       if (it.cond !== cond) {
-        cond = it.cond; let n = 0, p = 0;
-        for (let j = i; j < falta.length && falta[j].cond === cond; j++) { n++; p += falta[j].paes || 0; }
-        h += `${i ? "</section>" : ""}<section><div class="cond">${esc(cond)}<small>${n} ${n === 1 ? "entrega" : "entregas"} · ${p} pães</small></div>`;
+        cond = it.cond; const grupo = [];
+        for (let j = i; j < falta.length && falta[j].cond === cond; j++) grupo.push(falta[j]);
+        const n = grupo.length, p = grupo.reduce((s, x) => s + (x.paes || 0), 0);
+        h += `${i ? "</section>" : ""}<section><div class="cond"><span>${esc(cond)}<small>${n} ${n === 1 ? "entrega" : "entregas"} · ${p} pães</small></span><a class="mapa" href="${linkMapa(grupo)}" target="_blank" rel="noopener">🗺 Mapa</a></div>`;
       }
       h += card(it, i === 0);
     });
