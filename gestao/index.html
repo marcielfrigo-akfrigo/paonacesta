@@ -595,7 +595,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     Object.entries(cfg.pessoal || {}).forEach(([e, qs]) => { const x = ent(e); (qs || []).forEach(q => { x.sac[q] = (x.sac[q] || 0) + 1; x.paes += q; }); });
     // condomínios na ordem que o entregador faz (config/app ordemCond); os que não estão na lista vão depois, em ordem alfabética
     Object.entries(porE).forEach(([e, x]) => { const oc = ((cfg.ordemCond || {})[e] || []).map(chaveCond), pc = c => { const i = oc.indexOf(chaveCond(c.condominio)); return i < 0 ? 99 : i; };
-      x.lista.sort((a, b) => pc(a.c) - pc(b.c) || a.c.condominio.localeCompare(b.c.condominio) || (a.c.ordem || 999) - (b.c.ordem || 999) || a.c.nome.localeCompare(b.c.nome)); });
+      x.lista.sort((a, b) => pc(a.c) - pc(b.c) || a.c.condominio.localeCompare(b.c.condominio) || (a.c.ordem || 999) - (b.c.ordem || 999) || a.c.nome.localeCompare(b.c.nome));
+      x.lista = caminhoPorCond(x.lista); });
     let sacN = 0, paesT = 0, entT = 0; const sacT = {}, friT = {};
     Object.values(porE).forEach(x => { Object.entries(x.sac).forEach(([q, n]) => { sacT[q] = (sacT[q] || 0) + n; sacN += n; }); paesT += x.paes; entT += x.lista.length; Object.entries(x.frios).forEach(([i, n]) => friT[i] = (friT[i] || 0) + n); });
     return { D, P, porE, sacT, friT, sacN, paesT, entT };
@@ -610,6 +611,33 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function diasRota(){ const out = []; let D = HOJE; while (out.length < 4) { if (ehEntrega(D)) out.push(D); D = addDays(D, 1); } return out; }
   function casaRua(end){ const m = String(end || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i); return m ? { casa: m[2], rua: m[1] } : { casa: "", rua: String(end || "").trim() }; }
   const parada = c => { const { casa, rua } = casaRua(c.endereco); return { id: c.id, nome: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), cond: c.condominio, casa, rua, ...(c.lat && c.lng ? { lat: c.lat, lng: c.lng } : {}) }; };
+  // Dentro de cada condomínio, as casas com local salvo vão na ordem do caminho mais curto (as sem local ficam no fim do condomínio)
+  const distM = (a, b) => { const k = 111320, dx = (a.lng - b.lng) * k * Math.cos(a.lat * Math.PI / 180), dy = (a.lat - b.lat) * k; return Math.hypot(dx, dy); };
+  function caminhoCurto(ps){
+    if (ps.length < 3) return ps;
+    const tam = r => r.reduce((s, p, i) => i ? s + distM(r[i - 1], p) : 0, 0);
+    let melhor = null, mt = Infinity;
+    ps.forEach(ini => {   // testa começar por cada casa: vizinho mais próximo e depois troca de trechos (2-opt)
+      const r = [ini], resto = ps.filter(p => p !== ini);
+      while (resto.length) { const u = r[r.length - 1]; let k = 0; resto.forEach((p, i) => { if (distM(u, p) < distM(u, resto[k])) k = i; }); r.push(resto.splice(k, 1)[0]); }
+      for (let mudou = true; mudou;) { mudou = false;
+        for (let i = 1; i < r.length - 1; i++) for (let j = i + 1; j < r.length; j++) {
+          const antes = distM(r[i - 1], r[i]) + (j + 1 < r.length ? distM(r[j], r[j + 1]) : 0), depois = distM(r[i - 1], r[j]) + (j + 1 < r.length ? distM(r[i], r[j + 1]) : 0);
+          if (depois < antes - 0.5) { r.splice(i, j - i + 1, ...r.slice(i, j + 1).reverse()); mudou = true; } } }
+      const t = tam(r); if (t < mt) { mt = t; melhor = r; }
+    });
+    return melhor;
+  }
+  function caminhoPorCond(lista){
+    const out = []; let i = 0;
+    while (i < lista.length) {
+      const k = chaveCond(lista[i].c.condominio), g = [];
+      while (i < lista.length && chaveCond(lista[i].c.condominio) === k) g.push(lista[i++]);
+      const com = g.filter(x => x.c.lat && x.c.lng).map(x => ({ x, lat: x.c.lat, lng: x.c.lng }));
+      out.push(...caminhoCurto(com).map(p => p.x), ...g.filter(x => !(x.c.lat && x.c.lng)));
+    }
+    return out;
+  }
   function rotaDoDia(e, M){
     const x = M.porE[e] || { lista: [], paes: 0, mud: [], recolher: [] };
     return { paes: x.paes, pessoal: (cfg.pessoal || {})[e] || [],
