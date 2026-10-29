@@ -59,11 +59,36 @@ main{padding:14px 12px 120px;max-width:640px;margin:0 auto}
 footer{font-size:13px;color:var(--muted);text-align:center;margin-top:24px}
 footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans",sans-serif;text-decoration:underline}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:12px;padding:12px 16px;font-size:15px;z-index:20;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+/* Mapa próprio: cada casa com número, nome, casa e pães (frios em laranja) */
+.cond .mapa{border:0;font-family:"DM Sans",sans-serif}
+#mapa{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;flex-direction:column}
+#mapa .mt{background:var(--brown);color:var(--cream);display:flex;align-items:center;gap:10px;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+#mapa .mt b{flex:1;font-size:16px;text-transform:uppercase;letter-spacing:.03em}
+#mapa .mt button{border:0;background:var(--cream);color:var(--brown);border-radius:9px;padding:8px 12px;font:800 14px "DM Sans",sans-serif}
+#mapa .mt small{font-size:12px;opacity:.85;font-weight:600;text-transform:none;letter-spacing:0;display:block}
+#mapaArea{flex:1;min-height:0}
+.pin{position:absolute;left:0;top:0;transform:translate(-12px,calc(-100% - 7px));display:flex;align-items:center;gap:4px;background:#fff;color:var(--ink);border:1.5px solid var(--cor);border-radius:8px;padding:2px 6px 2px 2px;font:700 11px/1.1 "DM Sans",sans-serif;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.pin small{display:block;font-size:10px;font-weight:600;color:var(--muted)}.pin.fr small{color:#b5520f;font-weight:800}
+.pin::after{content:"";position:absolute;left:7px;bottom:-7px;border:5px solid transparent;border-top:6px solid var(--cor);border-bottom:0}
+.pin i{font-style:normal;background:var(--cor);color:#fff;border-radius:6px;min-width:20px;height:20px;display:grid;place-items:center;font-size:11.5px;padding:0 3px}
+.pin.fr{border-color:#e07a1f}.pin.fr::after{border-top-color:#e07a1f}.pin.fr i{background:#e07a1f}
+.pin.prox{transform:translate(-12px,calc(-100% - 7px)) scale(1.15);transform-origin:12px 100%;z-index:2;background:var(--yel)}
+.pin.sel{outline:3px solid #1a73e8}
+.longe .pin span{display:none}.longe .pin{padding:2px}
+.pin.ok{opacity:.55;border-color:var(--ok)}.pin.ok::after{border-top-color:var(--ok)}.pin.ok i{background:var(--ok)}
+.ponto{width:10px;height:10px;border-radius:50%;background:var(--cor);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3);transform:translate(-5px,-5px)}
+#mapaFicha{background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px))}
+#mapaFicha .nm{font-weight:700;font-size:16px}#mapaFicha .nm b{font-weight:800}
+#mapaFicha .fr{color:var(--red);font-weight:700;font-size:13px}
+#mapaFicha .acts{display:flex;gap:6px;margin-top:8px}
+#mapaFicha .acts a,#mapaFicha .acts button{flex:1;min-height:42px;border-radius:10px;font:700 15px "DM Sans",sans-serif;display:flex;align-items:center;justify-content:center;text-decoration:none;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+#mapaFicha .acts .ok{background:var(--ok);border-color:var(--ok);color:#fff}
 </style></head><body>
 <header><div class="top"><img src="../logo-pao-na-cesta.png" alt=""><div><h1 id="tit">Rota</h1><small id="sub">Carregando…</small></div></div>
 <div class="bar" aria-hidden="true"><i id="barra" style="width:0"></i></div><div class="prog"><span id="prog"></span><span id="paes"></span></div>
 <div class="dias" id="dias" role="tablist"></div></header>
 <main id="main"><p class="vazio">Carregando a rota…</p></main>
+<div id="mapa" hidden><div class="mt"><b id="mapaTit"></b><button type="button" data-fechar-mapa>✕ Lista</button></div><div id="mapaArea"></div><div id="mapaFicha"></div></div>
 <script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyCDjC2i08rrbegFaBAPRg33wJLuHLjmEWk","authDomain":"pao-na-cesta.firebaseapp.com","projectId":"pao-na-cesta","storageBucket":"pao-na-cesta.firebasestorage.app","messagingSenderId":"562755057813","appId":"1:562755057813:web:61f7132e3d23bb211c039c"};</script>
 <script type="module">
 // O Firebase é carregado depois (import dinâmico): a rota aparece primeiro por uma leitura simples, que funciona em qualquer celular
@@ -124,7 +149,8 @@ else {
       render();
       try { await gravar("entregues." + dia + "." + id, feito ? null : Date.now()); }
       catch (er) { toast("Sem internet: tente marcar de novo daqui a pouco."); }
-      if (!feito) window.scrollTo({ top: 0, behavior: "smooth" });
+      if (!feito && !M.aberto) window.scrollTo({ top: 0, behavior: "smooth" });
+      if (!feito && M.aberto) { M.sel = null; desenharMapa(); }
       return;
     }
     const l = e.target.closest("[data-loc]"); if (l) {
@@ -140,6 +166,8 @@ else {
       }, () => toast("Não consegui o GPS. Libere a localização para o navegador e tente de novo."), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
       return;
     }
+    const m = e.target.closest("[data-mapa]"); if (m) { abrirMapa(m.dataset.mapa); return; }
+    if (e.target.closest("[data-fechar-mapa]")) { fecharMapa(); return; }
     const d = e.target.closest("[data-dia]"); if (d) { dia = d.dataset.dia; render(); window.scrollTo(0, 0); return; }
     if (e.target.closest("[data-ordenar]")) { ordenarPeloCaminho(); return; }
     if (e.target.closest("[data-original]")) { ls.set("rota-ordem-" + dia, null); render(); toast("Voltou para a ordem da lista"); return; }
@@ -149,12 +177,6 @@ else {
 
 const itensDia = () => ((R && R.dias && R.dias[dia]) || {}).itens || [];
 const locDe = it => locais[it.id] || (it.lat && it.lng ? { lat: it.lat, lng: it.lng } : null);
-// Google Maps com as casas do condomínio que faltam, em sequência (sai do local atual; o app aceita até 10 paradas)
-function linkMapa(lista){
-  const ps = lista.map(it => { const l = locDe(it); return l ? l.lat + "," + l.lng : [it.rua, it.casa, it.cond, "Presidente Prudente - SP"].filter(Boolean).join(", "); }).slice(0, 10);
-  const fim = ps.pop();
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fim)}${ps.length ? "&waypoints=" + encodeURIComponent(ps.join("|")) : ""}&travelmode=driving`;
-}
 function linkIr(it){
   const l = locDe(it);
   if (l) return app === "waze" ? `https://waze.com/ul?ll=${l.lat},${l.lng}&navigate=yes` : `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}&travelmode=driving`;
@@ -186,6 +208,85 @@ function ordenarPeloCaminho(){
   }, () => toast("Não consegui o GPS. Libere a localização para o navegador."), { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
 }
 
+// ---------- Mapa próprio (Leaflet): etiqueta em cada casa com nº da ordem, nome, casa e pães ----------
+let V = { itens: [], num: new Map(), ok: {} };
+const M = { aberto: false, cond: "", map: null, camada: null, sel: null, linhas: {}, ajustado: "", eu: null };
+const LEAF = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+let leafEspera = null;
+function carregarLeaflet(){
+  if (window.L) return Promise.resolve();
+  if (!leafEspera) leafEspera = new Promise((ok, erro) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = LEAF + "leaflet.min.css"; document.head.appendChild(css);
+    const js = document.createElement("script"); js.src = LEAF + "leaflet.min.js"; js.onload = ok; js.onerror = () => { leafEspera = null; erro(); }; document.head.appendChild(js);
+  });
+  return leafEspera;
+}
+async function abrirMapa(cond){
+  M.aberto = true; M.cond = cond; M.sel = null; M.ajustado = "";
+  $("#mapa").hidden = false; document.body.style.overflow = "hidden";
+  try { await carregarLeaflet(); } catch (e) { toast("Sem internet para abrir o mapa."); fecharMapa(); return; }
+  if (!M.map) {
+    M.map = L.map("mapaArea", { zoomControl: false, attributionControl: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(M.map);
+    M.camada = L.layerGroup().addTo(M.map);
+    // de longe só o número (os nomes se amontoam); chegando perto aparecem nome, casa e pães
+    const zoomNomes = () => $("#mapaArea").classList.toggle("longe", M.map.getZoom() < 16);
+    M.map.on("zoomend", zoomNomes); M.map.whenReady(zoomNomes);
+    M.map.on("click", () => { M.sel = null; desenharMapa(); });
+    // bolinha azul: onde o entregador está agora
+    if (navigator.geolocation) navigator.geolocation.watchPosition(p => {
+      const ll = [p.coords.latitude, p.coords.longitude];
+      if (M.eu) M.eu.setLatLng(ll); else M.eu = L.circleMarker(ll, { radius: 8, color: "#fff", weight: 3, fillColor: "#1a73e8", fillOpacity: 1 }).addTo(M.map);
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 5000 });
+  }
+  setTimeout(() => { M.map.invalidateSize(); desenharMapa(); }, 30);
+}
+function fecharMapa(){ M.aberto = false; $("#mapa").hidden = true; document.body.style.overflow = ""; }
+// linha pelas ruas (OSRM); se não der, linha reta tracejada
+async function linhaRuas(pts){
+  const chave = pts.map(p => p.lat + "," + p.lng).join(";");
+  if (M.linhas[chave]) return M.linhas[chave];
+  try {
+    const r = await fetch("https://router.project-osrm.org/route/v1/driving/" + pts.map(p => p.lng + "," + p.lat).join(";") + "?overview=full&geometries=geojson");
+    const j = await r.json(); if (!j.routes || !j.routes[0]) throw 0;
+    return M.linhas[chave] = j.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+  } catch (e) { return null; }
+}
+// nome curto para a etiqueta: "Marina B.", "Anaue"
+const curto = n => { const p = String(n || "").replace(/\(.*?\)/g, "").split(/[\s\/]+/).filter(Boolean); return p.length > 1 ? p[0] + " " + p[1][0] + "." : p[0] || ""; };
+function desenharMapa(){
+  if (!M.map || !R) return;
+  const todos = V.itens.filter(it => !M.cond || it.cond === M.cond), com = todos.filter(locDe);
+  const falta = todos.filter(it => !V.ok[it.id]), prox = falta[0];
+  const nPaes = falta.reduce((s, it) => s + (it.paes || 0), 0);
+  $("#mapaTit").innerHTML = `${esc(M.cond || "Rota do dia")}<small>${falta.length ? `Faltam ${falta.length} · ${nPaes} pães` : "Tudo entregue ✓"}${todos.length > com.length ? ` · ${todos.length - com.length} sem local salvo` : ""}</small>`;
+  M.camada.clearLayers();
+  // linha por condomínio, ligando as casas que faltam na ordem
+  const grupos = {}; falta.filter(locDe).forEach(it => (grupos[it.cond] = grupos[it.cond] || []).push(locDe(it)));
+  Object.values(grupos).forEach(async pts => {
+    if (pts.length < 2) return;
+    const reta = pts.map(p => [p.lat, p.lng]);
+    const tracejada = L.polyline(reta, { color: R.cor || "#6b4a2e", weight: 3, opacity: .5, dashArray: "6 6" }).addTo(M.camada);
+    const ruas = await linhaRuas(pts);
+    if (ruas && M.aberto) { M.camada.removeLayer(tracejada); L.polyline(ruas, { color: R.cor || "#6b4a2e", weight: 5, opacity: .75 }).addTo(M.camada); }
+  });
+  com.forEach(it => {
+    const l = locDe(it), feito = !!V.ok[it.id], fr = it.frios && it.frios.length;
+    const cls = "pin" + (fr ? " fr" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
+    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.paes} pães${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}</small></span></div>`;
+    L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : 0 })
+      .on("click", ev => { L.DomEvent.stopPropagation(ev); M.sel = it.id; desenharMapa(); }).addTo(M.camada);
+  });
+  const chave = M.cond + "|" + dia;
+  if (M.ajustado !== chave && com.length) { M.ajustado = chave; M.map.fitBounds(com.map(it => { const l = locDe(it); return [l.lat, l.lng]; }), { padding: [60, 30], maxZoom: 19 }); }
+  // ficha embaixo: a casa tocada, ou a próxima a entregar
+  const it = todos.find(x => x.id === M.sel) || prox;
+  if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; return; }
+  const feito = !!V.ok[it.id];
+  $("#mapaFicha").innerHTML = `<div class="nm">${it === prox ? "Próxima: " : ""}${V.num.get(it.id)} · ${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""} · ${it.paes} pães</div>${it.frios && it.frios.length ? `<div class="fr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${locDe(it) ? "" : `<div class="fr">Sem local salvo nesta casa</div>`}
+    <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a><button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div>`;
+}
+
 function render(){
   if (!R) return;
   const dias = Object.keys(R.dias || {}).filter(D => D >= HOJE).sort();
@@ -202,6 +303,7 @@ function render(){
   if (Array.isArray(salva)) { const p = new Map(salva.map((id, i) => [id, i])); itens = base.slice().sort((a, b) => (p.has(a.id) ? p.get(a.id) : 1e3 + base.indexOf(a)) - (p.has(b.id) ? p.get(b.id) : 1e3 + base.indexOf(b))); }
   const num = new Map(itens.map((it, i) => [it.id, i + 1]));
   const falta = itens.filter(it => !ok[it.id]), feitos = itens.filter(it => ok[it.id]);
+  V = { itens, num, ok };
   const nOk = feitos.length, tot = itens.length;
   $("#sub").textContent = nomeDia(dia) + (dia === HOJE ? " · hoje" : "");
   $("#barra").style.width = tot ? Math.round(nOk / tot * 100) + "%" : "0";
@@ -218,14 +320,14 @@ function render(){
   let h = "";
   if ((X.recolher || []).length) h += `<div class="box red"><h2>Recolher a cesta (não entregar)</h2><ul>${X.recolher.map(r => `<li><b>${esc(r.nome)}</b>${r.casa ? " " + esc(r.casa) : ""} · ${esc(r.cond)}</li>`).join("")}</ul></div>`;
   if (falta.length) {
-    h += `<div class="ordem"><button type="button" data-ordenar>📍 Organizar pelo caminho</button>${Array.isArray(salva) ? `<button type="button" data-original>Ordem da lista</button>` : ""}</div>`;
+    h += `<div class="ordem"><button type="button" data-mapa="">🗺 Ver tudo no mapa</button><button type="button" data-ordenar>📍 Organizar pelo caminho</button>${Array.isArray(salva) ? `<button type="button" data-original>Ordem da lista</button>` : ""}</div>`;
     let cond = "";
     falta.forEach((it, i) => {
       if (it.cond !== cond) {
         cond = it.cond; const grupo = [];
         for (let j = i; j < falta.length && falta[j].cond === cond; j++) grupo.push(falta[j]);
         const n = grupo.length, p = grupo.reduce((s, x) => s + (x.paes || 0), 0);
-        h += `${i ? "</section>" : ""}<section><div class="cond"><span>${esc(cond)}<small>${n} ${n === 1 ? "entrega" : "entregas"} · ${p} pães</small></span><a class="mapa" href="${linkMapa(grupo)}" target="_blank" rel="noopener">🗺 Mapa</a></div>`;
+        h += `${i ? "</section>" : ""}<section><div class="cond"><span>${esc(cond)}<small>${n} ${n === 1 ? "entrega" : "entregas"} · ${p} pães</small></span><button type="button" class="mapa" data-mapa="${esc(cond)}">🗺 Mapa</button></div>`;
       }
       h += card(it, i === 0);
     });
@@ -238,6 +340,7 @@ function render(){
   h += `<footer>Abrir o caminho no: <button type="button" data-app="google"${app === "google" ? ' style="font-weight:800"' : ""}>Google Maps</button> · <button type="button" data-app="waze"${app === "waze" ? ' style="font-weight:800"' : ""}>Waze</button><br>A rota atualiza sozinha quando o Marciel muda alguma coisa.</footer>`;
   $("#main").innerHTML = h;
   alturaTopo();
+  if (M.aberto) desenharMapa();
 }
 // o nome do condomínio gruda logo abaixo do topo marrom ao rolar
 function alturaTopo(){ document.documentElement.style.setProperty("--hh", document.querySelector("header").offsetHeight + "px"); }
