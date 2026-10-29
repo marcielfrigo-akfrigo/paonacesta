@@ -611,7 +611,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function diasRota(){ const out = []; let D = HOJE; while (out.length < 4) { if (ehEntrega(D)) out.push(D); D = addDays(D, 1); } return out; }
   function casaRua(end){ const m = String(end || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i); return m ? { casa: m[2], rua: m[1] } : { casa: "", rua: String(end || "").trim() }; }
   const parada = c => { const { casa, rua } = casaRua(c.endereco); return { id: c.id, nome: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), cond: c.condominio, casa, rua, ...(c.lat && c.lng ? { lat: c.lat, lng: c.lng } : {}) }; };
-  // Dentro de cada condomínio, as casas com local salvo vão na ordem do caminho mais curto (as sem local ficam no fim do condomínio)
+  // Dentro de cada condomínio, as casas com local salvo vão na ordem do caminho mais curto (as sem local ficam no fim do condomínio),
+  // a não ser que o Marciel tenha escolhido a ordem daquele condomínio (config/app ordemCasas)
   const distM = (a, b) => { const k = 111320, dx = (a.lng - b.lng) * k * Math.cos(a.lat * Math.PI / 180), dy = (a.lat - b.lat) * k; return Math.hypot(dx, dy); };
   function caminhoCurto(ps){
     if (ps.length < 3) return ps;
@@ -633,8 +634,21 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     while (i < lista.length) {
       const k = chaveCond(lista[i].c.condominio), g = [];
       while (i < lista.length && chaveCond(lista[i].c.condominio) === k) g.push(lista[i++]);
-      const com = g.filter(x => x.c.lat && x.c.lng).map(x => ({ x, lat: x.c.lat, lng: x.c.lng }));
-      out.push(...caminhoCurto(com).map(p => p.x), ...g.filter(x => !(x.c.lat && x.c.lng)));
+      const temLoc = x => x.c.lat && x.c.lng;
+      const man = Object.entries(cfg.ordemCasas || {}).find(([nome]) => chaveCond(nome) === k);
+      if (man) {   // ordem escolhida pelo Marciel (config/app ordemCasas); casa nova entra onde desvia menos, ou no fim se não tem local
+        const ids = man[1], r = g.filter(x => ids.includes(x.c.id)).sort((a, b) => ids.indexOf(a.c.id) - ids.indexOf(b.c.id));
+        g.filter(x => !ids.includes(x.c.id) && temLoc(x)).forEach(x => {
+          const d = (a, b) => a && b && temLoc(a) && temLoc(b) ? distM(a.c, b.c) : 0;
+          let pos = r.length, custo = Infinity;
+          for (let i = 0; i <= r.length; i++) { const c = d(r[i - 1], x) + d(x, r[i]) - d(r[i - 1], r[i]); if (c < custo) { custo = c; pos = i; } }
+          r.splice(pos, 0, x);
+        });
+        out.push(...r, ...g.filter(x => !ids.includes(x.c.id) && !temLoc(x)));
+        continue;
+      }
+      const com = g.filter(temLoc).map(x => ({ x, lat: x.c.lat, lng: x.c.lng }));
+      out.push(...caminhoCurto(com).map(p => p.x), ...g.filter(x => !temLoc(x)));
     }
     return out;
   }
