@@ -78,6 +78,7 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 .pin.ok{opacity:.55;border-color:var(--ok)}.pin.ok::after{border-top-color:var(--ok)}.pin.ok i{background:var(--ok)}
 .ponto{width:10px;height:10px;border-radius:50%;background:var(--cor);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3);transform:translate(-5px,-5px)}
 #mapaFicha{background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px))}
+#mapaFicha .nav{display:flex;align-items:center;justify-content:center;min-height:42px;margin-bottom:8px;border-radius:10px;background:#1a73e8;color:#fff;font:700 15px "DM Sans",sans-serif;text-decoration:none}
 #mapaFicha .nm{font-weight:700;font-size:16px}#mapaFicha .nm b{font-weight:800}
 #mapaFicha .fr{color:var(--red);font-weight:700;font-size:13px}
 #mapaFicha .acts{display:flex;gap:6px;margin-top:8px}
@@ -177,6 +178,12 @@ else {
 
 const itensDia = () => ((R && R.dias && R.dias[dia]) || {}).itens || [];
 const locDe = it => locais[it.id] || (it.lat && it.lng ? { lat: it.lat, lng: it.lng } : null);
+// Google Maps com as casas que faltam, em sequência, saindo de onde o entregador está (o app aceita até 10 paradas)
+function linkNavegar(lista){
+  const ps = lista.filter(locDe).slice(0, 10).map(it => { const l = locDe(it); return l.lat + "," + l.lng; });
+  const fim = ps.pop();
+  return `https://www.google.com/maps/dir/?api=1&destination=${fim}${ps.length ? "&waypoints=" + encodeURIComponent(ps.join("|")) : ""}&travelmode=driving&dir_action=navigate`;
+}
 function linkIr(it){
   const l = locDe(it);
   if (l) return app === "waze" ? `https://waze.com/ul?ll=${l.lat},${l.lng}&navigate=yes` : `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}&travelmode=driving`;
@@ -282,8 +289,8 @@ function desenharMapa(){
   // ficha embaixo: a casa tocada, ou a próxima a entregar
   const it = todos.find(x => x.id === M.sel) || prox;
   if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; return; }
-  const feito = !!V.ok[it.id];
-  $("#mapaFicha").innerHTML = `<div class="nm">${it === prox ? "Próxima: " : ""}${V.num.get(it.id)} · ${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""} · ${it.paes} pães</div>${it.frios && it.frios.length ? `<div class="fr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${locDe(it) ? "" : `<div class="fr">Sem local salvo nesta casa</div>`}
+  const feito = !!V.ok[it.id], nav = falta.filter(locDe);
+  $("#mapaFicha").innerHTML = (nav.length > 1 ? `<a class="nav" href="${linkNavegar(nav)}" target="_blank" rel="noopener">▶ Navegar no Google Maps: ${Math.min(nav.length, 10)} casas na ordem</a>` : "") + `<div class="nm">${it === prox ? "Próxima: " : ""}${V.num.get(it.id)} · ${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""} · ${it.paes} pães</div>${it.frios && it.frios.length ? `<div class="fr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${locDe(it) ? "" : `<div class="fr">Sem local salvo nesta casa</div>`}
     <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a><button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div>`;
 }
 
