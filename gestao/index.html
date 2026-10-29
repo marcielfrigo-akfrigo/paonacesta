@@ -593,7 +593,9 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     clientes.filter(c => antesL.has(c.id) && !recebe(c, D)).forEach(c => ent(entregadorDe(c)).mud.push({ s: "-", c, txt: motivoFora(c, D) }));
     clientes.filter(c => c.recolher).forEach(c => ent(entregadorDe(c)).recolher.push(c));
     Object.entries(cfg.pessoal || {}).forEach(([e, qs]) => { const x = ent(e); (qs || []).forEach(q => { x.sac[q] = (x.sac[q] || 0) + 1; x.paes += q; }); });
-    Object.values(porE).forEach(x => x.lista.sort((a, b) => a.c.condominio.localeCompare(b.c.condominio) || (a.c.ordem || 999) - (b.c.ordem || 999) || a.c.nome.localeCompare(b.c.nome)));
+    // condomínios na ordem que o entregador faz (config/app ordemCond); os que não estão na lista vão depois, em ordem alfabética
+    Object.entries(porE).forEach(([e, x]) => { const oc = ((cfg.ordemCond || {})[e] || []).map(chaveCond), pc = c => { const i = oc.indexOf(chaveCond(c.condominio)); return i < 0 ? 99 : i; };
+      x.lista.sort((a, b) => pc(a.c) - pc(b.c) || a.c.condominio.localeCompare(b.c.condominio) || (a.c.ordem || 999) - (b.c.ordem || 999) || a.c.nome.localeCompare(b.c.nome)); });
     let sacN = 0, paesT = 0, entT = 0; const sacT = {}, friT = {};
     Object.values(porE).forEach(x => { Object.entries(x.sac).forEach(([q, n]) => { sacT[q] = (sacT[q] || 0) + n; sacN += n; }); paesT += x.paes; entT += x.lista.length; Object.entries(x.frios).forEach(([i, n]) => friT[i] = (friT[i] || 0) + n); });
     return { D, P, porE, sacT, friT, sacN, paesT, entT };
