@@ -374,7 +374,8 @@ dialog::backdrop{background:rgba(45,36,28,.45);backdrop-filter:blur(3px)}
       <label>Suspenso a partir de<input id="fSuspIni" type="date"></label>
       <label>Volta a receber em<input id="fVolta" type="date"></label>
       <label class="wide">Motivo<input id="fMotivo" autocomplete="off"></label>
-      <label class="chk wide"><input id="fRecolher" type="checkbox"> Cancelou: recolher a cesta</label>
+      <label class="chk wide"><input id="fCancel" type="checkbox"> Cancelou: não pega mais</label>
+      <label class="chk wide"><input id="fRecolher" type="checkbox"> Recolher a cesta (desmarque depois que recolher)</label>
       <label class="wide">Observação<textarea id="fObs" rows="3"></textarea></label>
     </div>
     <div class="mfoot"><button class="b danger sm" type="button" id="fDel" hidden>Remover cliente</button><div><button class="b" type="button" data-close>Cancelar</button><button class="b pri" type="submit"><span data-ic="check"></span>Salvar</button></div></div>
@@ -523,12 +524,14 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     return true;
   }
   const pago = c => !!c.pagoAte && c.pagoAte >= SEX;
-  const status = c => suspAgora(c) ? "off" : pago(c) ? "ok" : "due";
+  // Cancelou (ou a cesta ainda vai ser recolhida): sai da rota, da cobrança e da lista de suspensos
+  const cancelou = c => !!(c.cancelado || c.recolher);
+  const status = c => cancelou(c) ? "fim" : suspAgora(c) ? "off" : pago(c) ? "ok" : "due";
   const credAberto = id => creds.filter(k => k.clienteId === id && !k.usadoEm);
   const credDe = id => credAberto(id).reduce((s, k) => s + (Number(k.valor) || 0), 0);
   const devendo = () => clientes.filter(c => status(c) === "due");
   // Pagou para receber a partir de "ini": se a suspensão cobre esse dia, ela acaba (campos para gravar no cliente)
-  const fimSuspensao = (c, ini) => c.suspenso && ini && (!c.suspIni || c.suspIni <= ini) && (!c.volta || c.volta > ini) ? { suspenso: false, suspIni: "", volta: "", motivo: "" } : {};
+  const fimSuspensao = (c, ini) => ({ ...(cancelou(c) ? { cancelado: false, recolher: false } : {}), ...(c.suspenso && ini && (!c.suspIni || c.suspIni <= ini) && (!c.volta || c.volta > ini) ? { suspenso: false, suspIni: "", volta: "", motivo: "" } : {}) });
   // Suspenso agora, mas com um pagamento feito depois de suspender que cobre hoje: provavelmente esqueceram de tirar a suspensão
   const suspensoPago = () => clientes.filter(c => status(c) === "off" && pags.some(p => p.clienteId === c.id && (!c.suspIni || p.data >= c.suspIni) && (p.antes || "") < HOJE && (p.depois || "") >= HOJE));
 
@@ -548,7 +551,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function diaAnterior(D){ let d = parse(D); do d.setDate(d.getDate() - 1); while (d.getDay() === 0 || d.getDay() === 6 || FERIADOS[iso(d)]); return iso(d); }
   function recebe(c, D){
     const w = parse(D).getDay(); if (w < 1 || w > 5 || FERIADOS[D]) return false;
-    if (suspNaData(c, D)) return false;
+    if (cancelou(c) || suspNaData(c, D)) return false;
     if (c.inicio && D < c.inicio) return false;
     if (Array.isArray(c.dias) && c.dias.length && !c.dias.includes(w)) return false;
     if ((c.fora || []).includes(D)) return false;
@@ -576,6 +579,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     return extra ? fixos.concat(friosItens(extra)) : fixos;
   }
   function motivoFora(c, D){
+    if (cancelou(c)) return "cancelou";
     if (suspNaData(c, D)) return c.motivo || "suspenso";
     const w = parse(D).getDay();
     if (Array.isArray(c.dias) && c.dias.length && !c.dias.includes(w)) return "não recebe " + DOW[w];
@@ -729,7 +733,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   }
   function vGeral(){
     const D = proxEntrega(), M = montar(D), dev = devendo();
-    const ativos = clientes.filter(c => status(c) !== "off" && (c.paes || 0) > 0).length;
+    const ativos = clientes.filter(c => (status(c) === "ok" || status(c) === "due") && (c.paes || 0) > 0).length;
     const susp = clientes.filter(c => status(c) === "off").length;
     const recSem = pags.filter(p => p.semana === SEG).reduce((s, p) => s + (p.valor || 0), 0);
     const falta = dev.reduce((s, c) => s + faltaDe(c), 0);
@@ -763,7 +767,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const nomePlano = { semanal:"Semanal", quinzenal:"Quinzenal", mensal:"Mensal" }[c.plano] || "Pago";
     const cr = credDe(c.id);
     let badges;
-    if (st === "off") badges = `<span class="badge off">Suspenso${c.volta ? " até " + br(addDays(c.volta, -1)) : ""}</span>`;
+    if (st === "fim") badges = `<span class="badge off">${c.recolher ? "Cancelou · recolher a cesta" : "Cancelado"}</span>`;
+    else if (st === "off") badges = `<span class="badge off">Suspenso${c.volta ? " até " + br(addDays(c.volta, -1)) : ""}</span>`;
     else if (st === "ok") badges = `<span class="badge ${c.plano}">${nomePlano} · até ${br(c.pagoAte)}</span>`;
     else badges = `<span class="badge due">Falta pagar</span>`;
     if (cr > 0) badges += `<span class="badge cred">Crédito ${brl(cr)}</span>`;
@@ -776,7 +781,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     }
     if (abertos.has(c.id)) {
       more += `<div class="det"><span><b>${esc(c.paes || 0)}</b> pães/dia</span>${c.endereco ? `<span>${esc(c.endereco)}</span>` : ""}<span>Entregador: <b>${esc(entregadorDe(c))}</b></span>${c.frios ? `<span>Frios: ${esc(c.frios)}</span>` : ""}${Array.isArray(c.dias) && c.dias.length ? `<span>Recebe: ${c.dias.map(d => DOW[d]).join(", ")}</span>` : ""}</div>
-        ${devido(c) ? `<div class="note">Em atraso: <b>${brl(devido(c))}</b>${textoDevido(c) ? ` (${esc(textoDevido(c))})` : ""}. Vai no link para renovar e soma no Pagar.</div>` : ""}${c.suspenso && c.motivo ? `<div class="note">${esc(c.motivo)}</div>` : ""}${c.obs ? `<div class="note">${esc(c.obs)}</div>` : ""}
+        ${devido(c) ? `<div class="note">Em atraso: <b>${brl(devido(c))}</b>${textoDevido(c) ? ` (${esc(textoDevido(c))})` : ""}. Vai no link para renovar e soma no Pagar.</div>` : ""}${(c.suspenso || cancelou(c)) && c.motivo ? `<div class="note">${esc(c.motivo)}</div>` : ""}${c.obs ? `<div class="note">${esc(c.obs)}</div>` : ""}
         <div class="acts"><button class="b sm" type="button" data-a="editar" data-id="${c.id}">${ic("pencil")}Editar</button>${travado ? `<button class="b sm" type="button" data-a="abrir" data-id="${c.id}">Registrar pagamento mesmo assim</button>` : ""}<button class="b sm" type="button" data-a="cred" data-id="${c.id}">${ic("gift")}Lançar crédito</button><button class="b sm" type="button" data-a="link" data-id="${c.id}">${ic("copy")}Link para renovar</button></div>
         <div class="hist">${hs.length ? hs.map((p, i) => `<div class="h"><span class="num">${br(p.data)} · ${esc(p.tipo)} · <b>${brl(p.valor)}</b>${p.credito ? ` <small class="g">(crédito ${brl(p.credito)})</small>` : ""} <small class="muted">→ pago até ${br(p.depois)}</small></span>${i === 0 ? `<button class="b danger sm" type="button" data-a="desfazer" data-pid="${p.id}"${ocupado ? " disabled" : ""}>Desfazer</button>` : ""}</div>`).join("") : `<span class="muted">Nenhum pagamento registrado pelo app ainda.</span>`}</div>`;
     }
@@ -795,12 +800,13 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       if (filtro === "falta" && st !== "due") return false;
       if (filtro === "pagos" && st !== "ok") return false;
       if (filtro === "susp" && st !== "off") return false;
+      if ((filtro === "canc") !== (st === "fim")) return false;
       return !q || norm(c.nome + " " + c.condominio + " " + (c.endereco || "")).includes(q);
     });
-    const ord = { due: 0, ok: 1, off: 2 };
+    const ord = { due: 0, ok: 1, off: 2, fim: 3 };
     lst.sort((a, b) => ord[status(a)] - ord[status(b)] || a.condominio.localeCompare(b.condominio) || a.nome.localeCompare(b.nome));
     const nDev = devendo().length;
-    const fl = [["todos","Todos"],["falta","Faltam pagar"],["pagos","Pagos"],["susp","Suspensos"]];
+    const fl = [["todos","Todos"],["falta","Faltam pagar"],["pagos","Pagos"],["susp","Suspensos"],["canc","Cancelados"]];
     return head("Cobrança da semana " + br(SEG) + " a " + br(SEX), "Clientes da casa.", `${clientes.length} clientes em ${nomesCond.length} condomínios.`, `<button class="b" type="button" data-q="linkNovo">${ic("copy")}Link para cliente novo</button><button class="b" type="button" data-q="colar">${ic("copy")}Colar pedido do WhatsApp</button><button class="b pri" type="button" data-q="novoCli">${ic("plus")}Novo cliente</button>`) +
       `<div class="filters"><label class="search">${ic("search")}<input id="busca" type="search" placeholder="Buscar nome, casa ou condomínio" value="${esc(busca)}" autocomplete="off"></label>
         <div class="seg" role="group" aria-label="Filtro">${fl.map(([k, t]) => `<button type="button" data-f="${k}" aria-pressed="${filtro === k}">${t}${k === "falta" && nDev ? `<span class="n">${nDev}</span>` : ""}</button>`).join("")}</div></div>
@@ -815,7 +821,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   const cobAlvo = () => dow === 5 ? addDays(SEX, 7) : SEX;
   function naCobranca(c){
     const alvo = cobAlvo();
-    if (c.recolher || !(c.valor > 0) || !(c.paes > 0)) return false;
+    if (cancelou(c) || !(c.valor > 0) || !(c.paes > 0)) return false;
     if ((c.pagoAte || "") >= alvo) return false;
     // suspenso a semana inteira da cobrança: não manda link agora
     if (c.suspenso && (!c.suspIni || c.suspIni <= addDays(alvo, -4)) && (!c.volta || c.volta > alvo)) return false;
@@ -1250,7 +1256,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const exProx = Object.keys(c.friosExtra || {}).filter(d => d >= HOJE).sort()[0] || "";
     $("#fExDia").value = exProx; $("#fExItens").value = exProx ? c.friosExtra[exProx] : "";
     $("#fInicio").value = c.inicio || ""; $("#fSusp").checked = !!c.suspenso; $("#fSuspIni").value = c.suspIni || ""; $("#fVolta").value = c.volta || "";
-    $("#fMotivo").value = c.motivo || ""; $("#fRecolher").checked = !!c.recolher; $("#fObs").value = c.obs || "";
+    $("#fMotivo").value = c.motivo || ""; $("#fCancel").checked = cancelou(c); $("#fRecolher").checked = !!c.recolher; $("#fObs").value = c.obs || "";
     $("#fDel").hidden = !id; $("#fDel").textContent = "Remover cliente"; $("#fDel").dataset.ok = "";
     $("#conds").innerHTML = [...new Set(clientes.map(c => c.condominio))].sort().map(c => `<option value="${esc(c)}">`).join("");
     dlg.showModal();
@@ -1261,7 +1267,9 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const dados = { nome: $("#fNome").value.trim(), condominio: condCanon($("#fCond").value), endereco: $("#fEnd").value.trim(), plano: $("#fPlano").value,
       valor: Number($("#fValor").value) || 0, paes: Number($("#fPaes").value) || 0, pagoAte: $("#fPago").value || "", frios: $("#fFrios").value.trim(),
       dias: dias.length === 5 ? [] : dias, inicio: $("#fInicio").value || "", suspenso: $("#fSusp").checked, suspIni: $("#fSuspIni").value || "",
-      volta: $("#fVolta").value || "", motivo: $("#fMotivo").value.trim(), recolher: $("#fRecolher").checked, obs: $("#fObs").value.trim() };
+      volta: $("#fVolta").value || "", motivo: $("#fMotivo").value.trim(), recolher: $("#fRecolher").checked, cancelado: $("#fCancel").checked || $("#fRecolher").checked, obs: $("#fObs").value.trim() };
+    // cancelado não fica na lista de suspensos
+    if (dados.cancelado) Object.assign(dados, { suspenso: false, suspIni: "", volta: "" });
     const ant = (clientes.find(x => x.id === editId) || {}).friosExtra || {}, fx = {};
     Object.keys(ant).filter(d => d >= HOJE).forEach(d => fx[d] = ant[d]);
     const exDia = $("#fExDia").value, exIt = $("#fExItens").value.trim();
