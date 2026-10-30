@@ -283,6 +283,8 @@ const NOMEPLANO = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal"
 const st = { paes: 5, dias: [1,2,3,4,5], frios: {}, plano: "semanal" };
 try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
 // Dias que o cliente já recebeu e ainda não pagou (vem só no link pessoal: ?a=28&at=quinta e sexta)
+// Dias combinados sem entrega para este cliente (?x=AAAA-MM-DD,AAAA-MM-DD, vindo do app de gestão): saem do valor como feriado
+(qp.get("x") || "").split(",").filter(D => /^\d{4}-\d{2}-\d{2}$/.test(D) && !CONFIG.feriados[D]).forEach(D => CONFIG.feriados[D] = "combinado");
 const ANTERIOR = { valor: Math.max(0, Number(qp.get("a")) || 0), txt: (qp.get("at") || "").slice(0, 80) };
 // Crédito do cliente (entrega que faltou etc.), vem no link pessoal: ?k=25.2 (descontado do total)
 const CREDITO = Math.max(0, Number(qp.get("k")) || 0);

@@ -1039,6 +1039,8 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     if (f) q.set("f", f);
     if (c.valor > 0) q.set("v", String(c.valor));
     q.set("ini", addDays(cobAlvo(), -4));   // segunda da semana cobrada: o plano do link começa nela
+    const fora = (c.fora || []).filter(D => D >= q.get("ini")).sort();
+    if (fora.length) q.set("x", fora.join(","));   // dias combinados sem entrega: o app desconta como feriado
     if (credDe(c.id) > 0) q.set("k", String(r2(credDe(c.id))));   // créditos em aberto: o app desconta e o aceite marca como usados   // valor da semana do cadastro (o app usa enquanto o pedido não mudar)
     if (devido(c)) { q.set("a", String(devido(c))); if (textoDevido(c)) q.set("at", textoDevido(c)); }
     return SITE_CLIENTES + "?" + q.toString();
