@@ -324,7 +324,9 @@ function inicioEscolhido(){
 function periodos(){
   const inicio = inicioEscolhido();
   // o plano começa na segunda; se a pessoa começa no meio da semana, os dias até sexta entram avulsos
-  const ini = inicio.getDay() === 1 ? inicio : mais(inicio, 8 - inicio.getDay());
+  // (se os dias antes do início são feriado, ex.: segunda feriado e começa na terça, o plano começa na segunda e o feriado sai do valor)
+  const seg = segundaDe(inicio); let util = seg; while (util < inicio && CONFIG.feriados[iso(util)]) util = mais(util, 1);
+  const ini = inicio.getDay() === 1 || iso(util) === iso(inicio) ? seg : mais(inicio, 8 - inicio.getDay());
   const avulsos = []; if (inicio.getDay() !== 1) for (let d = inicio; d.getDay() >= 1 && d.getDay() <= 5 && d < ini; d = mais(d, 1)) if (st.dias.includes(d.getDay()) && !CONFIG.feriados[iso(d)]) avulsos.push(d);
   // semanas que faltam no mês (cada semana pertence ao mês da sua quinta-feira); nenhum plano passa do fim do mês
   let fim = ini, r = 1; while (mesDaSemana(mais(fim, 7)) === mesDaSemana(ini)) { fim = mais(fim, 7); r++; }
