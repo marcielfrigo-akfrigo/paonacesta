@@ -807,7 +807,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     lst.sort((a, b) => ord[status(a)] - ord[status(b)] || a.condominio.localeCompare(b.condominio) || a.nome.localeCompare(b.nome));
     const nDev = devendo().length;
     const fl = [["todos","Todos"],["falta","Faltam pagar"],["pagos","Pagos"],["susp","Suspensos"],["canc","Cancelados"]];
-    return head("Cobrança da semana " + br(SEG) + " a " + br(SEX), "Clientes da casa.", `${clientes.length} clientes em ${nomesCond.length} condomínios.`, `<button class="b" type="button" data-q="linkNovo">${ic("copy")}Link para cliente novo</button><button class="b" type="button" data-q="colar">${ic("copy")}Colar pedido do WhatsApp</button><button class="b pri" type="button" data-q="novoCli">${ic("plus")}Novo cliente</button>`) +
+    return head("Cobrança da semana " + br(SEG) + " a " + br(SEX), "Clientes da casa.", `${clientes.length} clientes em ${nomesCond.length} condomínios.`, `<button class="b" type="button" data-q="linkNovo">${ic("copy")}Link para cliente novo</button><button class="b" type="button" data-q="linkGrupo">${ic("copy")}Link para os grupos</button><button class="b" type="button" data-q="colar">${ic("copy")}Colar pedido do WhatsApp</button><button class="b pri" type="button" data-q="novoCli">${ic("plus")}Novo cliente</button>`) +
       `<div class="filters"><label class="search">${ic("search")}<input id="busca" type="search" placeholder="Buscar nome, casa ou condomínio" value="${esc(busca)}" autocomplete="off"></label>
         <div class="seg" role="group" aria-label="Filtro">${fl.map(([k, t]) => `<button type="button" data-f="${k}" aria-pressed="${filtro === k}">${t}${k === "falta" && nDev ? `<span class="n">${nDev}</span>` : ""}</button>`).join("")}</div></div>
       <div class="conds" role="group" aria-label="Condomínios"><button type="button" data-c="" aria-pressed="${cond === ""}">Todos os condomínios</button>${nomesCond.map(n => { const k = nDevC(n); return `<button type="button" data-c="${esc(n)}" aria-pressed="${cond === n}">${esc(n)}${k ? `<span class="n">${k}</span>` : ""}</button>`; }).join("")}</div>
@@ -852,7 +852,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       return `<div class="row st-${ok ? c.plano : "due"}"><div class="rline" style="flex-wrap:wrap"><span class="ini" aria-hidden="true">${esc((c.nome || "?").trim().slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default;flex:1 1 200px;min-width:0"><strong>${esc(c.nome)}</strong><small style="white-space:normal">${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""} · ${c.paes || 0} pães · pago até ${br(c.pagoAte)}</small><small style="white-space:normal">Semanal <b>${brl(cobValor(c))}</b>${dv ? ` · inclui ${brl(dv)} em atraso` : ""}${cr ? ` · crédito ${brl(cr)}` : ""}${c.suspenso && c.volta ? ` · volta ${br(c.volta)}` : ""}</small></div>
         <div class="acts" style="flex:1 1 100%;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap">${ok ? `<span class="badge semanal">Enviado ${br(c.linkEnviado)}</span>` : `<span class="badge due">Mandar link</span>`}<button class="b ${ok ? "" : "pri "}sm" type="button" data-cob="${c.id}">${ic("copy")}${ok ? "Copiar de novo" : "Copiar link"}</button></div></div></div>`;
     };
-    return head("Cobrança · semana de " + br(addDays(alvo, -4)) + " a " + br(alvo), "Links da semana.", `Quem precisa pagar para receber de ${br(addDays(alvo, -4))} a ${br(alvo)}. Toque em Copiar link e cole no WhatsApp do cliente.`, `<button class="b" type="button" data-q="linkNovo">${ic("copy")}Link para cliente novo</button>`) +
+    return head("Cobrança · semana de " + br(addDays(alvo, -4)) + " a " + br(alvo), "Links da semana.", `Quem precisa pagar para receber de ${br(addDays(alvo, -4))} a ${br(alvo)}. Toque em Copiar link e cole no WhatsApp do cliente.`, `<button class="b" type="button" data-q="linkNovo">${ic("copy")}Link para cliente novo</button><button class="b" type="button" data-q="linkGrupo">${ic("copy")}Link para os grupos</button>`) +
       `<div class="conds" role="group" aria-label="Condomínios"><button type="button" data-cc="" aria-pressed="${cobCond === ""}">Todos os condomínios${falta("") ? `<span class="n">${falta("")}</span>` : ""}</button>${nomesCond.map(n => `<button type="button" data-cc="${esc(n)}" aria-pressed="${cobCond === n}">${esc(n)}${falta(n) ? `<span class="n">${falta(n)}</span>` : ""}</button>`).join("")}</div>
       <div class="panel"><div class="ptitle"><h2>${cobCond ? esc(cobCond) : "Todos"} <span class="count">${lst.length}</span></h2><span class="muted">${env} de ${lst.length} enviados · ${brl(total)} no semanal</span>${env < lst.length ? `<button class="b sm" type="button" data-cobtodos="1">${ic("check")}Marcar ${cobCond ? "todos daqui" : "todos"} como enviados</button>` : ""}</div>
       ${lst.length ? `<div class="rows">${lst.map(row).join("")}</div>` : `<div class="empty">${ic("check")}<h3>Ninguém para cobrar aqui.</h3><p>Todos já estão pagos até ${br(alvo)}.</p></div>`}</div>
@@ -1052,6 +1052,22 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     try { await navigator.clipboard.writeText(txt); toast("Mensagem com o link copiada. Cole no WhatsApp do cliente novo."); }
     catch (er) { window.prompt("Copie a mensagem:", txt); }
   }
+  // Mensagem com o link do site para postar nos grupos dos condomínios (cada um coloca o nome e paga; o aceite acha o cliente pelo nome)
+  async function copiarLinkGrupo(){
+    const h = agora.getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+    // feriados em dia útil nos próximos 45 dias (o app dos clientes já desconta)
+    const fer = Object.keys(FERIADOS).filter(D => D >= HOJE && D <= addDays(HOJE, 45) && parse(D).getDay() >= 1 && parse(D).getDay() <= 5).sort();
+    const txt = [`${saud}, pessoal! 🥖☀️`,
+      "Agora ficou bem mais fácil fazer o seu pedido do Pão na Cesta: é tudo pelo nosso aplicativo, direto neste link 👇",
+      SITE_CLIENTES,
+      "✅ Escolha os dias da semana em que quer receber (mínimo de 3 dias)\n✅ Escolha de 3 a 10 pães por dia\n✅ Os valores aparecem na hora, tudo bem explicadinho\n✅ Sem cadastro: é só colocar seu nome, condomínio e casa\n✅ O Pix é feito ali mesmo, no aplicativo",
+      fer.length ? `📅 ${fer.length > 1 ? `Temos ${fer.length} feriados sem entrega` : "Temos um feriado sem entrega"} (${fer.map(D => br(D).slice(0, 5)).join(" e ")}), e o aplicativo já desconta ${fer.length > 1 ? "esses dias" : "esse dia"} sozinho do valor.` : "",
+      dow === 5 || dow === 6 || dow === 0 ? "Hoje é dia de renovar para a próxima semana 😉" : "",
+      "Qualquer dúvida, é só me chamar no particular que eu te ajudo!"
+    ].filter(Boolean).join("\n\n");
+    try { await navigator.clipboard.writeText(txt); toast("Mensagem copiada. Cole nos grupos dos condomínios."); }
+    catch (er) { window.prompt("Copie a mensagem:", txt); }
+  }
   async function copiarLinkCliente(id, bt){
     const c = clientes.find(x => x.id === id); if (!c) return;
     const h = agora.getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
@@ -1143,6 +1159,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     if (q) { const k = q.dataset.q;
       if (k === "novoCli") abrirForm(null);
       else if (k === "linkNovo") copiarLinkNovo();
+      else if (k === "linkGrupo") copiarLinkGrupo();
       else if (k === "colar") abrirColar();
       else if (k === "novoCred") abrirCred(null);
       else if (k === "padaria") { eTab = "Padaria"; ir("entregas"); }
