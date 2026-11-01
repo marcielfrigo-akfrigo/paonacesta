@@ -269,16 +269,25 @@ function desenharMapa(){
   const falta = todos.filter(it => !V.ok[it.id]), prox = falta[0];
   const nPaes = falta.reduce((s, it) => s + (it.paes || 0), 0);
   $("#mapaTit").innerHTML = `${esc(M.cond || "Rota do dia")}<small>${falta.length ? `Faltam ${falta.length} · ${nPaes} pães` : "Tudo entregue ✓"}${todos.length > com.length ? ` · ${todos.length - com.length} sem local salvo` : ""}</small>`;
-  M.camada.clearLayers();
+  M.camada.clearLayers(); const vez = M.vez = (M.vez || 0) + 1;   // linha que chega atrasada de um desenho antigo não entra
   // linha por condomínio, ligando as casas que faltam na ordem
   const grupos = {}; falta.filter(locDe).forEach(it => (grupos[it.cond] = grupos[it.cond] || []).push(locDe(it)));
   Object.values(grupos).forEach(async pts => {
     if (pts.length < 2) return;
-    const reta = pts.map(p => [p.lat, p.lng]);
-    const tracejada = L.polyline(reta, { color: R.cor || "#6b4a2e", weight: 3, opacity: .5, dashArray: "6 6" }).addTo(M.camada);
+    const reta = L.polyline(pts.map(p => [p.lat, p.lng]), { color: R.cor || "#6b4a2e", weight: 3, opacity: .35 }).addTo(M.camada);
     const ruas = await linhaRuas(pts);
-    if (ruas && M.aberto) { M.camada.removeLayer(tracejada); L.polyline(ruas, { color: R.cor || "#6b4a2e", weight: 5, opacity: .75 }).addTo(M.camada); }
+    if (ruas && M.aberto && vez === M.vez) { M.camada.removeLayer(reta); L.polyline(ruas, { color: R.cor || "#6b4a2e", weight: 5, opacity: .75 }).addTo(M.camada); }
   });
+  // tracejada: da última casa entregue até a próxima da vez (o trecho que ele está fazendo agora)
+  const ultima = V.itens.filter(x => V.ok[x.id] && locDe(x)).sort((a, b) => V.ok[b.id] - V.ok[a.id])[0];
+  const proxima = V.itens.find(x => !V.ok[x.id] && locDe(x));
+  if (ultima && proxima && (!M.cond || ultima.cond === M.cond || proxima.cond === M.cond)) (async () => {
+    const pts = [locDe(ultima), locDe(proxima)];
+    const desenho = { color: "#1a73e8", weight: 6, opacity: .95, dashArray: "2 12", lineCap: "round" };
+    const reta = L.polyline(pts.map(p => [p.lat, p.lng]), desenho).addTo(M.camada);
+    const ruas = await linhaRuas(pts);
+    if (ruas && M.aberto && vez === M.vez) { M.camada.removeLayer(reta); L.polyline(ruas, desenho).addTo(M.camada); }
+  })();
   com.forEach(it => {
     const l = locDe(it), feito = !!V.ok[it.id], fr = it.frios && it.frios.length;
     const cls = "pin" + (fr ? " fr" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
@@ -310,7 +319,8 @@ function render(){
   const salva = ls.get("rota-ordem-" + dia), base = X.itens || [];
   let itens = base;
   if (Array.isArray(salva)) { const p = new Map(salva.map((id, i) => [id, i])); itens = base.slice().sort((a, b) => (p.has(a.id) ? p.get(a.id) : 1e3 + base.indexOf(a)) - (p.has(b.id) ? p.get(b.id) : 1e3 + base.indexOf(b))); }
-  const num = new Map(itens.map((it, i) => [it.id, i + 1]));
+  // número da ordem dentro de cada condomínio: cada um começa no 1
+  const porCond = {}, num = new Map(itens.map(it => [it.id, porCond[it.cond] = (porCond[it.cond] || 0) + 1]));
   const falta = itens.filter(it => !ok[it.id]), feitos = itens.filter(it => ok[it.id]);
   V = { itens, num, ok };
   const nOk = feitos.length, tot = itens.length;
