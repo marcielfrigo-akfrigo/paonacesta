@@ -1328,10 +1328,11 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   $("#pTexto").addEventListener("input", previa);
   const nomeLimpo = c => norm(c.nome.replace(/\s*\((teste|cortesia)\)/i, "")).trim();
   // Acha o cliente do pedido: nome igual no condomínio; se a pessoa mudou o nome (ex.: "Jennifer" → "Jennifer Brito"),
-  // aceita um único cliente do mesmo condomínio cujo nome começa igual, ou com o mesmo primeiro nome e a mesma casa
+  // aceita o nome com espaços diferentes, ou um único cliente do mesmo condomínio cujo nome começa igual, ou com o mesmo primeiro nome e a mesma casa
   const clienteDoPedido = pd => {
     const n = norm(pd.n).trim(), noCond = clientes.filter(c => norm(c.condominio) === norm(pd.c) && !/duplicado/i.test(c.nome));
-    const igual = noCond.find(c => nomeLimpo(c) === n); if (igual) return igual;
+    const junto = t => t.replace(/\s+/g, "");   // "Inêssilvia" = "Inês Silvia"
+    const igual = noCond.find(c => nomeLimpo(c) === n) || noCond.find(c => junto(nomeLimpo(c)) === junto(n)); if (igual) return igual;
     const prim = s => s.split(/[\s/]+/)[0], casa = norm(pd.h || "").replace(/\D/g, "");
     const parecidos = noCond.filter(c => { const b = nomeLimpo(c); return n.startsWith(b + " ") || b.startsWith(n + " ") || (prim(b) === prim(n) && casa && norm(c.endereco || "").replace(/\D/g, "") === casa); });
     return parecidos.length === 1 ? parecidos[0] : null;
