@@ -572,7 +572,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function friosDe(c, D){
     const extra = (c.friosExtra || {})[D];
     let fixos = [];
-    if (c.frios && c.frios.includes(":") && !(c.semFriosAte && D <= c.semFriosAte)) {
+    if (c.frios && c.frios.includes(":")) {
       const hojeD = DOW[parse(D).getDay()];
       fixos = friosItens(c.frios.split("|").filter(sg => sg.includes(":") && norm(sg.split(":")[0]).includes(hojeD)).map(sg => sg.split(":").slice(1).join(":")).join(" e "));
     }
