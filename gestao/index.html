@@ -728,7 +728,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const lst = pedidosNovos(); if (!lst.length) return "";
     return `<section class="panel" style="margin-bottom:18px;border-color:color-mix(in srgb,var(--quin) 45%,var(--line))"><div class="ptitle" style="background:var(--quin-bg)"><h2>Pedidos novos pelo app <span class="count">${lst.length}</span></h2><span class="muted">Confira o Pix no banco: aceitar já marca como pago.</span></div>
       <div class="rows">${lst.map(p => { const fr = Object.entries(p.f || {}).map(([d, l]) => `${DOW[d]}: ${l.join(", ")}`).join(" | ");
-        return `<div class="row"><div class="rline" style="align-items:flex-start"><span class="ini" aria-hidden="true">${esc((p.n || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(p.n)}${p.t ? ' <span class="badge off">TESTE</span>' : ""}</strong><small style="white-space:normal">${esc(p.c)} · ${esc(p.h)} · ${p.p} pães · ${(p.d || []).length === 5 ? "seg a sex" : (p.d || []).map(d => DOWC[d]).join(", ")}${fr ? " · " + esc(fr) : ""}</small><small style="white-space:normal">${esc(p.pl)} <b>${brl(p.v)}</b> (${br(p.ini)} a ${br(p.fim)}) · começa ${br(p.i)}</small><small>${clienteDoPedido(p) ? `<span class="badge">Já é cliente${norm(clienteDoPedido(p).nome) !== norm(p.n) ? ": " + esc(clienteDoPedido(p).nome) : ""}</span>` : `<span class="badge cred">Cliente novo</span>`}${pedidosAnteriores(p).length ? ` <span class="badge off">Refez o pedido: vale este, o anterior (${pedidosAnteriores(p).map(x => `${esc(x.pl)} ${brl(x.v)}`).join(", ")}) será descartado</span>` : ""}</small></div>
+        return `<div class="row"><div class="rline" style="align-items:flex-start"><span class="ini" aria-hidden="true">${esc((p.n || "?").slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default"><strong>${esc(p.n)}${p.t ? ' <span class="badge off">TESTE</span>' : ""}</strong><small style="white-space:normal">${esc(p.c)} · ${esc(p.h)} · ${p.p} pães · ${(p.d || []).length === 5 ? "seg a sex" : (p.d || []).map(d => DOWC[d]).join(", ")}${fr ? " · " + esc(fr) : ""}</small><small style="white-space:normal">${esc(p.pl)} <b>${brl(p.v)}</b> (${br(p.ini)} a ${br(p.fim)}) · começa ${br(p.i)}</small><small>${clienteDoPedido(p) ? `<span class="badge">Já é cliente${norm(clienteDoPedido(p).nome) !== norm(p.n) ? ": " + esc(clienteDoPedido(p).nome) : ""}</span>` : `<span class="badge cred">Cliente novo</span>`}${escolhaPedido[p.id] ? ` <button class="b sm" type="button" data-pedc="${p.id}|">Não é este cliente</button>` : !clienteDoPedido(p) && parecidosDoPedido(p).length ? `<br><span class="badge off">Confira: pode já ser cliente</span> ${parecidosDoPedido(p).map(c => `<button class="b sm" type="button" data-pedc="${p.id}|${c.id}">É ${esc(c.nome)}${c.endereco ? " (" + esc(c.endereco) + ")" : ""}</button>`).join(" ")}` : ""}${pedidosAnteriores(p).length ? ` <span class="badge off">Refez o pedido: vale este, o anterior (${pedidosAnteriores(p).map(x => `${esc(x.pl)} ${brl(x.v)}`).join(", ")}) será descartado</span>` : ""}</small></div>
           <div class="acts" style="flex-direction:column;align-items:stretch"><button class="b pri sm" type="button" data-ped="${p.id}">Pix caiu: aceitar e marcar pago</button><button class="b danger sm" type="button" data-pedx="${p.id}">Recusar</button></div></div></div>`; }).join("")}</div></section>`;
   }
   function vGeral(){
@@ -1216,6 +1216,8 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const c = e.target.closest("button[data-c]"); if (c) { cond = c.dataset.c; if (cond) filtro = "todos"; render(); return; }
     const t = e.target.closest("button[data-t]"); if (t) { eTab = t.dataset.t; render(); return; }
     const ne = e.target.closest("button[data-ne]"); if (ne) { const cl = clientes.find(x => x.id === ne.dataset.ne); if (cl) abrirCred(cl.id, { valor: valorDia(cl), motivo: "Não entregue em " + br(eData), dataEntrega: eData }); return; }
+    const pcx = e.target.closest("button[data-pedc]");
+    if (pcx) { const [pid, cid] = pcx.dataset.pedc.split("|"); if (cid) escolhaPedido[pid] = cid; else delete escolhaPedido[pid]; render(); return; }
     const pa = e.target.closest("button[data-ped]");
     if (pa) { const p = pedidos.find(x => x.id === pa.dataset.ped); if (!p || !db) return; pa.disabled = true;
       try { const alvo = await salvarPedido(p, p.id); toast((alvo ? "Pago e atualizado: " : "Cliente cadastrado e pago: ") + p.n + " até " + br(p.fim)); } catch (er) { pa.disabled = false; toast("Não salvou: " + (er && er.message || "tente de novo"), true); } return; }
@@ -1337,10 +1339,20 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     $("#pSalvar").disabled = false;
   }
   $("#pTexto").addEventListener("input", previa);
+  const escolhaPedido = {};   // pedido id -> cliente escolhido à mão ("É este cliente")
+  const difLetras = (a, b) => { const d = Array.from({ length: b.length + 1 }, (_, j) => j); for (let i = 1; i <= a.length; i++) { let ant = d[0]; d[0] = i; for (let j = 1; j <= b.length; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, ant + (a[i - 1] === b[j - 1] ? 0 : 1)); ant = t; } } return d[b.length]; };
+  const parecidosDoPedido = pd => {
+    const n = norm(pd.n).trim(), p1 = n.split(/\s+/)[0] || "", casa = norm(pd.h || "").replace(/\D/g, "");
+    return clientes.filter(c => norm(c.condominio) === norm(pd.c) && !/duplicado/i.test(c.nome)).filter(c => {
+      const b = nomeLimpo(c), b1 = b.split(/\s+/)[0] || "", casaC = norm(c.endereco || "").replace(/\D/g, "");
+      return difLetras(p1, b1) <= (Math.min(p1.length, b1.length) <= 4 ? 1 : 2) || n.includes(b) || b.includes(n) || (casa && casa === casaC);
+    }).slice(0, 4);
+  };
   const nomeLimpo = c => norm(c.nome.replace(/\s*\((teste|cortesia)\)/i, "")).trim();
   // Acha o cliente do pedido: nome igual no condomínio; se a pessoa mudou o nome (ex.: "Jennifer" → "Jennifer Brito"),
   // aceita o nome com espaços diferentes, ou um único cliente do mesmo condomínio cujo nome começa igual, ou com o mesmo primeiro nome e a mesma casa
   const clienteDoPedido = pd => {
+    const esc1 = pd.id && escolhaPedido[pd.id] && clientes.find(c => c.id === escolhaPedido[pd.id]); if (esc1) return esc1;
     const n = norm(pd.n).trim(), noCond = clientes.filter(c => norm(c.condominio) === norm(pd.c) && !/duplicado/i.test(c.nome));
     const junto = t => t.replace(/\s+/g, "");   // "Inêssilvia" = "Inês Silvia"
     const igual = noCond.find(c => nomeLimpo(c) === n) || noCond.find(c => junto(nomeLimpo(c)) === junto(n)); if (igual) return igual;
