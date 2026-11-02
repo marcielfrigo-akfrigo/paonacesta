@@ -279,7 +279,7 @@ if (TESTE) {
 const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const DIAS = [[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"]];
-const NOMEPLANO = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
+const NOMEPLANO = { semana: "Só esta semana", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
 const st = { paes: 5, dias: [1,2,3,4,5], frios: {}, plano: "semanal" };
 try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
 // Dias que o cliente já recebeu e ainda não pagou (vem só no link pessoal: ?a=28&at=quinta e sexta)
@@ -302,7 +302,7 @@ const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","ag
 function segundaDe(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); const w = x.getDay(); return mais(x, w === 0 ? 1 : w === 6 ? 2 : 1 - w); }
 const mesDaSemana = seg => mais(seg, 3).getMonth();
 function proximaSegunda(){ const h = new Date(); h.setHours(0, 0, 0, 0); return mais(h, ((8 - h.getDay()) % 7) || 7); }
-// Primeiro dia que dá para receber: amanhã (pedido até 12h) ou depois de amanhã; nunca sábado/domingo
+// Primeiro dia que dá para receber: amanhã (pedido até meia-noite); nunca sábado/domingo nem feriado
 // Link pessoal de quem já é cliente: o plano começa na segunda da semana que está sendo cobrada
 // (?ini=AAAA-MM-DD vindo do app de gestão; sem ele, de segunda a quinta é a segunda desta semana)
 const INICIO_SEMANA = (() => {
@@ -314,7 +314,7 @@ const INICIO_SEMANA = (() => {
 })();
 // Quem já é cliente (link pessoal) já está na rota: pode seguir no próximo dia útil a qualquer hora
 function primeiroDia(){
-  if (INICIO_SEMANA) return new Date(INICIO_SEMANA); const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), h.getHours() < 12 || qp.get("n") ? 1 : 2); while (d.getDay() === 0 || d.getDay() === 6 || CONFIG.feriados[iso(d)]) d = mais(d, 1); return d; }
+  if (INICIO_SEMANA) return new Date(INICIO_SEMANA); const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), 1); while (d.getDay() === 0 || d.getDay() === 6 || CONFIG.feriados[iso(d)]) d = mais(d, 1); return d; }
 function inicioEscolhido(){
   let d = $("#inicio") && $("#inicio").value ? parse($("#inicio").value) : proximaSegunda();
   const p = primeiroDia(); if (d < p) d = p;
@@ -333,6 +333,8 @@ function periodos(){
   const plano = sem => ({ ini, fim: mais(ini, 7 * sem - 3), sem, fechaMes: sem === r });
   const per = { inicio, avulsos, restam: r, mes: MESES[mesDaSemana(ini)], fimMes: mais(fim, 4), semanal: plano(1) };
   per.disp = ["semanal"];
+  // começa no meio da semana: dá para pagar só os dias que faltam até sexta
+  if (avulsos.length) { per.semana = { ini: inicio, fim: mais(ini, -3), sem: 0, fechaMes: false }; per.disp.unshift("semana"); }
   if (r >= 2) { per.quinzenal = plano(2); per.disp.push("quinzenal"); }
   else { per.quinzenal = { ...plano(2), fechaMes: false }; per.disp.push("quinzenal"); }
   if (r >= 3) { per.mensal = plano(r); per.disp.push("mensal"); }
@@ -369,7 +371,7 @@ function calc(){
   const r2 = v => Math.round(v * 100) / 100;
   // feriados dentro de cada plano, nos dias escolhidos: não tem entrega, então não paga
   const valorDoDia = w => r2(paes / nd + (CONFIG.diasFrios[w] ? (st.frios[w] || []).reduce((s, i) => s + (CONFIG.frios[i] || 0), 0) : 0));
-  const feriadosDe = k => Object.keys(CONFIG.feriados).filter(D => D >= iso(per[k].ini) && D <= iso(per[k].fim) && st.dias.includes(parse(D).getDay()));
+  const feriadosDe = k => per[k].sem === 0 ? [] : Object.keys(CONFIG.feriados).filter(D => D >= iso(per[k].ini) && D <= iso(per[k].fim) && st.dias.includes(parse(D).getDay()));
   const cheio = {}, planos = {}, desc = {}, falta = {}, fer = {};
   per.disp.forEach(k => {
     fer[k] = feriadosDe(k);
@@ -388,7 +390,7 @@ function calc(){
 const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMensal || c.per.fimMes)})` : NOMEPLANO[k];
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
 const textoFeriado = (c, k) => c.fer && c.fer[k] && c.fer[k].length ? ` · sem entrega em ${c.fer[k].map(D => ddmm(parse(D)) + " (" + CONFIG.feriados[D] + ")").join(", ")}, já descontado` : "";
-const textoPlano = (c, k) => (ANTERIOR.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""} + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : textoPeriodo(c.per[k])) + textoFeriado(c, k);
+const textoPlano = (c, k) => (ANTERIOR.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""}${c.per[k].sem ? ` + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : ""}` : textoPeriodo(c.per[k])) + textoFeriado(c, k);
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
 
 function opcoesInicio(){
@@ -462,7 +464,7 @@ function textoPedido(c){
 function dadosPedido(c){
   return { n: $("#nome").value.trim(), c: $("#cond").value, h: $("#casa").value.trim(), p: st.paes, d: st.dias,
     f: Object.fromEntries(Object.entries(st.frios).filter(([d, l]) => st.dias.includes(Number(d)) && l.length)),
-    pl: st.plano, v: c.planos[st.plano], s: c.semana, i: iso(c.per.inicio), ini: iso(c.per.inicio), fim: iso(c.per[st.plano].fim), a: ANTERIOR.valor, t: TESTE ? 1 : 0 };
+    pl: st.plano === "semana" ? "semanal" : st.plano, v: c.planos[st.plano], s: c.semana, i: iso(c.per.inicio), ini: iso(c.per.inicio), fim: iso(c.per[st.plano].fim), a: ANTERIOR.valor, t: TESTE ? 1 : 0 };
 }
 function codigoPedido(c){ return "PNC1." + btoa(unescape(encodeURIComponent(JSON.stringify(dadosPedido(c))))); }
 // Grava o pedido no banco do Pão na Cesta (aparece em "Pedidos novos" no app de gestão)
