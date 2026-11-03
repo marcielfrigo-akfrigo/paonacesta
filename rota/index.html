@@ -175,7 +175,7 @@ else {
     const fx = e.target.closest("[data-fx]"); if (fx) {
       const [id, tipo] = fx.dataset.fx.split("|"), novo = fixos()[id] === tipo ? null : tipo;
       R.entregues = { ...(R.entregues || {}) }; R.entregues.fixos = { ...fixos() }; if (novo) R.entregues.fixos[id] = novo; else delete R.entregues.fixos[id];
-      render(); toast(novo ? (novo === "primeiro" ? "Essa casa vai ser a primeira do condomínio, todos os dias" : "Essa casa vai ser a última do condomínio, todos os dias") : "Voltou para a ordem normal");
+      render(); toast(novo ? (novo === "primeiro" ? "Primeira do condomínio ✓ As outras foram reorganizadas pelo caminho" : "Última do condomínio ✓ As outras foram reorganizadas pelo caminho") : "Voltou para a ordem normal");
       try { await gravar("entregues.fixos." + id, novo); } catch (er) { toast("Sem internet: a escolha não foi salva. Tente de novo."); }
       return;
     }
@@ -195,8 +195,25 @@ const fixos = () => ((R && R.entregues) || {}).fixos || {};
 function aplicarFixos(lista){
   const fx = fixos(), out = []; let i = 0;
   while (i < lista.length) { const c = lista[i].cond, g = []; while (i < lista.length && lista[i].cond === c) g.push(lista[i++]);
-    out.push(...g.filter(x => fx[x.id] === "primeiro"), ...g.filter(x => !fx[x.id]), ...g.filter(x => fx[x.id] === "ultimo")); }
+    const pri = g.filter(x => fx[x.id] === "primeiro"), ult = g.filter(x => fx[x.id] === "ultimo"), meio = g.filter(x => !fx[x.id]);
+    out.push(...pri, ...((pri.length || ult.length) ? caminho(meio, pri[pri.length - 1], ult[0]) : meio), ...ult); }
   return out;
+}
+// Com primeira e/ou última marcadas, refaz a ordem do meio: sai da primeira, vai sempre para a casa mais perto
+// e depois acerta trocas (2-opt) para o caminho todo ficar mais curto até chegar na última. Casas sem local vão no fim.
+function caminho(meio, ini, fim){
+  const a = ini && locDe(ini), b = fim && locDe(fim), com = meio.filter(locDe), sem = meio.filter(x => !locDe(x));
+  if (!com.length || (!a && !b)) return meio;
+  const resto = com.slice(), ord = []; let aqui = a || b;
+  while (resto.length) { resto.sort((x, y) => dist(aqui, locDe(x)) - dist(aqui, locDe(y))); const it = resto.shift(); ord.push(it); aqui = locDe(it); }
+  if (!a) ord.reverse(); // só a última marcada: monta a partir dela e inverte
+  const pts = [a, ...ord.map(locDe), b], n = pts.length, d = (x, y) => (x && y ? dist(x, y) : 0);
+  for (let melhorou = true, voltas = 0; melhorou && voltas < 50; voltas++) { melhorou = false;
+    for (let x = 1; x < n - 2; x++) for (let y = x + 1; y < n - 1; y++)
+      if (d(pts[x - 1], pts[y]) + d(pts[x], pts[y + 1]) < d(pts[x - 1], pts[x]) + d(pts[y], pts[y + 1]) - 1e-12) {
+        pts.splice(x, y - x + 1, ...pts.slice(x, y + 1).reverse()); ord.splice(x - 1, y - x + 1, ...ord.slice(x - 1, y).reverse()); melhorou = true; }
+  }
+  return [...ord, ...sem];
 }
 const botoesFixo = it => { const f = fixos()[it.id]; return `<div class="fx"><button type="button" data-fx="${it.id}|primeiro" aria-pressed="${f === "primeiro"}">${f === "primeiro" ? "✓ Primeiro · desfazer" : "⬆ Fazer primeiro"}</button><button type="button" data-fx="${it.id}|ultimo" aria-pressed="${f === "ultimo"}">${f === "ultimo" ? "✓ Por último · desfazer" : "⬇ Fazer por último"}</button></div>`; };
 const itensDia = () => ((R && R.dias && R.dias[dia]) || {}).itens || [];
@@ -379,7 +396,7 @@ function render(){
   if ((X.fora || []).length) h += `<div class="box inf"><h2>Não entregar neste dia</h2><ul>${X.fora.map(f => `<li>${esc(f.nome)} · ${esc(f.cond)} <span style="color:var(--muted)">(${esc(f.txt)})</span></li>`).join("")}</ul></div>`;
   if ((X.pessoal || []).length) h += `<div class="box inf"><h2>Sua sacola</h2>${X.pessoal.join(" + ")} pães</div>`;
   if (feitos.length) { h += `<section><div class="cond cinza">Entregues (${feitos.length})</div>`; feitos.forEach(it => h += card(it, false)); h += "</section>"; }
-  h += `<footer>Abrir o caminho no: <button type="button" data-app="google"${app === "google" ? ' style="font-weight:800"' : ""}>Google Maps</button> · <button type="button" data-app="waze"${app === "waze" ? ' style="font-weight:800"' : ""}>Waze</button><br>Toque numa casa para escolher “Fazer primeiro” ou “Fazer por último”: fica salvo para os próximos dias.<br>A rota atualiza sozinha quando o Marciel muda alguma coisa.</footer>`;
+  h += `<footer>Abrir o caminho no: <button type="button" data-app="google"${app === "google" ? ' style="font-weight:800"' : ""}>Google Maps</button> · <button type="button" data-app="waze"${app === "waze" ? ' style="font-weight:800"' : ""}>Waze</button><br>Toque numa casa para escolher “Fazer primeiro” ou “Fazer por último”: fica salvo para os próximos dias, e as outras casas do condomínio se organizam no caminho mais curto entre a primeira e a última.<br>A rota atualiza sozinha quando o Marciel muda alguma coisa.</footer>`;
   $("#main").innerHTML = h;
   alturaTopo();
   if (M.aberto) desenharMapa();
