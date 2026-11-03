@@ -701,15 +701,10 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       } catch (err) {}
     }
   }
-  // "Fazer primeiro" / "Fazer por último" que o entregador escolheu no celular (rotas/{código}.entregues.fixos)
+  // Primeiro/último antigos que o entregador marcou no celular (rotas/{código}.entregues.fixos): a gestão apaga ao salvar a ordem
   const fixosDe = e => { const r = rotasDocs[(cfg.rotaCod || {})[e]]; return (r && r.entregues && r.entregues.fixos) || {}; };
-  function blocoFixos(e){
-    const fx = Object.entries(fixosDe(e)).filter(([, v]) => v); if (!fx.length) return "";
-    const nome = id => { const c = clientes.find(x => x.id === id); return c ? `${esc(c.nome)} · ${esc(c.condominio)}` : esc(id); };
-    return `<div style="margin-top:10px"><b>Ordem que o ${esc(e)} escolheu no celular</b> <span class="muted">(vale todos os dias, dentro do condomínio)</span><ul style="margin:6px 0 0;padding-left:18px">${fx.map(([id, t]) => `<li>${nome(id)}: <b>${t === "primeiro" ? "sempre primeiro" : "sempre por último"}</b> <button class="mini" type="button" data-fixdel="${esc(e)}|${esc(id)}">Desfazer</button></li>`).join("")}</ul></div>`;
-  }
   // ---------- Mapa e ordem de um condomínio (só na gestão): arrastar o pino da casa e numerar a ordem ----------
-  // Grava lat/lng no cliente e a ordem em config/app ordemCasas; tira o primeiro/último do entregador naquele condomínio
+  // Grava lat/lng no cliente e a ordem em config/app ordemCasas; apaga o primeiro/último antigo do entregador naquele condomínio
   // e marca ordemEm, para o celular esquecer o "Organizar pelo caminho" antigo
   const ORG = { e: "", cond: "", ids: [], loc: {}, mov: {}, sel: null, numerar: 0, numerado: new Set(), map: null, camada: null };
   let leafEspera = null;
@@ -720,8 +715,6 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const k = chaveCond(condNome), lista = listaOrg.lista.filter(c => chaveCond(c.condominio) === k);
     Object.assign(ORG, { e: listaOrg.e, cond: condNome, ids: lista.map(c => c.id), loc: {}, mov: {}, sel: null, numerar: 0, numerado: new Set() });
     lista.forEach(c => { if (c.lat && c.lng) ORG.loc[c.id] = { lat: c.lat, lng: c.lng }; });
-    const fx = fixosDe(ORG.e), lado = id => fx[id] === "primeiro" ? -1 : fx[id] === "ultimo" ? 1 : 0;   // começa como o entregador vê
-    ORG.ids.sort((x, y) => lado(x) - lado(y));
     $("#mEnt").textContent = "Rota do " + ORG.e; $("#mTit").textContent = condNome + " · mapa e ordem";
     dlgM.showModal();
     try { await carregarLeaflet(); } catch (er) { toast("Sem internet para abrir o mapa.", true); return; }
@@ -1029,7 +1022,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       const novas = x.lista.filter(({ c }) => c.inicio === D);
       const pes = (cfg.pessoal || {})[eTab] || [];
       corpo = `<div class="panel"><div class="ptitle"><h2><span style="color:${COR[eTab] || "inherit"}">●</span> Rota do ${esc(eTab)} <span class="count">${x.lista.length + pes.length} entregas · ${x.paes} pães</span></h2><div class="acts"><button class="b pri sm" type="button" data-arq="rota">${ic("arrow")}Baixar rota para o WhatsApp</button><button class="b sm" type="button" data-copy="rota">${ic("copy")}Copiar texto</button></div></div>
-        ${cod ? `<div class="blk"><h3>Rota no celular</h3>${x.lista.length ? `<b>${nOk} de ${x.lista.length}</b> entregues · ` : ""}O ${esc(eTab)} abre este link e segue a rota pronta: <a href="${ROTA_URL + cod}" target="_blank" rel="noopener">${ROTA_URL.replace("https://", "") + cod}</a><br><button class="b sm" type="button" data-rotalink="${esc(eTab)}" style="margin-top:8px">${ic("copy")}Copiar link do ${esc(eTab)}</button>${blocoFixos(eTab)}</div>` : ""}
+        ${cod ? `<div class="blk"><h3>Rota no celular</h3>${x.lista.length ? `<b>${nOk} de ${x.lista.length}</b> entregues · ` : ""}O ${esc(eTab)} abre este link e segue a rota pronta: <a href="${ROTA_URL + cod}" target="_blank" rel="noopener">${ROTA_URL.replace("https://", "") + cod}</a><br><button class="b sm" type="button" data-rotalink="${esc(eTab)}" style="margin-top:8px">${ic("copy")}Copiar link do ${esc(eTab)}</button></div>` : ""}
         <div class="ovx"><table class="tbl">${rows || `<tr><td>Nenhuma entrega neste dia.</td></tr>`}</table></div>
         ${novas.length ? `<div class="blk green"><h3>Clientes novos: levar a cesta</h3><ul>${novas.map(({ c }) => `<li>${esc(c.nome)} · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
         ${x.recolher.length ? `<div class="blk red"><h3>Recolher a cesta, não entregar</h3><ul>${x.recolher.map(c => `<li>${esc(c.nome)} · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
@@ -1322,13 +1315,6 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       return;
     }
     const og = e.target.closest("button[data-org]"); if (og) { abrirOrg(og.dataset.org); return; }
-    const fd = e.target.closest("button[data-fixdel]");
-    if (fd) {
-      const [e2, id] = fd.dataset.fixdel.split("|"), cod = (cfg.rotaCod || {})[e2], novo = { ...fixosDe(e2) }; delete novo[id];
-      fd.disabled = true;
-      try { await db.doc("rotas/" + cod).update({ "entregues.fixos": novo }); toast("Desfeito: volta para a ordem normal"); } catch (er) { fd.disabled = false; toast("Não salvou: " + (er && er.message || "tente de novo"), true); }
-      return;
-    }
     const rl = e.target.closest("button[data-rotalink]");
     if (rl) {
       const e2 = rl.dataset.rotalink, txt = `Bom dia, ${e2}! Sua rota do Pão na Cesta fica sempre neste link (salve na tela do celular): ${ROTA_URL + (cfg.rotaCod || {})[e2]}`;
