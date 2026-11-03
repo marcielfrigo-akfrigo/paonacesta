@@ -694,7 +694,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   // "Fazer primeiro" / "Fazer por último" que o entregador escolheu no celular (rotas/{código}.entregues.fixos)
   const fixosDe = e => { const r = rotasDocs[(cfg.rotaCod || {})[e]]; return (r && r.entregues && r.entregues.fixos) || {}; };
   function blocoFixos(e){
-    const fx = Object.entries(fixosDe(e)); if (!fx.length) return "";
+    const fx = Object.entries(fixosDe(e)).filter(([, v]) => v); if (!fx.length) return "";
     const nome = id => { const c = clientes.find(x => x.id === id); return c ? `${esc(c.nome)} · ${esc(c.condominio)}` : esc(id); };
     return `<div style="margin-top:10px"><b>Ordem que o ${esc(e)} escolheu no celular</b> <span class="muted">(vale todos os dias, dentro do condomínio)</span><ul style="margin:6px 0 0;padding-left:18px">${fx.map(([id, t]) => `<li>${nome(id)}: <b>${t === "primeiro" ? "sempre primeiro" : "sempre por último"}</b> <button class="mini" type="button" data-fixdel="${esc(e)}|${esc(id)}">Desfazer</button></li>`).join("")}</ul></div>`;
   }
