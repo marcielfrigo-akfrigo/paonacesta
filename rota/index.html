@@ -112,7 +112,7 @@ const HOJE = iso(new Date());
 let R = null, dia = null, app = ls.get("rota-app") || "google";
 const locais = {};          // locais salvos agora neste celular (antes de a gestão gravar no cliente)
 let pos = null;             // última posição do GPS
-let aberta = null;          // casa tocada: mostra "Fazer primeiro" / "Fazer por último"
+let aberta = null;          // casa tocada: mostra Primeiro / Automático / Último
 
 const naoAchou = () => { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Rota não encontrada. Peça de novo o link ao Marciel.</p>`; };
 const semConexao = () => { if (R) return; $("#sub").textContent = "Sem conexão"; $("#main").innerHTML = `<p class="vazio">Não consegui abrir a rota. Confira a internet.<br><br><button type="button" class="ok" onclick="location.reload()">Tentar de novo</button></p>`; };
@@ -173,10 +173,16 @@ else {
       return;
     }
     const fx = e.target.closest("[data-fx]"); if (fx) {
-      const [id, tipo] = fx.dataset.fx.split("|"), novo = fixos()[id] === tipo ? null : tipo;
-      R.entregues = { ...(R.entregues || {}) }; R.entregues.fixos = { ...fixos() }; if (novo) R.entregues.fixos[id] = novo; else delete R.entregues.fixos[id];
-      render(); toast(novo ? (novo === "primeiro" ? "Primeira do condomínio ✓ As outras foram reorganizadas pelo caminho" : "Última do condomínio ✓ As outras foram reorganizadas pelo caminho") : "Voltou para a ordem normal");
-      try { await gravar("entregues.fixos." + id, novo); } catch (er) { toast("Sem internet: a escolha não foi salva. Tente de novo."); }
+      // Primeiro / Automático / Último. Só existe uma primeira e uma última por condomínio:
+      // marcar outra casa como primeira tira a anterior (ela volta para o automático)
+      const [id, tipo] = fx.dataset.fx.split("|"), novo = tipo === "auto" ? null : tipo, f = { ...fixos() };
+      if ((f[id] || null) === novo) return;
+      const cond = (itensDia().find(x => x.id === id) || {}).cond, muda = { [id]: novo };
+      if (novo) itensDia().forEach(x => { if (x.id !== id && x.cond === cond && f[x.id] === novo) muda[x.id] = null; });
+      Object.entries(muda).forEach(([k, v]) => { if (v) f[k] = v; else delete f[k]; });
+      R.entregues = { ...(R.entregues || {}), fixos: f };
+      render(); toast(novo ? (novo === "primeiro" ? "Primeira do condomínio ✓ As outras foram reorganizadas pelo caminho" : "Última do condomínio ✓ As outras foram reorganizadas pelo caminho") : "Automático ✓ Essa casa entra no caminho mais curto");
+      try { for (const [k, v] of Object.entries(muda)) await gravar("entregues.fixos." + k, v); } catch (er) { toast("Sem internet: a escolha não foi salva. Tente de novo."); }
       return;
     }
     const m = e.target.closest("[data-mapa]"); if (m) { abrirMapa(m.dataset.mapa); return; }
@@ -189,7 +195,7 @@ else {
   });
 }
 
-// "Fazer primeiro" / "Fazer por último" escolhidos pelo entregador: vale todos os dias, dentro do condomínio.
+// Primeiro / Último escolhidos pelo entregador: vale todos os dias, dentro do condomínio.
 // Fica em rotas/{código}.entregues.fixos, o campo que o entregador já pode gravar (os outros itens de "entregues" são os dias)
 const fixos = () => ((R && R.entregues) || {}).fixos || {};
 function aplicarFixos(lista){
@@ -215,7 +221,8 @@ function caminho(meio, ini, fim){
   }
   return [...ord, ...sem];
 }
-const botoesFixo = it => { const f = fixos()[it.id]; return `<div class="fx"><button type="button" data-fx="${it.id}|primeiro" aria-pressed="${f === "primeiro"}">${f === "primeiro" ? "✓ Primeiro · desfazer" : "⬆ Fazer primeiro"}</button><button type="button" data-fx="${it.id}|ultimo" aria-pressed="${f === "ultimo"}">${f === "ultimo" ? "✓ Por último · desfazer" : "⬇ Fazer por último"}</button></div>`; };
+const botoesFixo = it => { const f = fixos()[it.id] || "auto", bt = (t, txt) => `<button type="button" data-fx="${it.id}|${t}" aria-pressed="${f === t}">${f === t ? "✓ " : ""}${txt}</button>`;
+  return `<div class="fx">${bt("primeiro", "⬆ Primeiro")}${bt("auto", "Automático")}${bt("ultimo", "⬇ Último")}</div>`; };
 const itensDia = () => ((R && R.dias && R.dias[dia]) || {}).itens || [];
 const locDe = it => locais[it.id] || (it.lat && it.lng ? { lat: it.lat, lng: it.lng } : null);
 // Google Maps com as casas que faltam, em sequência, saindo de onde o entregador está (o app aceita até 10 paradas)
@@ -396,7 +403,7 @@ function render(){
   if ((X.fora || []).length) h += `<div class="box inf"><h2>Não entregar neste dia</h2><ul>${X.fora.map(f => `<li>${esc(f.nome)} · ${esc(f.cond)} <span style="color:var(--muted)">(${esc(f.txt)})</span></li>`).join("")}</ul></div>`;
   if ((X.pessoal || []).length) h += `<div class="box inf"><h2>Sua sacola</h2>${X.pessoal.join(" + ")} pães</div>`;
   if (feitos.length) { h += `<section><div class="cond cinza">Entregues (${feitos.length})</div>`; feitos.forEach(it => h += card(it, false)); h += "</section>"; }
-  h += `<footer>Abrir o caminho no: <button type="button" data-app="google"${app === "google" ? ' style="font-weight:800"' : ""}>Google Maps</button> · <button type="button" data-app="waze"${app === "waze" ? ' style="font-weight:800"' : ""}>Waze</button><br>Toque numa casa para escolher “Fazer primeiro” ou “Fazer por último”: fica salvo para os próximos dias, e as outras casas do condomínio se organizam no caminho mais curto entre a primeira e a última.<br>A rota atualiza sozinha quando o Marciel muda alguma coisa.</footer>`;
+  h += `<footer>Abrir o caminho no: <button type="button" data-app="google"${app === "google" ? ' style="font-weight:800"' : ""}>Google Maps</button> · <button type="button" data-app="waze"${app === "waze" ? ' style="font-weight:800"' : ""}>Waze</button><br>Toque numa casa para escolher Primeiro, Automático ou Último: fica salvo para os próximos dias, e as outras casas do condomínio se organizam no caminho mais curto entre a primeira e a última.<br>A rota atualiza sozinha quando o Marciel muda alguma coisa.</footer>`;
   $("#main").innerHTML = h;
   alturaTopo();
   if (M.aberto) desenharMapa();
