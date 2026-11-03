@@ -109,7 +109,6 @@ const cod = location.hash.replace(/^#/, "").trim();
 const HOJE = iso(new Date());
 let R = null, dia = null, app = ls.get("rota-app") || "google";
 const locais = {};          // locais salvos agora neste celular (antes de a gestão gravar no cliente)
-let pos = null;             // última posição do GPS
 
 const naoAchou = () => { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Rota não encontrada. Peça de novo o link ao Marciel.</p>`; };
 const semConexao = () => { if (R) return; $("#sub").textContent = "Sem conexão"; $("#main").innerHTML = `<p class="vazio">Não consegui abrir a rota. Confira a internet.<br><br><button type="button" class="ok" onclick="location.reload()">Tentar de novo</button></p>`; };
@@ -172,8 +171,6 @@ else {
     const m = e.target.closest("[data-mapa]"); if (m) { abrirMapa(m.dataset.mapa); return; }
     if (e.target.closest("[data-fechar-mapa]")) { fecharMapa(); return; }
     const d = e.target.closest("[data-dia]"); if (d) { dia = d.dataset.dia; render(); window.scrollTo(0, 0); return; }
-    if (e.target.closest("[data-ordenar]")) { ordenarPeloCaminho(); return; }
-    if (e.target.closest("[data-original]")) { ls.set("rota-ordem-" + dia, null); render(); toast("Voltou para a ordem da lista"); return; }
     const a = e.target.closest("[data-app]"); if (a) { app = a.dataset.app; ls.set("rota-app", app); render(); return; }
   });
 }
@@ -191,30 +188,6 @@ function linkIr(it){
   if (l) return app === "waze" ? `https://waze.com/ul?ll=${l.lat},${l.lng}&navigate=yes` : `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}&travelmode=driving`;
   const q = [it.rua, it.casa, it.cond, "Presidente Prudente - SP"].filter(Boolean).join(", ");
   return app === "waze" ? `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
-}
-
-// Ordem pelo caminho: a partir de onde o entregador está, vai sempre para a casa mais perto
-// (por condomínio: termina um antes de ir para o próximo). Casas sem local ficam no fim do condomínio.
-const dist = (a, b) => { const k = Math.PI / 180, x = (b.lng - a.lng) * k * Math.cos((a.lat + b.lat) / 2 * k), y = (b.lat - a.lat) * k; return Math.hypot(x, y); };
-function ordenarPeloCaminho(){
-  if (!navigator.geolocation) { toast("Este celular não deixa usar o GPS aqui."); return; }
-  toast("Vendo onde você está…");
-  navigator.geolocation.getCurrentPosition(p => {
-    pos = { lat: p.coords.latitude, lng: p.coords.longitude };
-    const itens = itensDia(), grupos = {};
-    itens.forEach(it => (grupos[it.cond] = grupos[it.cond] || []).push(it));
-    const centro = g => { const c = g.map(locDe).filter(Boolean); return c.length ? { lat: c.reduce((s, l) => s + l.lat, 0) / c.length, lng: c.reduce((s, l) => s + l.lng, 0) / c.length } : null; };
-    let aqui = pos; const ordem = [];
-    const conds = Object.keys(grupos), comLoc = conds.filter(c => centro(grupos[c])), semLoc = conds.filter(c => !centro(grupos[c]));
-    while (comLoc.length) {
-      comLoc.sort((a, b) => dist(aqui, centro(grupos[a])) - dist(aqui, centro(grupos[b])));
-      const g = grupos[comLoc.shift()], resto = g.filter(locDe);
-      while (resto.length) { resto.sort((a, b) => dist(aqui, locDe(a)) - dist(aqui, locDe(b))); const it = resto.shift(); ordem.push(it.id); aqui = locDe(it); }
-      g.filter(it => !locDe(it)).forEach(it => ordem.push(it.id));
-    }
-    semLoc.forEach(c => grupos[c].forEach(it => ordem.push(it.id)));
-    ls.set("rota-ordem-" + dia, { ids: ordem, em: Date.now() }); render(); toast("Rota organizada pelo caminho ✓");
-  }, () => toast("Não consegui o GPS. Libere a localização para o navegador."), { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
 }
 
 // ---------- Mapa próprio (Leaflet): etiqueta em cada casa com nº da ordem, nome, casa e pães ----------
@@ -315,12 +288,8 @@ function render(){
   $("#dias").innerHTML = dias.slice(0, 5).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}${(R.dias[D].itens || []).some(it => it.frios && it.frios.length) ? `<span class="q">🧀</span>` : ""}</button>`).join("");
   if (!dia) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Nenhuma rota publicada para os próximos dias.</p>`; return; }
   const X = R.dias[dia], ok = (R.entregues || {})[dia] || {};
-  // ordem: a salva pelo "Organizar pelo caminho" (se ainda serve) ou a da lista da gestão
-  // se o Marciel arrumou a ordem na gestão depois (ordemEm), vale a dele
-  const sv = ls.get("rota-ordem-" + dia), base = X.itens || [];
-  const salva = sv && (Array.isArray(sv) ? ((R.ordemEm || 0) ? null : sv) : (sv.em >= (R.ordemEm || 0) ? sv.ids : null));
-  let itens = base;
-  if (Array.isArray(salva)) { const p = new Map(salva.map((id, i) => [id, i])); itens = base.slice().sort((a, b) => (p.has(a.id) ? p.get(a.id) : 1e3 + base.indexOf(a)) - (p.has(b.id) ? p.get(b.id) : 1e3 + base.indexOf(b))); }
+  // ordem: a da gestão (o Marciel organiza em Entregas → Mapa e ordem)
+  const itens = X.itens || [];
   // número da ordem dentro de cada condomínio: cada um começa no 1
   const porCond = {}, num = new Map(itens.map(it => [it.id, porCond[it.cond] = (porCond[it.cond] || 0) + 1]));
   const falta = itens.filter(it => !ok[it.id]), feitos = itens.filter(it => ok[it.id]);
@@ -341,7 +310,7 @@ function render(){
   let h = "";
   if ((X.recolher || []).length) h += `<div class="box red"><h2>Recolher a cesta (não entregar)</h2><ul>${X.recolher.map(r => `<li><b>${esc(r.nome)}</b>${r.casa ? " " + esc(r.casa) : ""} · ${esc(r.cond)}</li>`).join("")}</ul></div>`;
   if (falta.length) {
-    h += `<div class="ordem"><button type="button" data-mapa="">🗺 Ver tudo no mapa</button><button type="button" data-ordenar>📍 Organizar pelo caminho</button>${Array.isArray(salva) ? `<button type="button" data-original>Ordem da lista</button>` : ""}</div>`;
+    h += `<div class="ordem"><button type="button" data-mapa="">🗺 Ver tudo no mapa</button></div>`;
     let cond = "";
     falta.forEach((it, i) => {
       if (it.cond !== cond) {
