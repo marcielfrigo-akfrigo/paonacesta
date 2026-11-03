@@ -274,6 +274,10 @@ dialog::backdrop{background:rgba(45,36,28,.45);backdrop-filter:blur(3px)}
 .toast.err{background:var(--due)}
 .alertbox{background:var(--due-bg);color:var(--due);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px}
 
+.dlgmapa{width:min(1200px,calc(100vw - 24px))}.mcorpo{display:grid;grid-template-columns:1fr 330px;height:min(70vh,680px)}#mMapa{min-height:300px}#mLista{overflow:auto;border-left:1px solid var(--line);padding:8px}
+.mrow{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px;cursor:pointer}.mrow:hover,.mrow.sel{background:var(--soft)}.mrow select{width:58px;font:inherit;padding:4px}.mrow .mnm{flex:1;min-width:0;line-height:1.2}.mrow small{display:block;color:var(--faint)}.mrow .mov{font-size:11px;color:#B5541E;font-weight:700}
+.mpino{transform:translate(-50%,-100%);white-space:nowrap;background:#fff;color:#2b201d;border:2px solid #6b4a2e;border-radius:10px;padding:2px 7px;font:700 12px/1.3 "DM Sans",sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:grab}.mpino b{display:inline-block;min-width:18px;margin-right:4px;background:#6b4a2e;color:#fff;border-radius:6px;text-align:center}.mpino.sel{border-color:#1E5FBF}.mpino.sel b{background:#1E5FBF}.mpino.mov{border-color:#B5541E}.mpino.vazio b{background:#bbb}
+@media (max-width:760px){.mcorpo{grid-template-columns:1fr;grid-template-rows:55vh auto;height:auto}#mLista{border-left:none;border-top:1px solid var(--line);max-height:35vh}}
 @media (max-width:1100px){.stats{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.wbrand{width:260px}}
 @media (max-width:900px){
   .side{width:270px;padding-top:calc(24px + env(safe-area-inset-top,0px));transform:translateX(-100%);transition:transform .22s ease;box-shadow:none}
@@ -405,6 +409,12 @@ dialog::backdrop{background:rgba(45,36,28,.45);backdrop-filter:blur(3px)}
     </div>
     <div class="mfoot"><div><button class="b" type="button" data-close>Cancelar</button><button class="b pri" type="submit"><span data-ic="check"></span>Lançar crédito</button></div></div>
   </form>
+</dialog>
+
+<dialog id="dlgM" class="dlgmapa">
+  <div class="mhead"><div><span class="eyebrow" id="mEnt">Rota</span><h2 id="mTit">Mapa e ordem</h2></div><button class="x" type="button" data-close aria-label="Fechar"><span data-ic="x"></span></button></div>
+  <div class="mcorpo"><div id="mMapa"></div><div id="mLista"></div></div>
+  <div class="mfoot"><span class="muted" id="mDica">Arraste o pino até a casa certa. Escolha o número de cada casa na lista, ou clique em “Numerar clicando” e vá tocando nas casas na ordem.</span><div><button class="b" type="button" id="mNumerar">Numerar clicando</button><button class="b" type="button" id="mAuto" title="Apaga a ordem escolhida e volta para o caminho mais curto">Voltar ao automático</button><button class="b pri" type="button" id="mSalvar"><span data-ic="check"></span>Salvar</button></div></div>
 </dialog>
 
 <script>
@@ -609,7 +619,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   // ---------- Rota no celular do entregador (paonacesta.com.br/rota/#código) ----------
   // A gestão publica em rotas/{código} a rota dos próximos dias; o entregador só lê, marca "entregue" e salva o local da casa
   const ROTA_URL = "https://paonacesta.com.br/rota/#";
-  let rotasDocs = {}, pubTimer = null; const pubUltimo = {};
+  let rotasDocs = {}, pubTimer = null, listaOrg = { e: "", lista: [] }; const pubUltimo = {};
   const codigoNovo = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
   const ehEntrega = D => { const w = parse(D).getDay(); return w >= 1 && w <= 5 && !FERIADOS[D]; };
   function diasRota(){ const out = []; let D = HOJE; while (out.length < 4) { if (ehEntrega(D)) out.push(D); D = addDays(D, 1); } return out; }
@@ -671,7 +681,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     if (faltam.length) { faltam.forEach(e => cod[e] = codigoNovo()); try { await db.doc("config/app").update({ rotaCod: cod }); } catch (err) {} return; }   // a gravação volta pelo onSnapshot e publica
     const Ms = diasRota().map(montar);
     for (const e of Object.keys(cod)) {
-      const dados = { entregador: e, cor: COR[e] || "", dias: Object.fromEntries(Ms.map(M => [M.D, rotaDoDia(e, M)])) };
+      const dados = { entregador: e, cor: COR[e] || "", ordemEm: cfg.ordemEm || 0, dias: Object.fromEntries(Ms.map(M => [M.D, rotaDoDia(e, M)])) };
       const txt = JSON.stringify(dados); if (pubUltimo[e] === txt) continue;
       try {
         const ref = db.doc("rotas/" + cod[e]);
@@ -697,6 +707,73 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const fx = Object.entries(fixosDe(e)).filter(([, v]) => v); if (!fx.length) return "";
     const nome = id => { const c = clientes.find(x => x.id === id); return c ? `${esc(c.nome)} · ${esc(c.condominio)}` : esc(id); };
     return `<div style="margin-top:10px"><b>Ordem que o ${esc(e)} escolheu no celular</b> <span class="muted">(vale todos os dias, dentro do condomínio)</span><ul style="margin:6px 0 0;padding-left:18px">${fx.map(([id, t]) => `<li>${nome(id)}: <b>${t === "primeiro" ? "sempre primeiro" : "sempre por último"}</b> <button class="mini" type="button" data-fixdel="${esc(e)}|${esc(id)}">Desfazer</button></li>`).join("")}</ul></div>`;
+  }
+  // ---------- Mapa e ordem de um condomínio (só na gestão): arrastar o pino da casa e numerar a ordem ----------
+  // Grava lat/lng no cliente e a ordem em config/app ordemCasas; tira o primeiro/último do entregador naquele condomínio
+  // e marca ordemEm, para o celular esquecer o "Organizar pelo caminho" antigo
+  const ORG = { e: "", cond: "", ids: [], loc: {}, mov: {}, sel: null, numerar: 0, numerado: new Set(), map: null, camada: null };
+  let leafEspera = null;
+  const carregarLeaflet = () => window.L ? Promise.resolve() : (leafEspera = leafEspera || new Promise((ok, erro) => {
+    const B = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/", css = document.createElement("link"); css.rel = "stylesheet"; css.href = B + "leaflet.min.css"; document.head.appendChild(css);
+    const js = document.createElement("script"); js.src = B + "leaflet.min.js"; js.onload = ok; js.onerror = () => { leafEspera = null; erro(); }; document.head.appendChild(js); }));
+  async function abrirOrg(condNome){
+    const k = chaveCond(condNome), lista = listaOrg.lista.filter(c => chaveCond(c.condominio) === k);
+    Object.assign(ORG, { e: listaOrg.e, cond: condNome, ids: lista.map(c => c.id), loc: {}, mov: {}, sel: null, numerar: 0, numerado: new Set() });
+    lista.forEach(c => { if (c.lat && c.lng) ORG.loc[c.id] = { lat: c.lat, lng: c.lng }; });
+    const fx = fixosDe(ORG.e), lado = id => fx[id] === "primeiro" ? -1 : fx[id] === "ultimo" ? 1 : 0;   // começa como o entregador vê
+    ORG.ids.sort((x, y) => lado(x) - lado(y));
+    $("#mEnt").textContent = "Rota do " + ORG.e; $("#mTit").textContent = condNome + " · mapa e ordem";
+    dlgM.showModal();
+    try { await carregarLeaflet(); } catch (er) { toast("Sem internet para abrir o mapa.", true); return; }
+    if (!ORG.map) {
+      ORG.map = L.map("mMapa", { maxZoom: 21 });
+      const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 21, maxNativeZoom: 19, attribution: "Esri" });
+      const rua = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 21, maxNativeZoom: 19, attribution: "© OpenStreetMap" });
+      sat.addTo(ORG.map); L.control.layers({ "Satélite": sat, "Ruas": rua }).addTo(ORG.map);
+      ORG.camada = L.layerGroup().addTo(ORG.map);
+      ORG.map.on("click", ev => { if (!ORG.sel || ORG.loc[ORG.sel]) return; ORG.loc[ORG.sel] = { lat: ev.latlng.lat, lng: ev.latlng.lng }; ORG.mov[ORG.sel] = true; desenharOrg(); });
+    }
+    setTimeout(() => { ORG.map.invalidateSize(); const ps = Object.values(ORG.loc).map(l => [l.lat, l.lng]); if (ps.length) ORG.map.fitBounds(ps, { padding: [40, 40], maxZoom: 19 }); else ORG.map.setView([-22.12, -51.39], 14); desenharOrg(); }, 60);
+  }
+  function desenharOrg(){
+    const cli = id => clientes.find(c => c.id === id) || { nome: id }, rot = c => [esc(c.nome.split(/[\s/]/)[0]), esc(casaRua(c.endereco || "").casa || "")].filter(Boolean).join(" ");
+    ORG.camada.clearLayers();
+    const pts = ORG.ids.filter(id => ORG.loc[id]).map(id => [ORG.loc[id].lat, ORG.loc[id].lng]);
+    if (pts.length > 1) L.polyline(pts, { color: "#ffd58a", weight: 3, opacity: .9, dashArray: "6 6" }).addTo(ORG.camada);
+    ORG.ids.forEach((id, i) => { const l = ORG.loc[id]; if (!l) return;
+      const num = ORG.numerar && !ORG.numerado.has(id) ? "·" : i + 1;
+      const mk = L.marker([l.lat, l.lng], { draggable: true, icon: L.divIcon({ className: "", iconSize: [0, 0], html: `<div class="mpino${id === ORG.sel ? " sel" : ""}${ORG.mov[id] ? " mov" : ""}${num === "·" ? " vazio" : ""}"><b>${num}</b>${rot(cli(id))}</div>` }), zIndexOffset: id === ORG.sel ? 1000 : 0 }).addTo(ORG.camada);
+      mk.on("dragend", () => { const p = mk.getLatLng(); ORG.loc[id] = { lat: p.lat, lng: p.lng }; ORG.mov[id] = true; ORG.sel = id; desenharOrg(); });
+      mk.on("click", () => { if (ORG.numerar) numerarOrg(id); else { ORG.sel = id; desenharOrg(); } });
+    });
+    const n = ORG.ids.length, opts = i => Array.from({ length: n }, (_, j) => `<option value="${j}"${j === i ? " selected" : ""}>${j + 1}º</option>`).join("");
+    $("#mLista").innerHTML = (ORG.numerar ? `<p class="muted" style="margin:4px 6px 10px">Toque nas casas no mapa na ordem da entrega. Já foram ${ORG.numerado.size} de ${n}. <button class="mini" type="button" data-orgfim>Terminar</button></p>` : "") +
+      ORG.ids.map((id, i) => { const c = cli(id); return `<div class="mrow${id === ORG.sel ? " sel" : ""}" data-orgsel="${id}"><select data-orgpos="${id}" aria-label="Ordem de ${esc(c.nome)}">${opts(i)}</select><div class="mnm"><b>${esc(c.nome)}</b><small>${esc(c.endereco || "")}${ORG.loc[id] ? "" : " · sem local: selecione e clique no mapa"}</small>${ORG.mov[id] ? `<span class="mov">local mudado</span>` : ""}</div></div>`; }).join("");
+  }
+  function numerarOrg(id){   // "Numerar clicando": a casa tocada vira a próxima da ordem
+    if (ORG.numerado.has(id)) return;
+    ORG.ids.splice(ORG.ids.indexOf(id), 1); ORG.ids.splice(ORG.numerado.size, 0, id); ORG.numerado.add(id); ORG.sel = id;
+    if (ORG.numerado.size >= ORG.ids.length) { ORG.numerar = 0; toast("Ordem toda numerada. Confira e clique em Salvar."); }
+    desenharOrg();
+  }
+  async function salvarOrg(auto){
+    const k = chaveCond(ORG.cond), oc = { ...(cfg.ordemCasas || {}) }, chave = Object.keys(oc).find(n => chaveCond(n) === k) || ORG.cond;
+    if (auto) delete oc[chave];
+    else {   // casas que não estão neste dia continuam onde estavam na ordem antiga, logo depois da casa que vinha antes delas
+      const velha = oc[chave] || [], nova = ORG.ids.slice();
+      velha.forEach((id, i) => { if (nova.includes(id)) return; let p = -1; for (let j = i - 1; j >= 0 && p < 0; j--) p = nova.indexOf(velha[j]); nova.splice(p + 1, 0, id); });
+      oc[chave] = nova;
+    }
+    $("#mSalvar").disabled = true;
+    try {
+      for (const id of Object.keys(ORG.mov)) { const l = ORG.loc[id]; await db.doc("clientes/" + id).update({ lat: +l.lat.toFixed(6), lng: +l.lng.toFixed(6) }); }
+      await db.doc("config/app").update({ ordemCasas: oc, ordemEm: Date.now() });
+      const cod = (cfg.rotaCod || {})[ORG.e], fx = { ...fixosDe(ORG.e) }; let tirou = false;
+      clientes.forEach(c => { if (chaveCond(c.condominio) === k && fx[c.id]) { delete fx[c.id]; tirou = true; } });
+      if (cod && tirou) await db.doc("rotas/" + cod).update({ "entregues.fixos": fx });
+      dlgM.close(); toast(auto ? "Voltou para o caminho automático. A rota do celular atualiza em instantes." : "Salvo: " + (Object.keys(ORG.mov).length ? Object.keys(ORG.mov).length + " local(is) e " : "") + "a ordem. A rota do celular atualiza em instantes.");
+    } catch (er) { toast("Não salvou: " + (er && er.message || "tente de novo"), true); }
+    $("#mSalvar").disabled = false;
   }
   const entreguesDe = (e, D) => { const r = rotasDocs[(cfg.rotaCod || {})[e]]; return (r && r.entregues && r.entregues[D]) || {}; };
   const valorDia = c => { const n = Array.isArray(c.dias) && c.dias.length ? c.dias.length : 5; return Math.round((c.valor || 0) / n * 100) / 100; };
@@ -941,8 +1018,9 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       const x = pe[eTab] || { lista: [], sac: {}, paes: 0, mud: [], recolher: [] };
       let rows = "", condAtual = "", i = 0;
       const ok = entreguesDe(eTab, D), nOk = x.lista.filter(({ c }) => ok[c.id]).length, cod = (cfg.rotaCod || {})[eTab];
+      listaOrg = { e: eTab, lista: x.lista.map(({ c }) => c) };
       x.lista.forEach(({ c, f }) => {
-        if (c.condominio !== condAtual) { condAtual = c.condominio; rows += `<tr class="condh"><td colspan="3"><span>${esc(condAtual)}</span></td></tr>`; }
+        if (c.condominio !== condAtual) { condAtual = c.condominio; rows += `<tr class="condh"><td colspan="3"><span>${esc(condAtual)}</span>${cod ? ` <button class="mini" type="button" data-org="${esc(condAtual)}" title="Arrumar o local das casas e a ordem de entrega">Mapa e ordem</button>` : ""}</td></tr>`; }
         i++;
         const tags = (c.inicio === D ? `<span class="tag nova">LEVAR CESTA</span>` : "") + (/cortesia/i.test(c.nome + " " + (c.obs || "")) ? `<span class="tag cort">CORTESIA</span>` : "");
         const jaCred = creds.some(k => k.clienteId === c.id && k.dataEntrega === D);
@@ -1243,6 +1321,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       catch (er) { if (!er || er.code !== "declined") toast("Não salvou o arquivo. Use “Copiar texto”.", true); }
       return;
     }
+    const og = e.target.closest("button[data-org]"); if (og) { abrirOrg(og.dataset.org); return; }
     const fd = e.target.closest("button[data-fixdel]");
     if (fd) {
       const [e2, id] = fd.dataset.fixdel.split("|"), cod = (cfg.rotaCod || {})[e2], novo = { ...fixosDe(e2) }; delete novo[id];
@@ -1414,6 +1493,16 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     } catch (err) { toast("Não salvou: " + (err && err.message || "tente de novo"), true); }
   });
 
+  const dlgM = $("#dlgM");
+  dlgM.addEventListener("change", e => { const s = e.target.closest("[data-orgpos]"); if (!s) return;
+    const id = s.dataset.orgpos; ORG.ids.splice(ORG.ids.indexOf(id), 1); ORG.ids.splice(+s.value, 0, id); ORG.sel = id; desenharOrg(); });
+  dlgM.addEventListener("click", e => {
+    if (e.target.closest("[data-orgfim]")) { ORG.numerar = 0; desenharOrg(); return; }
+    const r = e.target.closest("[data-orgsel]"); if (r && !e.target.closest("select")) { ORG.sel = r.dataset.orgsel; const l = ORG.loc[ORG.sel]; if (l) ORG.map.panTo([l.lat, l.lng]); desenharOrg(); }
+  });
+  $("#mNumerar").addEventListener("click", () => { ORG.numerar = 1; ORG.numerado = new Set(); ORG.sel = null; desenharOrg(); toast("Toque nas casas no mapa na ordem: a primeira, a segunda…"); });
+  $("#mAuto").addEventListener("click", () => { if (confirm("Apagar a ordem escolhida de " + ORG.cond + " e voltar para o caminho automático? (os locais mudados também são salvos)")) salvarOrg(true); });
+  $("#mSalvar").addEventListener("click", () => salvarOrg(false));
   const dlgK = $("#dlgK"); let kExtra = {};
   function abrirCred(id, pre = {}){
     kExtra = { dataEntrega: pre.dataEntrega || "" };

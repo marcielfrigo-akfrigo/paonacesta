@@ -258,7 +258,7 @@ function ordenarPeloCaminho(){
       g.filter(it => !locDe(it)).forEach(it => ordem.push(it.id));
     }
     semLoc.forEach(c => grupos[c].forEach(it => ordem.push(it.id)));
-    ls.set("rota-ordem-" + dia, ordem); render(); toast("Rota organizada pelo caminho ✓");
+    ls.set("rota-ordem-" + dia, { ids: ordem, em: Date.now() }); render(); toast("Rota organizada pelo caminho ✓");
   }, () => toast("Não consegui o GPS. Libere a localização para o navegador."), { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 });
 }
 
@@ -361,7 +361,9 @@ function render(){
   if (!dia) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Nenhuma rota publicada para os próximos dias.</p>`; return; }
   const X = R.dias[dia], ok = (R.entregues || {})[dia] || {};
   // ordem: a salva pelo "Organizar pelo caminho" (se ainda serve) ou a da lista da gestão
-  const salva = ls.get("rota-ordem-" + dia), base = X.itens || [];
+  // se o Marciel arrumou a ordem na gestão depois (ordemEm), vale a dele
+  const sv = ls.get("rota-ordem-" + dia), base = X.itens || [];
+  const salva = sv && (Array.isArray(sv) ? ((R.ordemEm || 0) ? null : sv) : (sv.em >= (R.ordemEm || 0) ? sv.ids : null));
   let itens = base;
   if (Array.isArray(salva)) { const p = new Map(salva.map((id, i) => [id, i])); itens = base.slice().sort((a, b) => (p.has(a.id) ? p.get(a.id) : 1e3 + base.indexOf(a)) - (p.has(b.id) ? p.get(b.id) : 1e3 + base.indexOf(b))); }
   itens = aplicarFixos(itens);
