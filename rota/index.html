@@ -41,7 +41,10 @@ main{padding:14px 12px 120px;max-width:640px;margin:0 auto}
 .st .ru{color:var(--muted);font-size:12.5px;line-height:1.25}
 .st .fr{display:inline-block;background:#e07a1f;color:#fff;font-weight:800;font-size:13.5px;border-radius:7px;padding:3px 8px;margin-top:4px;letter-spacing:.02em}
 .st.temfr{border:2px solid #e07a1f;background:#fff4e8}
-.st .tg{display:inline-block;background:var(--okbg);color:var(--ok);font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin-top:2px}
+/* cliente nova: nome em marca-texto amarelo e LEVAR A CESTA grande */
+.marca{background:#ffe600;color:#000;font-weight:800;padding:1px 5px;border-radius:3px}
+.cestaG{display:inline-block;background:#d6001c;color:#fff;font-weight:900;font-size:17px;line-height:1.2;border-radius:8px;padding:5px 12px;margin-top:4px}
+.st.nova{border:2px solid #d6001c}
 .st .pa{background:var(--brown);color:var(--cream);border-radius:999px;padding:3px 9px;font-weight:700;font-size:13px;white-space:nowrap}
 .st .acts{grid-column:1/-1;display:flex;gap:6px;margin-top:6px}
 .st .acts a,.st .acts button{flex:1;min-height:38px;border-radius:9px;font:700 14px "DM Sans",sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;text-decoration:none;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
@@ -265,7 +268,7 @@ function desenharMapa(){
   com.forEach(it => {
     const l = locDe(it), feito = !!V.ok[it.id], fr = it.frios && it.frios.length;
     const cls = "pin" + (fr ? " fr" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
-    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.paes} pães${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}</small></span></div>`;
+    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.paes} pães${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}${it.nova ? ' · <b style="color:#d6001c">🧺 CESTA</b>' : ""}</small></span></div>`;
     L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : fr ? 500 : 0 })
       .on("click", ev => { L.DomEvent.stopPropagation(ev); M.sel = it.id; desenharMapa(); }).addTo(M.camada);
   });
@@ -275,7 +278,7 @@ function desenharMapa(){
   const it = todos.find(x => x.id === M.sel) || prox;
   if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; return; }
   const feito = !!V.ok[it.id], nav = falta.filter(locDe);
-  $("#mapaFicha").innerHTML = (nav.length > 1 ? `<a class="nav" href="${linkNavegar(nav)}" target="_blank" rel="noopener">▶ Navegar no Google Maps: ${Math.min(nav.length, 10)} casas na ordem</a>` : "") + `<div class="nm">${it === prox ? "Próxima: " : ""}${V.num.get(it.id)} · ${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""} · ${it.paes} pães</div>${it.frios && it.frios.length ? `<div class="fr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${locDe(it) ? "" : `<div class="fr">Sem local salvo nesta casa</div>`}
+  $("#mapaFicha").innerHTML = (nav.length > 1 ? `<a class="nav" href="${linkNavegar(nav)}" target="_blank" rel="noopener">▶ Navegar no Google Maps: ${Math.min(nav.length, 10)} casas na ordem</a>` : "") + `<div class="nm">${it === prox ? "Próxima: " : ""}${V.num.get(it.id)} · ${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""} · ${it.paes} pães</div>${it.nova ? `<div class="cestaG" style="margin:2px 0 4px">🧺 LEVAR A CESTA</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${locDe(it) ? "" : `<div class="fr">Sem local salvo nesta casa</div>`}
     <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a><button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div>`;
 }
 
@@ -303,8 +306,8 @@ function render(){
 
   const card = (it, prox) => {
     const l = locDe(it), feito = !!ok[it.id];
-    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}${it.frios && it.frios.length ? " temfr" : ""}" data-id="${it.id}"><span class="n">${num.get(it.id)}</span>
-      <div><div class="nm">${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 LEVAR FRIOS: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<span class="tg">CLIENTE NOVA · LEVAR A CESTA</span>` : ""}</div>
+    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}${it.frios && it.frios.length ? " temfr" : ""}${it.nova ? " nova" : ""}" data-id="${it.id}"><span class="n">${num.get(it.id)}</span>
+      <div><div class="nm">${it.nova ? `<span class="marca">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</span>` : `${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}`}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 LEVAR FRIOS: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
       <span class="pa">${it.paes} pães</span>
       <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a>${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">📍 Corrigir local</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Salvar local</button>`}<button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div></div>`;
   };
@@ -325,6 +328,8 @@ function render(){
     h += "</section>";   // cada condomínio numa seção: o título só fica grudado no topo enquanto a lista dele está na tela
   } else if (tot) h += `<div class="fim">Todas as ${tot} entregas feitas. Bom trabalho! 🥖</div>`;
   else h += `<p class="vazio">Nenhuma entrega neste dia.</p>`;
+  const novas = falta.filter(it => it.nova);
+  if (novas.length) h += `<div class="box inf"><h2>Cliente nova neste dia</h2><div class="cestaG" style="margin:0 0 8px">🧺 LEVAR A CESTA</div><ul>${novas.map(it => `<li><span class="marca">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</span> · ${esc(it.cond)}</li>`).join("")}</ul></div>`;
   if ((X.fora || []).length) h += `<div class="box inf"><h2>Não entregar neste dia</h2><ul>${X.fora.map(f => `<li>${esc(f.nome)} · ${esc(f.cond)} <span style="color:var(--muted)">(${esc(f.txt)})</span></li>`).join("")}</ul></div>`;
   if ((X.pessoal || []).length) h += `<div class="box inf"><h2>Sua sacola</h2>${X.pessoal.join(" + ")} pães</div>`;
   if (feitos.length) { h += `<section><div class="cond cinza">Entregues (${feitos.length})</div>`; feitos.forEach(it => h += card(it, false)); h += "</section>"; }

@@ -228,6 +228,8 @@ h1{font:400 38px/1.15 var(--display);letter-spacing:-.6px;margin:8px 0 6px;text-
 .fr{color:var(--quin);font-weight:600;font-size:12px}
 .tag{font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:1px}
 .tag.nova{background:var(--quin-bg);color:var(--quin)}
+/* cliente nova: nome em marca-texto amarelo e LEVAR A CESTA grande */
+.marca{background:#ffe600;color:#000;font-weight:800;font-size:1.12em;padding:1px 6px;border-radius:3px}.cestaG{display:inline-block;background:#d6001c;color:#fff;font-weight:900;font-size:17px;line-height:1.2;padding:5px 12px;border-radius:8px;margin:5px 0 2px}
 .tag.cort{background:var(--men-bg);color:var(--men)}
 .tag.sai{background:var(--due-bg);color:var(--due)}
 .blk{padding:14px 20px;border-top:1px solid var(--line2)}
@@ -1015,16 +1017,16 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       x.lista.forEach(({ c, f }) => {
         if (c.condominio !== condAtual) { condAtual = c.condominio; rows += `<tr class="condh"><td colspan="3"><span>${esc(condAtual)}</span>${cod ? ` <button class="mini" type="button" data-org="${esc(condAtual)}" title="Arrumar o local das casas e a ordem de entrega">Mapa e ordem</button>` : ""}</td></tr>`; }
         i++;
-        const tags = (c.inicio === D ? `<span class="tag nova">LEVAR CESTA</span>` : "") + (/cortesia/i.test(c.nome + " " + (c.obs || "")) ? `<span class="tag cort">CORTESIA</span>` : "");
+        const tags = (/cortesia/i.test(c.nome + " " + (c.obs || "")) ? `<span class="tag cort">CORTESIA</span>` : "");
         const jaCred = creds.some(k => k.clienteId === c.id && k.dataEntrega === D);
-        rows += `<tr><td class="rn">${String(i).padStart(2, "0")}</td><td>${ok[c.id] ? `<span class="badge cred">✓ Entregue ${new Date(ok[c.id]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> ` : ""}<b>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</b>${tags}${c.lat ? "" : ` <span class="muted" title="O entregador ainda não salvou o local desta casa">· sem local</span>`}${c.endereco ? `<br><span class="muted">${esc(c.endereco)}</span>` : ""}${f.length ? `<br><span class="fr">+ ${f.join(", ")}</span>` : ""}${ok[c.id] ? "" : `<br>${jaCred ? `<span class="badge cred">Crédito lançado</span>` : `<button class="mini" type="button" data-ne="${c.id}">Não entregue</button>`}`}</td><td class="r"><span class="qt">${c.paes} pães</span></td></tr>`;
+        rows += `<tr><td class="rn">${String(i).padStart(2, "0")}</td><td>${ok[c.id] ? `<span class="badge cred">✓ Entregue ${new Date(ok[c.id]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> ` : ""}${c.inicio === D ? `<span class="marca">${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</span>` : `<b>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</b>`}${tags}${c.lat ? "" : ` <span class="muted" title="O entregador ainda não salvou o local desta casa">· sem local</span>`}${c.endereco ? `<br><span class="muted">${esc(c.endereco)}</span>` : ""}${c.inicio === D ? `<br><span class="cestaG">🧺 LEVAR A CESTA</span>` : ""}${f.length ? `<br><span class="fr">+ ${f.join(", ")}</span>` : ""}${ok[c.id] ? "" : `<br>${jaCred ? `<span class="badge cred">Crédito lançado</span>` : `<button class="mini" type="button" data-ne="${c.id}">Não entregue</button>`}`}</td><td class="r"><span class="qt">${c.paes} pães</span></td></tr>`;
       });
       const novas = x.lista.filter(({ c }) => c.inicio === D);
       const pes = (cfg.pessoal || {})[eTab] || [];
       corpo = `<div class="panel"><div class="ptitle"><h2><span style="color:${COR[eTab] || "inherit"}">●</span> Rota do ${esc(eTab)} <span class="count">${x.lista.length + pes.length} entregas · ${x.paes} pães</span></h2><div class="acts"><button class="b pri sm" type="button" data-arq="rota">${ic("arrow")}Baixar rota para o WhatsApp</button><button class="b sm" type="button" data-copy="rota">${ic("copy")}Copiar texto</button></div></div>
         ${cod ? `<div class="blk"><h3>Rota no celular</h3>${x.lista.length ? `<b>${nOk} de ${x.lista.length}</b> entregues · ` : ""}O ${esc(eTab)} abre este link e segue a rota pronta: <a href="${ROTA_URL + cod}" target="_blank" rel="noopener">${ROTA_URL.replace("https://", "") + cod}</a><br><button class="b sm" type="button" data-rotalink="${esc(eTab)}" style="margin-top:8px">${ic("copy")}Copiar link do ${esc(eTab)}</button></div>` : ""}
         <div class="ovx"><table class="tbl">${rows || `<tr><td>Nenhuma entrega neste dia.</td></tr>`}</table></div>
-        ${novas.length ? `<div class="blk green"><h3>Clientes novos: levar a cesta</h3><ul>${novas.map(({ c }) => `<li>${esc(c.nome)} · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
+        ${novas.length ? `<div class="blk green"><h3>Clientes novos</h3><span class="cestaG">🧺 LEVAR A CESTA</span><ul>${novas.map(({ c }) => `<li><span class="marca">${esc(c.nome)}</span> · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
         ${x.recolher.length ? `<div class="blk red"><h3>Recolher a cesta, não entregar</h3><ul>${x.recolher.map(c => `<li>${esc(c.nome)} · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
         ${mudHtml(x.mud, nomeAnt, false)}
         ${pes.length ? `<div class="blk"><h3>Pães do pessoal</h3>Sua sacola: <b>${pes.join(" + ")} pães</b></div>` : ""}
@@ -1069,11 +1071,11 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       g.itens.map(({ c, f }) => { n++;
         // Número da casa sobe para o lado do nome; embaixo fica só a rua
         const m = (c.endereco || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i), num = m ? m[2] : "", rua = m ? m[1] : (c.endereco || "").trim();
-        return `<div class="r"><b class="n">${n}</b><div class="t"><strong>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}${c.inicio === M.D ? ' <em class="g">NOVA</em>' : ""}${/cortesia/i.test(c.nome) ? ' <em class="v">CORTESIA</em>' : ""}</strong>${rua ? `<span>${esc(rua)}</span>` : ""}${f.length ? `<span class="fr">+ ${esc(f.join(", "))}</span>` : ""}</div>${pill(c.paes + " pães")}</div>`; }).join("")).join("");
+        return `<div class="r"><b class="n">${n}</b><div class="t"><strong>${c.inicio === M.D ? `<mark>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}</mark>` : `${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}`}${/cortesia/i.test(c.nome) ? ' <em class="v">CORTESIA</em>' : ""}</strong>${rua ? `<span>${esc(rua)}</span>` : ""}${c.inicio === M.D ? `<i class="cesta">🧺 LEVAR A CESTA</i>` : ""}${f.length ? `<span class="fr">+ ${esc(f.join(", "))}</span>` : ""}</div>${pill(c.paes + " pães")}</div>`; }).join("")).join("");
     const novas = x.lista.filter(({ c }) => c.inicio === M.D);
-    const blocoNovas = novas.length ? `<div class="band gr"><h2>CLIENTES NOVOS</h2><small>levar a cesta vazia junto</small></div>` + novas.map(({ c }) => `<div class="r"><b class="n">★</b><div class="t"><strong>${esc(c.nome)}</strong><span>${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""}</span></div>${pill("levar cesta")}</div>`).join("") : "";
+    const blocoNovas = novas.length ? `<div class="band gr"><h2>CLIENTES NOVOS</h2><small>levar a cesta vazia junto</small></div>` + novas.map(({ c }) => `<div class="r"><b class="n">★</b><div class="t"><strong><mark>${esc(c.nome)}</mark></strong><span>${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""}</span><i class="cesta">🧺 LEVAR A CESTA</i></div></div>`).join("") : "";
     const blocoRec = x.recolher.length ? `<div class="band rd"><h2>CESTAS PARA RECOLHER</h2><small>não entregar nestas casas</small></div>` + x.recolher.map(c => `<div class="r"><b class="n">✗</b><div class="t"><strong>${esc(c.nome)}</strong><span>${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""}</span></div>${pill("recolher")}</div>`).join("") : "";
-    const blocoMud = `<div class="band bk"><h2>MUDOU DE ${nomeAnt} PARA HOJE</h2><small>confira antes de sair</small></div>` + (x.mud.length ? x.mud.map(m => `<div class="r"><b class="n">${m.s === "+" ? "+" : "−"}</b><div class="t"><strong>${esc(m.c.nome)} ${m.s === "+" ? `<em class="g">${m.txt}</em>` : '<em class="x">NÃO PEGA</em>'}</strong><span>${esc(m.c.condominio)}${m.s === "-" ? " · " + esc(m.txt) : m.txt === "NOVA" ? " · levar a cesta" : ""}</span></div>${pill(m.c.paes + " pães")}</div>`).join("") : `<div class="r"><div class="t"><span>Nada mudou.</span></div></div>`);
+    const blocoMud = `<div class="band bk"><h2>MUDOU DE ${nomeAnt} PARA HOJE</h2><small>confira antes de sair</small></div>` + (x.mud.length ? x.mud.map(m => `<div class="r"><b class="n">${m.s === "+" ? "+" : "−"}</b><div class="t"><strong>${m.txt === "NOVA" ? `<mark>${esc(m.c.nome)}</mark>` : esc(m.c.nome)} ${m.s === "+" ? `<em class="g">${m.txt}</em>` : '<em class="x">NÃO PEGA</em>'}</strong><span>${esc(m.c.condominio)}${m.s === "-" ? " · " + esc(m.txt) : ""}</span>${m.txt === "NOVA" ? `<i class="cesta">🧺 LEVAR A CESTA</i>` : ""}</div>${pill(m.c.paes + " pães")}</div>`).join("") : `<div class="r"><div class="t"><span>Nada mudou.</span></div></div>`);
     const blocoPes = pes.length ? `<div class="band y"><h2>PÃES DO PESSOAL</h2><small>sua sacola</small></div><div class="r"><b class="n">·</b><div class="t"><strong>Sua sacola</strong></div>${pill(pes.join(" + ") + " pães")}</div>` : "";
     return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rota do ${esc(e)} – ${tit(M.D)}</title>
 <style>
@@ -1100,6 +1102,7 @@ body{margin:0;background:#f3ede1;font-family:-apple-system,BlinkMacSystemFont,"S
 .p{flex:none;background:#dff3e6;color:#1e6b3d;font-weight:700;border-radius:999px;padding:1px 7px;font-size:11px;white-space:nowrap}
 em{font-style:normal;font-size:9px;font-weight:800;border-radius:4px;padding:0 5px;color:#fff;vertical-align:1px;margin-left:3px}
 em.g{background:#2e6b4f}em.x{background:#c62828}em.v{background:#6b3fa0}
+mark{background:#ffe600;color:#000;font-weight:800;padding:0 4px;border-radius:2px}.cesta{display:block;width:max-content;max-width:100%;font-style:normal;background:#d6001c;color:#fff;font-weight:900;font-size:15px;line-height:1.2;padding:4px 10px;border-radius:7px;margin:3px 0 2px}
 .ft{text-align:center;color:#7a6552;font-size:10px;padding:6px}
 </style></head><body><div class="w"><div class="card">
 <div class="hd"><img src="${LOGOS.pnc}" alt="Pão na Cesta"><h1>Rota do ${esc(e)}</h1><p>${tit(M.D)}</p><div class="tot"><span>${x.lista.length} clientes</span><span>${x.paes} pães</span></div></div>
@@ -1169,7 +1172,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     catch (er) { const ta = document.createElement("textarea"); ta.value = txt; ta.rows = 4; ta.style.cssText = "width:100%;margin-top:8px"; bt.closest(".acts").after(ta); ta.select(); toast("Selecione e copie a mensagem"); }
   }
   function mudHtml(lst, nomeAnt, comE){
-    return `<div class="blk change"><h3>O que mudou desde ${nomeAnt}</h3>${lst.length ? `<ul>${lst.map(m => `<li>${comE ? `<b>${esc(m.e)}</b> · ` : ""}${m.s === "+" ? `<span class="tag nova">${m.txt}</span>` : `<span class="tag sai">NÃO PEGA</span>`} <b>${esc(m.c.nome)}</b> · ${esc(m.c.condominio)} · ${m.c.paes} pães${m.s === "-" ? ` <small>(${esc(m.txt)})</small>` : m.txt === "NOVA" ? " <small>(levar a cesta)</small>" : ""}</li>`).join("")}</ul>` : `<span>Nada mudou.</span>`}</div>`;
+    return `<div class="blk change"><h3>O que mudou desde ${nomeAnt}</h3>${lst.length ? `<ul>${lst.map(m => `<li>${comE ? `<b>${esc(m.e)}</b> · ` : ""}${m.s === "+" ? `<span class="tag nova">${m.txt}</span>` : `<span class="tag sai">NÃO PEGA</span>`} ${m.txt === "NOVA" ? `<span class="marca">${esc(m.c.nome)}</span>` : `<b>${esc(m.c.nome)}</b>`} · ${esc(m.c.condominio)} · ${m.c.paes} pães${m.s === "-" ? ` <small>(${esc(m.txt)})</small>` : m.txt === "NOVA" ? `<br><span class="cestaG">🧺 LEVAR A CESTA</span>` : ""}</li>`).join("")}</ul>` : `<span>Nada mudou.</span>`}</div>`;
   }
 
   function vFin(){
