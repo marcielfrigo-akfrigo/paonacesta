@@ -691,6 +691,13 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       } catch (err) {}
     }
   }
+  // "Fazer primeiro" / "Fazer por último" que o entregador escolheu no celular (rotas/{código}.entregues.fixos)
+  const fixosDe = e => { const r = rotasDocs[(cfg.rotaCod || {})[e]]; return (r && r.entregues && r.entregues.fixos) || {}; };
+  function blocoFixos(e){
+    const fx = Object.entries(fixosDe(e)); if (!fx.length) return "";
+    const nome = id => { const c = clientes.find(x => x.id === id); return c ? `${esc(c.nome)} · ${esc(c.condominio)}` : esc(id); };
+    return `<div style="margin-top:10px"><b>Ordem que o ${esc(e)} escolheu no celular</b> <span class="muted">(vale todos os dias, dentro do condomínio)</span><ul style="margin:6px 0 0;padding-left:18px">${fx.map(([id, t]) => `<li>${nome(id)}: <b>${t === "primeiro" ? "sempre primeiro" : "sempre por último"}</b> <button class="mini" type="button" data-fixdel="${esc(e)}|${esc(id)}">Desfazer</button></li>`).join("")}</ul></div>`;
+  }
   const entreguesDe = (e, D) => { const r = rotasDocs[(cfg.rotaCod || {})[e]]; return (r && r.entregues && r.entregues[D]) || {}; };
   const valorDia = c => { const n = Array.isArray(c.dias) && c.dias.length ? c.dias.length : 5; return Math.round((c.valor || 0) / n * 100) / 100; };
 
@@ -944,7 +951,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       const novas = x.lista.filter(({ c }) => c.inicio === D);
       const pes = (cfg.pessoal || {})[eTab] || [];
       corpo = `<div class="panel"><div class="ptitle"><h2><span style="color:${COR[eTab] || "inherit"}">●</span> Rota do ${esc(eTab)} <span class="count">${x.lista.length + pes.length} entregas · ${x.paes} pães</span></h2><div class="acts"><button class="b pri sm" type="button" data-arq="rota">${ic("arrow")}Baixar rota para o WhatsApp</button><button class="b sm" type="button" data-copy="rota">${ic("copy")}Copiar texto</button></div></div>
-        ${cod ? `<div class="blk"><h3>Rota no celular</h3>${x.lista.length ? `<b>${nOk} de ${x.lista.length}</b> entregues · ` : ""}O ${esc(eTab)} abre este link e segue a rota pronta: <a href="${ROTA_URL + cod}" target="_blank" rel="noopener">${ROTA_URL.replace("https://", "") + cod}</a><br><button class="b sm" type="button" data-rotalink="${esc(eTab)}" style="margin-top:8px">${ic("copy")}Copiar link do ${esc(eTab)}</button></div>` : ""}
+        ${cod ? `<div class="blk"><h3>Rota no celular</h3>${x.lista.length ? `<b>${nOk} de ${x.lista.length}</b> entregues · ` : ""}O ${esc(eTab)} abre este link e segue a rota pronta: <a href="${ROTA_URL + cod}" target="_blank" rel="noopener">${ROTA_URL.replace("https://", "") + cod}</a><br><button class="b sm" type="button" data-rotalink="${esc(eTab)}" style="margin-top:8px">${ic("copy")}Copiar link do ${esc(eTab)}</button>${blocoFixos(eTab)}</div>` : ""}
         <div class="ovx"><table class="tbl">${rows || `<tr><td>Nenhuma entrega neste dia.</td></tr>`}</table></div>
         ${novas.length ? `<div class="blk green"><h3>Clientes novos: levar a cesta</h3><ul>${novas.map(({ c }) => `<li>${esc(c.nome)} · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
         ${x.recolher.length ? `<div class="blk red"><h3>Recolher a cesta, não entregar</h3><ul>${x.recolher.map(c => `<li>${esc(c.nome)} · ${esc(c.condominio)}</li>`).join("")}</ul></div>` : ""}
@@ -1234,6 +1241,13 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       if (!dl) { toast("Este aparelho não deixa baixar arquivos aqui. Use “Copiar texto”.", true); return; }
       try { await dl.save({ filename: nome, data: new Blob([rotaHtml(eTab, M)], { type: "text/html" }) }); toast("Rota salva: " + nome); }
       catch (er) { if (!er || er.code !== "declined") toast("Não salvou o arquivo. Use “Copiar texto”.", true); }
+      return;
+    }
+    const fd = e.target.closest("button[data-fixdel]");
+    if (fd) {
+      const [e2, id] = fd.dataset.fixdel.split("|"), cod = (cfg.rotaCod || {})[e2], novo = { ...fixosDe(e2) }; delete novo[id];
+      fd.disabled = true;
+      try { await db.doc("rotas/" + cod).update({ "entregues.fixos": novo }); toast("Desfeito: volta para a ordem normal"); } catch (er) { fd.disabled = false; toast("Não salvou: " + (er && er.message || "tente de novo"), true); }
       return;
     }
     const rl = e.target.closest("button[data-rotalink]");
