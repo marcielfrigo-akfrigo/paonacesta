@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Libre+Caslon+Display&display=swap">
 <style>
 /* Rota do entregador: lista do dia pronta, botão Ir (Google Maps / Waze), Entregue e salvar o local da casa */
-:root{--bg:#f9f7f1;--card:#fffefa;--line:#e9e4d9;--ink:#3b2a1d;--muted:#7c6a58;--brown:#513624;--cream:#fff7e8;--ok:#2e6b4f;--okbg:#e6f1ea;--red:#b0503a;--redbg:#fbecE7;--yel:#fff4c2;--cor:#6b4a2e}
+:root{--bg:#f9f7f1;--card:#fffefa;--line:#e9e4d9;--ink:#3b2a1d;--muted:#7c6a58;--brown:#513624;--cream:#fff7e8;--ok:#2e6b4f;--okbg:#e6f1ea;--red:#b0503a;--redbg:#fbecE7;--yel:#fff4c2;--cor:#B5541E}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "DM Sans",system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
 [hidden]{display:none!important}
@@ -243,6 +243,7 @@ async function linhaRuas(pts){
     return M.linhas[chave] = j.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
   } catch (e) { return null; }
 }
+const COR_LINHA = "#B5541E";   // a mesma cor em todos os mapas (a do Careca); fica igual ao --cor
 // nome curto para a etiqueta: "Marina B.", "Anaue"
 const curto = n => { const p = String(n || "").replace(/\(.*?\)/g, "").split(/[\s\/]+/).filter(Boolean); return p.length > 1 ? p[0] + " " + p[1][0] + "." : p[0] || ""; };
 function desenharMapa(){
@@ -256,19 +257,21 @@ function desenharMapa(){
   const grupos = {}; falta.filter(locDe).forEach(it => (grupos[it.cond] = grupos[it.cond] || []).push(locDe(it)));
   Object.values(grupos).forEach(async pts => {
     if (pts.length < 2) return;
-    const reta = L.polyline(pts.map(p => [p.lat, p.lng]), { color: R.cor || "#6b4a2e", weight: 3, opacity: .35 }).addTo(M.camada);
+    const reta = L.polyline(pts.map(p => [p.lat, p.lng]), { color: COR_LINHA, weight: 3, opacity: .35 }).addTo(M.camada);
     const ruas = await linhaRuas(pts);
-    if (ruas && M.aberto && vez === M.vez) { M.camada.removeLayer(reta); L.polyline(ruas, { color: R.cor || "#6b4a2e", weight: 5, opacity: .75 }).addTo(M.camada); }
+    if (ruas && M.aberto && vez === M.vez) { M.camada.removeLayer(reta); L.polyline(ruas, { color: COR_LINHA, weight: 5, opacity: .75 }).addTo(M.camada); }
   });
   // tracejada: da última casa entregue até a próxima da vez (o trecho que ele está fazendo agora)
   const ultima = V.itens.filter(x => V.ok[x.id] && locDe(x)).sort((a, b) => V.ok[b.id] - V.ok[a.id])[0];
   const proxima = V.itens.find(x => !V.ok[x.id] && locDe(x));
   if (ultima && proxima && (!M.cond || ultima.cond === M.cond || proxima.cond === M.cond)) (async () => {
     const pts = [locDe(ultima), locDe(proxima)];
-    const desenho = { color: "#1a73e8", weight: 6, opacity: .95, dashArray: "2 12", lineCap: "round" };
-    const reta = L.polyline(pts.map(p => [p.lat, p.lng]), desenho).addTo(M.camada);
+    // pontinhos pretos com contorno branco: o azul é só a bolinha do GPS
+    if (!M.map.getPane("pontos")) M.map.createPane("pontos").style.zIndex = 450;   // sempre acima da linha da rota, que às vezes chega depois
+    const pontinhos = ll => L.layerGroup([{ color: "#fff", weight: 10 }, { color: "#000", weight: 6 }].map(c => L.polyline(ll, { ...c, pane: "pontos", interactive: false, opacity: 1, dashArray: "2 12", lineCap: "round" }))).addTo(M.camada);
+    const reta = pontinhos(pts.map(p => [p.lat, p.lng]));
     const ruas = await linhaRuas(pts);
-    if (ruas && M.aberto && vez === M.vez) { M.camada.removeLayer(reta); L.polyline(ruas, desenho).addTo(M.camada); }
+    if (ruas && M.aberto && vez === M.vez) { M.camada.removeLayer(reta); pontinhos(ruas); }
   })();
   com.forEach(it => {
     const l = locDe(it), feito = !!V.ok[it.id], fr = it.frios && it.frios.length;
@@ -294,7 +297,6 @@ function render(){
   if (!R) return;
   const dias = Object.keys(R.dias || {}).filter(D => D >= HOJE).sort();
   if (!dia || !dias.includes(dia)) dia = dias[0];
-  document.documentElement.style.setProperty("--cor", R.cor || "#6b4a2e");
   $("#tit").textContent = "Rota do " + (R.entregador || "");
   document.title = "Rota do " + (R.entregador || "") + " · Pão na Cesta";
   $("#dias").innerHTML = dias.slice(0, 5).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}${(R.dias[D].itens || []).some(it => it.frios && it.frios.length) ? `<span class="q">🧀</span>` : ""}</button>`).join("");
