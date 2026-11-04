@@ -78,17 +78,28 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 .pin i{font-style:normal;background:var(--cor);color:#fff;border-radius:6px;min-width:20px;height:20px;display:grid;place-items:center;font-size:11.5px;padding:0 3px}
 /* casa com frios: número amarelo com contorno preto, para destacar bem no mapa */
 .pin.fr{border:2px solid #000}.pin.fr::after{border-top-color:#000}.pin.fr i{background:#ffd600;color:#000;border:2px solid #000;font-weight:800}
+/* cliente nova: número vermelho, para a cesta não passar batida */
+.pin.nova{border:2px solid #d6001c}.pin.nova::after{border-top-color:#d6001c}.pin.nova i{background:#d6001c;color:#fff;border:2px solid #d6001c;font-weight:800}
 .pin.prox{transform:translate(-12px,calc(-100% - 7px)) scale(1.15);transform-origin:12px 100%;z-index:2;background:var(--yel)}
 .pin.sel{outline:3px solid #1a73e8}
 .longe .pin span{display:none}.longe .pin{padding:2px}
 .pin.ok{opacity:.55;border-color:var(--ok)}.pin.ok::after{border-top-color:var(--ok)}.pin.ok i{background:var(--ok);color:#fff;border:0}
 .ponto{width:10px;height:10px;border-radius:50%;background:var(--cor);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3);transform:translate(-5px,-5px)}
 #mapaFicha{background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(12px + env(safe-area-inset-bottom,0px))}
-#mapaFicha .nav{display:flex;align-items:center;justify-content:center;min-height:42px;margin-bottom:8px;border-radius:10px;background:#1a73e8;color:#fff;font:700 15px "DM Sans",sans-serif;text-decoration:none}
-#mapaFicha .nm{font-weight:700;font-size:16px}#mapaFicha .nm b{font-weight:800}
-#mapaFicha .fr{color:var(--red);font-weight:700;font-size:13px}
+/* painel grande: quem é e quantos pães, sem precisar olhar a etiqueta no mapa (não é botão) */
+#mapaFicha .dest{background:#12324a;color:#fff;border-radius:12px;padding:10px 12px}
+#mapaFicha .dest.ok{background:var(--ok)}
+#mapaFicha .dest small{display:block;font-size:13px;font-weight:700;opacity:.85;margin-bottom:2px}
+#mapaFicha .dest .lin{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#mapaFicha .dest .nm{font-weight:800;font-size:25px;line-height:1.12;min-width:0;overflow-wrap:anywhere}
+#mapaFicha .dest .pq{flex:0 0 auto;text-align:center;font-weight:800;font-size:13px;line-height:1}
+#mapaFicha .dest .pq b{display:block;font-size:42px;line-height:1;font-weight:900}
+#mapaFicha .dest .dfr{background:#ffd600;color:#000;font-weight:800;font-size:17px;line-height:1.2;border-radius:8px;padding:5px 10px;margin-top:8px}
+#mapaFicha .dest .cestaG{display:block;font-size:20px;text-align:center;margin-top:8px}
+#mapaFicha .aviso{color:var(--red);font-weight:700;font-size:14px;margin-top:6px}
 #mapaFicha .acts{display:flex;gap:6px;margin-top:8px}
-#mapaFicha .acts a,#mapaFicha .acts button{flex:1;min-height:42px;border-radius:10px;font:700 15px "DM Sans",sans-serif;display:flex;align-items:center;justify-content:center;text-decoration:none;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+#mapaFicha .acts a,#mapaFicha .acts button{flex:1;min-height:52px;border-radius:10px;font:700 16px/1.1 "DM Sans",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+#mapaFicha .acts small{font-size:12px;font-weight:600;margin-top:2px}
 #mapaFicha .acts .ok{background:var(--ok);border-color:var(--ok);color:#fff}
 </style></head><body>
 <header><div class="top"><img src="../logo-pao-na-cesta.png" alt=""><div><h1 id="tit">Rota</h1><small id="sub">Carregando…</small></div></div>
@@ -181,12 +192,6 @@ else {
 
 const itensDia = () => ((R && R.dias && R.dias[dia]) || {}).itens || [];
 const locDe = it => locais[it.id] || (it.lat && it.lng ? { lat: it.lat, lng: it.lng } : null);
-// Google Maps com as casas que faltam, em sequência, saindo de onde o entregador está (o app aceita até 10 paradas)
-function linkNavegar(lista){
-  const ps = lista.filter(locDe).slice(0, 10).map(it => { const l = locDe(it); return l.lat + "," + l.lng; });
-  const fim = ps.pop();
-  return `https://www.google.com/maps/dir/?api=1&destination=${fim}${ps.length ? "&waypoints=" + encodeURIComponent(ps.join("|")) : ""}&travelmode=driving&dir_action=navigate`;
-}
 function linkIr(it){
   const l = locDe(it);
   if (l) return app === "waze" ? `https://waze.com/ul?ll=${l.lat},${l.lng}&navigate=yes` : `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}&travelmode=driving`;
@@ -267,9 +272,9 @@ function desenharMapa(){
   })();
   com.forEach(it => {
     const l = locDe(it), feito = !!V.ok[it.id], fr = it.frios && it.frios.length;
-    const cls = "pin" + (fr ? " fr" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
+    const cls = "pin" + (fr ? " fr" : "") + (it.nova ? " nova" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
     const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.paes} pães${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}${it.nova ? ' · <b style="color:#d6001c">🧺 CESTA</b>' : ""}</small></span></div>`;
-    L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : fr ? 500 : 0 })
+    L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : it.nova ? 600 : fr ? 500 : 0 })
       .on("click", ev => { L.DomEvent.stopPropagation(ev); M.sel = it.id; desenharMapa(); }).addTo(M.camada);
   });
   const chave = M.cond + "|" + dia;
@@ -277,9 +282,12 @@ function desenharMapa(){
   // ficha embaixo: a casa tocada, ou a próxima a entregar
   const it = todos.find(x => x.id === M.sel) || prox;
   if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; return; }
-  const feito = !!V.ok[it.id], nav = falta.filter(locDe);
-  $("#mapaFicha").innerHTML = (nav.length > 1 ? `<a class="nav" href="${linkNavegar(nav)}" target="_blank" rel="noopener">▶ Navegar no Google Maps: ${Math.min(nav.length, 10)} casas na ordem</a>` : "") + `<div class="nm">${it === prox ? "Próxima: " : ""}${V.num.get(it.id)} · ${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""} · ${it.paes} pães</div>${it.nova ? `<div class="cestaG" style="margin:2px 0 4px">🧺 LEVAR A CESTA</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${locDe(it) ? "" : `<div class="fr">Sem local salvo nesta casa</div>`}
-    <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a><button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div>`;
+  const feito = !!V.ok[it.id];
+  $("#mapaFicha").innerHTML = `<div class="dest${feito ? " ok" : ""}"><small>${feito ? "Entregue" : it === prox ? "Próxima" : "Casa"} · nº ${V.num.get(it.id)}</small>
+      <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><div class="pq"><b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}</div></div>
+      ${it.frios && it.frios.length ? `<div class="dfr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
+    ${locDe(it) ? "" : `<div class="aviso">Sem local salvo nesta casa</div>`}
+    <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir<small>através do ${app === "waze" ? "Waze" : "Google Maps"}</small></a><button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div>`;
 }
 
 function render(){

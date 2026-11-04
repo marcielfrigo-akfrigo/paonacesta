@@ -374,7 +374,7 @@ dialog::backdrop{background:rgba(45,36,28,.45);backdrop-filter:blur(3px)}
       <label>Frios só num dia (avulso)<input id="fExDia" type="date"></label>
       <label>Quais frios nesse dia<input id="fExItens" placeholder="Ex.: mortadela" autocomplete="off"><small>Deixe vazio para tirar.</small></label>
       <div class="wide"><label style="margin-bottom:6px">Dias que recebe</label><div class="days" id="fDias"><label><input type="checkbox" value="1">Seg</label><label><input type="checkbox" value="2">Ter</label><label><input type="checkbox" value="3">Qua</label><label><input type="checkbox" value="4">Qui</label><label><input type="checkbox" value="5">Sex</label></div></div>
-      <label class="wide">Começa a receber em<input id="fInicio" type="date"><small>Cliente nova: o entregador leva a cesta nesse dia.</small></label>
+      <label class="wide">Começa a receber em<input id="fInicio" type="date"><small>Cliente nova: o entregador leva a cesta na primeira entrega a partir desse dia. Se já era cliente, deixe em branco.</small></label>
       <div class="fsec">Pausa e cancelamento</div>
       <label class="chk wide"><input id="fSusp" type="checkbox"> Suspenso (viagem ou pausa)</label>
       <label>Suspenso a partir de<input id="fSuspIni" type="date"></label>
@@ -569,6 +569,13 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     if ((c.fora || []).includes(D)) return false;
     return (c.paes || 0) > 0;
   }
+  // Cliente nova: é a primeira entrega dela a partir do "começa a receber em" (o dia em que o entregador leva a cesta)
+  function ehNova(c, D){
+    if (!c.inicio || D < c.inicio || !recebe(c, D)) return false;
+    const semPausa = { ...c, suspenso: false, fora: [] };   // quem já recebia e ficou suspensa não conta como nova ao voltar
+    for (let x = c.inicio; x < D; x = addDays(x, 1)) if (recebe(semPausa, x)) return false;
+    return true;
+  }
   // Frios do dia: os fixos da semana ("seg: ... | qua: ...") mais os avulsos de uma data (friosExtra: {"2026-10-22": "mortadela"})
   function friosItens(txt){
     const out = [];
@@ -605,7 +612,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     ENT.forEach(e => porE[e] = novo());
     const ent = e => porE[e] || (porE[e] = novo());
     hojeL.forEach(c => { const e = ent(entregadorDe(c)); const f = friosDe(c, D); e.lista.push({ c, f }); e.sac[c.paes] = (e.sac[c.paes] || 0) + 1; e.paes += c.paes; f.forEach(i => e.frios[i] = (e.frios[i] || 0) + 1);
-      if (!antesL.has(c.id)) e.mud.push({ s: "+", c, txt: c.inicio === D ? "NOVA" : "VOLTOU" }); });
+      if (!antesL.has(c.id)) e.mud.push({ s: "+", c, txt: ehNova(c, D) ? "NOVA" : "VOLTOU" }); });
     clientes.filter(c => antesL.has(c.id) && !recebe(c, D)).forEach(c => ent(entregadorDe(c)).mud.push({ s: "-", c, txt: motivoFora(c, D) }));
     clientes.filter(c => c.recolher).forEach(c => ent(entregadorDe(c)).recolher.push(c));
     Object.entries(cfg.pessoal || {}).forEach(([e, qs]) => { const x = ent(e); (qs || []).forEach(q => { x.sac[q] = (x.sac[q] || 0) + 1; x.paes += q; }); });
@@ -671,7 +678,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function rotaDoDia(e, M){
     const x = M.porE[e] || { lista: [], paes: 0, mud: [], recolher: [] };
     return { paes: x.paes, pessoal: (cfg.pessoal || {})[e] || [],
-      itens: x.lista.map(({ c, f }) => ({ ...parada(c), paes: c.paes, frios: f, nova: c.inicio === M.D })),
+      itens: x.lista.map(({ c, f }) => ({ ...parada(c), paes: c.paes, frios: f, nova: ehNova(c, M.D) })),
       recolher: x.recolher.map(parada),
       fora: x.mud.filter(m => m.s === "-").map(m => ({ nome: parada(m.c).nome, cond: m.c.condominio, txt: m.txt })) };
   }
@@ -1019,9 +1026,9 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
         i++;
         const tags = (/cortesia/i.test(c.nome + " " + (c.obs || "")) ? `<span class="tag cort">CORTESIA</span>` : "");
         const jaCred = creds.some(k => k.clienteId === c.id && k.dataEntrega === D);
-        rows += `<tr><td class="rn">${String(i).padStart(2, "0")}</td><td>${ok[c.id] ? `<span class="badge cred">✓ Entregue ${new Date(ok[c.id]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> ` : ""}${c.inicio === D ? `<span class="marca">${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</span>` : `<b>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</b>`}${tags}${c.lat ? "" : ` <span class="muted" title="O entregador ainda não salvou o local desta casa">· sem local</span>`}${c.endereco ? `<br><span class="muted">${esc(c.endereco)}</span>` : ""}${c.inicio === D ? `<br><span class="cestaG">🧺 LEVAR A CESTA</span>` : ""}${f.length ? `<br><span class="fr">+ ${f.join(", ")}</span>` : ""}${ok[c.id] ? "" : `<br>${jaCred ? `<span class="badge cred">Crédito lançado</span>` : `<button class="mini" type="button" data-ne="${c.id}">Não entregue</button>`}`}</td><td class="r"><span class="qt">${c.paes} pães</span></td></tr>`;
+        rows += `<tr><td class="rn">${String(i).padStart(2, "0")}</td><td>${ok[c.id] ? `<span class="badge cred">✓ Entregue ${new Date(ok[c.id]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> ` : ""}${ehNova(c, D) ? `<span class="marca">${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</span>` : `<b>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</b>`}${tags}${c.lat ? "" : ` <span class="muted" title="O entregador ainda não salvou o local desta casa">· sem local</span>`}${c.endereco ? `<br><span class="muted">${esc(c.endereco)}</span>` : ""}${ehNova(c, D) ? `<br><span class="cestaG">🧺 LEVAR A CESTA</span>` : ""}${f.length ? `<br><span class="fr">+ ${f.join(", ")}</span>` : ""}${ok[c.id] ? "" : `<br>${jaCred ? `<span class="badge cred">Crédito lançado</span>` : `<button class="mini" type="button" data-ne="${c.id}">Não entregue</button>`}`}</td><td class="r"><span class="qt">${c.paes} pães</span></td></tr>`;
       });
-      const novas = x.lista.filter(({ c }) => c.inicio === D);
+      const novas = x.lista.filter(({ c }) => ehNova(c, D));
       const pes = (cfg.pessoal || {})[eTab] || [];
       corpo = `<div class="panel"><div class="ptitle"><h2><span style="color:${COR[eTab] || "inherit"}">●</span> Rota do ${esc(eTab)} <span class="count">${x.lista.length + pes.length} entregas · ${x.paes} pães</span></h2><div class="acts"><button class="b pri sm" type="button" data-arq="rota">${ic("arrow")}Baixar rota para o WhatsApp</button><button class="b sm" type="button" data-copy="rota">${ic("copy")}Copiar texto</button></div></div>
         ${cod ? `<div class="blk"><h3>Rota no celular</h3>${x.lista.length ? `<b>${nOk} de ${x.lista.length}</b> entregues · ` : ""}O ${esc(eTab)} abre este link e segue a rota pronta: <a href="${ROTA_URL + cod}" target="_blank" rel="noopener">${ROTA_URL.replace("https://", "") + cod}</a><br><button class="b sm" type="button" data-rotalink="${esc(eTab)}" style="margin-top:8px">${ic("copy")}Copiar link do ${esc(eTab)}</button></div>` : ""}
@@ -1046,7 +1053,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       if (c.condominio !== condAtual) { condAtual = c.condominio; L.push("", `*${condAtual.toUpperCase()}*`); }
       let t = `${i + 1}. ${c.nome.replace(/\s*\(cortesia\)/i, "")}${c.endereco ? " – " + c.endereco : ""} – *${c.paes} pães*`;
       if (f.length) t += ` + ${f.join(", ")}`;
-      if (c.inicio === M.D) t += " – 🧺 *LEVAR CESTA (cliente nova)*";
+      if (ehNova(c, M.D)) t += " – 🧺 *LEVAR CESTA (cliente nova)*";
       L.push(t);
     });
     if (x.recolher.length) L.push("", "*RECOLHER A CESTA (não entregar):*", ...x.recolher.map(c => `- ${c.nome} · ${c.condominio}`));
@@ -1071,8 +1078,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       g.itens.map(({ c, f }) => { n++;
         // Número da casa sobe para o lado do nome; embaixo fica só a rua
         const m = (c.endereco || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i), num = m ? m[2] : "", rua = m ? m[1] : (c.endereco || "").trim();
-        return `<div class="r"><b class="n">${n}</b><div class="t"><strong>${c.inicio === M.D ? `<mark>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}</mark>` : `${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}`}${/cortesia/i.test(c.nome) ? ' <em class="v">CORTESIA</em>' : ""}</strong>${rua ? `<span>${esc(rua)}</span>` : ""}${c.inicio === M.D ? `<i class="cesta">🧺 LEVAR A CESTA</i>` : ""}${f.length ? `<span class="fr">+ ${esc(f.join(", "))}</span>` : ""}</div>${pill(c.paes + " pães")}</div>`; }).join("")).join("");
-    const novas = x.lista.filter(({ c }) => c.inicio === M.D);
+        return `<div class="r"><b class="n">${n}</b><div class="t"><strong>${ehNova(c, M.D) ? `<mark>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}</mark>` : `${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}`}${/cortesia/i.test(c.nome) ? ' <em class="v">CORTESIA</em>' : ""}</strong>${rua ? `<span>${esc(rua)}</span>` : ""}${ehNova(c, M.D) ? `<i class="cesta">🧺 LEVAR A CESTA</i>` : ""}${f.length ? `<span class="fr">+ ${esc(f.join(", "))}</span>` : ""}</div>${pill(c.paes + " pães")}</div>`; }).join("")).join("");
+    const novas = x.lista.filter(({ c }) => ehNova(c, M.D));
     const blocoNovas = novas.length ? `<div class="band gr"><h2>CLIENTES NOVOS</h2><small>levar a cesta vazia junto</small></div>` + novas.map(({ c }) => `<div class="r"><b class="n">★</b><div class="t"><strong><mark>${esc(c.nome)}</mark></strong><span>${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""}</span><i class="cesta">🧺 LEVAR A CESTA</i></div></div>`).join("") : "";
     const blocoRec = x.recolher.length ? `<div class="band rd"><h2>CESTAS PARA RECOLHER</h2><small>não entregar nestas casas</small></div>` + x.recolher.map(c => `<div class="r"><b class="n">✗</b><div class="t"><strong>${esc(c.nome)}</strong><span>${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""}</span></div>${pill("recolher")}</div>`).join("") : "";
     const blocoMud = `<div class="band bk"><h2>MUDOU DE ${nomeAnt} PARA HOJE</h2><small>confira antes de sair</small></div>` + (x.mud.length ? x.mud.map(m => `<div class="r"><b class="n">${m.s === "+" ? "+" : "−"}</b><div class="t"><strong>${m.txt === "NOVA" ? `<mark>${esc(m.c.nome)}</mark>` : esc(m.c.nome)} ${m.s === "+" ? `<em class="g">${m.txt}</em>` : '<em class="x">NÃO PEGA</em>'}</strong><span>${esc(m.c.condominio)}${m.s === "-" ? " · " + esc(m.txt) : ""}</span>${m.txt === "NOVA" ? `<i class="cesta">🧺 LEVAR A CESTA</i>` : ""}</div>${pill(m.c.paes + " pães")}</div>`).join("") : `<div class="r"><div class="t"><span>Nada mudou.</span></div></div>`);
@@ -1369,7 +1376,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     document.querySelectorAll("#fDias input").forEach(i => i.checked = dias.includes(Number(i.value)));
     const exProx = Object.keys(c.friosExtra || {}).filter(d => d >= HOJE).sort()[0] || "";
     $("#fExDia").value = exProx; $("#fExItens").value = exProx ? c.friosExtra[exProx] : "";
-    $("#fInicio").value = c.inicio || ""; $("#fSusp").checked = !!c.suspenso; $("#fSuspIni").value = c.suspIni || ""; $("#fVolta").value = c.volta || "";
+    $("#fInicio").value = id ? c.inicio || "" : proxEntrega(); $("#fSusp").checked = !!c.suspenso; $("#fSuspIni").value = c.suspIni || ""; $("#fVolta").value = c.volta || "";
     $("#fMotivo").value = c.motivo || ""; $("#fCancel").checked = cancelou(c); $("#fRecolher").checked = !!c.recolher; $("#fObs").value = c.obs || "";
     $("#fDel").hidden = !id; $("#fDel").textContent = "Remover cliente"; $("#fDel").dataset.ok = "";
     $("#conds").innerHTML = [...new Set(clientes.map(c => c.condominio))].sort().map(c => `<option value="${esc(c)}">`).join("");
@@ -1448,7 +1455,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const frios = Object.entries(pd.f || {}).map(([d, l]) => `${DOWC[d]}: ${l.map(i => i.toLowerCase()).join(" e ")}`).join(" | ");
     const linha = `Pedido pelo app em ${br(HOJE)}: ${pd.pl} ${brl(pd.v)}${pd.a ? ` (com ${brl(pd.a)} em atraso)` : ""} (${br(pd.ini)} a ${br(pd.fim)}). Pix conferido.${pd.t ? " PEDIDO DE TESTE (valores ÷10)." : ""}`;
     const dados = { nome: pd.n + (pd.t && !/teste/i.test(pd.n) ? " (teste)" : ""), condominio: condCanon(pd.c), endereco: pd.h || "", plano: pd.pl || "semanal",
-      valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i || "", obs: linha };
+      valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i && pd.i < HOJE ? proxEntrega() : pd.i || "", obs: linha };
     let id;
     if (alvo) {
       id = alvo.id;
