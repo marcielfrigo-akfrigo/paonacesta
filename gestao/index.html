@@ -631,6 +631,8 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   let rotasDocs = {}, pubTimer = null, listaOrg = { e: "", lista: [] }; const pubUltimo = {};
   const codigoNovo = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
   const ehEntrega = D => { const w = parse(D).getDay(); return w >= 1 && w <= 5 && !FERIADOS[D]; };
+  // Cliente nova só entra a partir de amanhã: a entrega de hoje já saiu de madrugada
+  function entregaDepoisDeHoje(){ let D = addDays(HOJE, 1); while (!ehEntrega(D)) D = addDays(D, 1); return D; }
   function diasRota(){ const out = []; let D = HOJE; while (out.length < 4) { if (ehEntrega(D)) out.push(D); D = addDays(D, 1); } return out; }
   function casaRua(end){ const m = String(end || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i); return m ? { casa: m[2], rua: m[1] } : { casa: "", rua: String(end || "").trim() }; }
   const parada = c => { const { casa, rua } = casaRua(c.endereco); return { id: c.id, nome: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), cond: c.condominio, casa, rua, ...(c.lat && c.lng ? { lat: c.lat, lng: c.lng } : {}) }; };
@@ -1376,7 +1378,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     document.querySelectorAll("#fDias input").forEach(i => i.checked = dias.includes(Number(i.value)));
     const exProx = Object.keys(c.friosExtra || {}).filter(d => d >= HOJE).sort()[0] || "";
     $("#fExDia").value = exProx; $("#fExItens").value = exProx ? c.friosExtra[exProx] : "";
-    $("#fInicio").value = id ? c.inicio || "" : proxEntrega(); $("#fSusp").checked = !!c.suspenso; $("#fSuspIni").value = c.suspIni || ""; $("#fVolta").value = c.volta || "";
+    $("#fInicio").value = id ? c.inicio || "" : entregaDepoisDeHoje(); $("#fSusp").checked = !!c.suspenso; $("#fSuspIni").value = c.suspIni || ""; $("#fVolta").value = c.volta || "";
     $("#fMotivo").value = c.motivo || ""; $("#fCancel").checked = cancelou(c); $("#fRecolher").checked = !!c.recolher; $("#fObs").value = c.obs || "";
     $("#fDel").hidden = !id; $("#fDel").textContent = "Remover cliente"; $("#fDel").dataset.ok = "";
     $("#conds").innerHTML = [...new Set(clientes.map(c => c.condominio))].sort().map(c => `<option value="${esc(c)}">`).join("");
@@ -1455,7 +1457,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const frios = Object.entries(pd.f || {}).map(([d, l]) => `${DOWC[d]}: ${l.map(i => i.toLowerCase()).join(" e ")}`).join(" | ");
     const linha = `Pedido pelo app em ${br(HOJE)}: ${pd.pl} ${brl(pd.v)}${pd.a ? ` (com ${brl(pd.a)} em atraso)` : ""} (${br(pd.ini)} a ${br(pd.fim)}). Pix conferido.${pd.t ? " PEDIDO DE TESTE (valores ÷10)." : ""}`;
     const dados = { nome: pd.n + (pd.t && !/teste/i.test(pd.n) ? " (teste)" : ""), condominio: condCanon(pd.c), endereco: pd.h || "", plano: pd.pl || "semanal",
-      valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i && pd.i < HOJE ? proxEntrega() : pd.i || "", obs: linha };
+      valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i && pd.i < HOJE ? entregaDepoisDeHoje() : pd.i || "", obs: linha };
     let id;
     if (alvo) {
       id = alvo.id;
