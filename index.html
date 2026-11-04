@@ -303,10 +303,12 @@ function segundaDe(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); const w = 
 const mesDaSemana = seg => mais(seg, 3).getMonth();
 function proximaSegunda(){ const h = new Date(); h.setHours(0, 0, 0, 0); return mais(h, ((8 - h.getDay()) % 7) || 7); }
 // Primeiro dia que dá para receber: amanhã (pedido até meia-noite); nunca sábado/domingo nem feriado
+// Link pessoal de cliente nova (?novo=1): nunca recebeu, então começa na próxima entrega e paga só os dias que faltam
+const NOVA = qp.get("novo") === "1";
 // Link pessoal de quem já é cliente: o plano começa na segunda da semana que está sendo cobrada
 // (?ini=AAAA-MM-DD vindo do app de gestão; sem ele, de segunda a quinta é a segunda desta semana)
 const INICIO_SEMANA = (() => {
-  if (!qp.get("n")) return null;
+  if (!qp.get("n") || NOVA) return null;
   const h = new Date(); h.setHours(0, 0, 0, 0); const segAtual = mais(h, h.getDay() === 0 ? -6 : 1 - h.getDay());
   const ini = qp.get("ini");
   if (/^\d{4}-\d{2}-\d{2}$/.test(ini || "")) { const d = parse(ini); if (d.getDay() === 1 && d >= segAtual && d <= mais(segAtual, 14)) return d; }
@@ -523,10 +525,14 @@ if (qp.get("p")) {
   st.frios = {}; (qp.get("f") || "").split(";").forEach(par => { const [dia, itens] = par.split(":"); if (CONFIG.diasFrios[dia] && itens) st.frios[dia] = itens.split(",").filter(i => i in CONFIG.frios); });
   if (["semanal","quinzenal","mensal"].includes(qp.get("pl"))) st.plano = qp.get("pl");
   if (Number(qp.get("v")) > 0) COMBINADO = { v: Number(qp.get("v")), cfg: cfgAtual() };
-  if (qp.get("n")) { const b = document.createElement("div"); b.className = "boasvindas"; b.innerHTML = `<b></b><span>Seu pedido já vem com o que você recebe hoje. Confira, mude o que quiser e faça o Pix.</span>`; b.querySelector("b").textContent = `Olá, ${qp.get("n").split(" ")[0]}!`; $("#tela-pedido").prepend(b); }
+  if (qp.get("n")) { const b = document.createElement("div"); b.className = "boasvindas"; b.innerHTML = `<b></b><span>Seu pedido já vem com ${NOVA ? "o que combinamos" : "o que você recebe hoje"}. Confira, mude o que quiser e faça o Pix.</span>`; b.querySelector("b").textContent = `Olá, ${qp.get("n").split(" ")[0]}!`; $("#tela-pedido").prepend(b); }
 }
 $("#inicio").min = iso(primeiroDia());
 if (!$("#inicio").value || $("#inicio").value < $("#inicio").min || INICIO_SEMANA) $("#inicio").value = iso(primeiroDia());
+if (NOVA) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(qp.get("comeca") || "") && qp.get("comeca") > $("#inicio").min) $("#inicio").value = qp.get("comeca");
+  if (periodos().disp.includes("semana")) st.plano = "semana";
+}
 $("#inicio").addEventListener("change", render);
 $("#avisoTeste").hidden = !TESTE;
 render();

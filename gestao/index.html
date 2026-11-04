@@ -1131,8 +1131,11 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const q = new URLSearchParams({ n: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), c: c.condominio.replace(/^Valencia/, "Valência"), h: c.endereco || "", p: String(c.paes || 5), d: (Array.isArray(c.dias) && c.dias.length ? c.dias : [1,2,3,4,5]).join(","), pl: c.plano || "semanal" });
     if (f) q.set("f", f);
     if (c.valor > 0) q.set("v", String(c.valor));
-    q.set("ini", addDays(cobAlvo(), -4));   // segunda da semana cobrada: o plano do link começa nela
-    const fora = (c.fora || []).filter(D => D >= q.get("ini")).sort();
+    // Quem nunca pagou começa na próxima entrega e paga só os dias que faltam; quem já é cliente segue da segunda da semana cobrada
+    const nova = !pags.some(p => p.clienteId === c.id) && (!c.pagoAte || !!c.inicio);
+    if (nova) { q.set("novo", "1"); if (c.inicio > HOJE) q.set("comeca", c.inicio); }
+    else q.set("ini", addDays(cobAlvo(), -4));
+    const fora = (c.fora || []).filter(D => D >= (q.get("ini") || HOJE)).sort();
     if (fora.length) q.set("x", fora.join(","));   // dias combinados sem entrega: o app desconta como feriado
     if (credDe(c.id) > 0) q.set("k", String(r2(credDe(c.id))));   // créditos em aberto: o app desconta e o aceite marca como usados   // valor da semana do cadastro (o app usa enquanto o pedido não mudar)
     if (devido(c)) { q.set("a", String(devido(c))); if (textoDevido(c)) q.set("at", textoDevido(c)); }
