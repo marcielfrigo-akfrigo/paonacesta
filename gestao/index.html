@@ -631,8 +631,11 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   let rotasDocs = {}, pubTimer = null, listaOrg = { e: "", lista: [] }; const pubUltimo = {};
   const codigoNovo = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
   const ehEntrega = D => { const w = parse(D).getDay(); return w >= 1 && w <= 5 && !FERIADOS[D]; };
-  // Cliente nova só entra a partir de amanhã: a entrega de hoje já saiu de madrugada
-  function entregaDepoisDeHoje(){ let D = addDays(HOJE, 1); while (!ehEntrega(D)) D = addDays(D, 1); return D; }
+  // Cliente nova só entra a partir de amanhã (a entrega de hoje já saiu de madrugada); depois das 21h o pedido da padaria de amanhã já fechou
+  function entregaDepoisDeHoje(){
+    const prox = D => { while (!ehEntrega(D)) D = addDays(D, 1); return D; }, amanha = addDays(HOJE, 1), D = prox(amanha);
+    return agora.getHours() >= 21 && D === amanha ? prox(addDays(D, 1)) : D;
+  }
   function diasRota(){ const out = []; let D = HOJE; while (out.length < 4) { if (ehEntrega(D)) out.push(D); D = addDays(D, 1); } return out; }
   function casaRua(end){ const m = String(end || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i); return m ? { casa: m[2], rua: m[1] } : { casa: "", rua: String(end || "").trim() }; }
   const parada = c => { const { casa, rua } = casaRua(c.endereco); return { id: c.id, nome: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), cond: c.condominio, casa, rua, ...(c.lat && c.lng ? { lat: c.lat, lng: c.lng } : {}) }; };

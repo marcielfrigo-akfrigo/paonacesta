@@ -302,7 +302,7 @@ const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","ag
 function segundaDe(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); const w = x.getDay(); return mais(x, w === 0 ? 1 : w === 6 ? 2 : 1 - w); }
 const mesDaSemana = seg => mais(seg, 3).getMonth();
 function proximaSegunda(){ const h = new Date(); h.setHours(0, 0, 0, 0); return mais(h, ((8 - h.getDay()) % 7) || 7); }
-// Primeiro dia que dá para receber: amanhã (pedido até meia-noite); nunca sábado/domingo nem feriado
+// Primeiro dia que dá para receber: o próximo dia útil; se ele é amanhã e já passou das 21h (pedido da padaria fechado), o dia útil depois dele
 // Link pessoal de cliente nova (?novo=1): nunca recebeu, então começa na próxima entrega e paga só os dias que faltam
 const NOVA = qp.get("novo") === "1";
 // Link pessoal de quem já é cliente: o plano começa na segunda da semana que está sendo cobrada
@@ -316,7 +316,11 @@ const INICIO_SEMANA = (() => {
 })();
 // Quem já é cliente (link pessoal) já está na rota: pode seguir no próximo dia útil a qualquer hora
 function primeiroDia(){
-  if (INICIO_SEMANA) return new Date(INICIO_SEMANA); const h = new Date(); let d = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), 1); while (d.getDay() === 0 || d.getDay() === 6 || CONFIG.feriados[iso(d)]) d = mais(d, 1); return d; }
+  if (INICIO_SEMANA) return new Date(INICIO_SEMANA);
+  const h = new Date(), amanha = mais(new Date(h.getFullYear(), h.getMonth(), h.getDate()), 1), util = d => { while (d.getDay() === 0 || d.getDay() === 6 || CONFIG.feriados[iso(d)]) d = mais(d, 1); return d; };
+  const d = util(amanha);
+  return h.getHours() >= 21 && iso(d) === iso(amanha) ? util(mais(d, 1)) : d;
+}
 function inicioEscolhido(){
   let d = $("#inicio") && $("#inicio").value ? parse($("#inicio").value) : proximaSegunda();
   const p = primeiroDia(); if (d < p) d = p;
@@ -531,8 +535,9 @@ $("#inicio").min = iso(primeiroDia());
 if (!$("#inicio").value || $("#inicio").value < $("#inicio").min || INICIO_SEMANA) $("#inicio").value = iso(primeiroDia());
 if (NOVA) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(qp.get("comeca") || "") && qp.get("comeca") > $("#inicio").min) $("#inicio").value = qp.get("comeca");
-  if (periodos().disp.includes("semana")) st.plano = "semana";
 }
+// Quem está começando paga só os dias até sexta; quem quiser escolhe um plano maior
+if ((NOVA || !qp.get("n")) && periodos().disp.includes("semana")) st.plano = "semana";
 $("#inicio").addEventListener("change", render);
 $("#avisoTeste").hidden = !TESTE;
 render();
