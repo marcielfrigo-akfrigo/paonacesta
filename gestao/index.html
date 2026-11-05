@@ -853,6 +853,12 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       </section>`;
   }
 
+  // Opções de pagamento do cliente: as mesmas na tela Clientes e na Cobrança
+  function opcoesPagar(c){
+    const cr = credDe(c.id);
+    return `<div class="opts">${["semanal","quinzenal","mensal"].map(t => { const cheio = precoPlano(c, t), an = devido(c), v = Math.max(0, cheio - cr) + an; return `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="${t}"${ocupado ? " disabled" : ""}><span>Pago ${t}</span><b>${brl(v)}</b>${cr > 0 ? `<small>${brl(cheio)} − crédito ${brl(Math.min(cr, cheio))}</small>` : ""}${an ? `<small>+ ${brl(an)} em atraso</small>` : ""}${cheio < preco(c, t) ? `<small>sem entrega em ${feriadosNo(c, addDays(basePagamento(c), 3), addDays(basePagamento(c), 7 * MULT[t])).map(br).join(", ")} (feriado)</small>` : ""}</button>`; }).join("")}${devido(c) ? `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="atrasado"${ocupado ? " disabled" : ""}><span>Só o atrasado</span><b>${brl(devido(c))}</b><small>${esc(textoDevido(c))}</small></button>` : ""}</div>`;
+  }
+
   function linha(c, compacto){
     const st = status(c), cls = st === "ok" ? c.plano : st;
     const nomePlano = { semanal:"Semanal", quinzenal:"Quinzenal", mensal:"Mensal" }[c.plano] || "Pago";
@@ -868,7 +874,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const hs = pags.filter(p => p.clienteId === c.id).sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
     let more = "";
     if (aberto === c.id) {
-      more += `<div class="opts">${["semanal","quinzenal","mensal"].map(t => { const cheio = precoPlano(c, t), an = devido(c), v = Math.max(0, cheio - cr) + an; return `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="${t}"${ocupado ? " disabled" : ""}><span>Pago ${t}</span><b>${brl(v)}</b>${cr > 0 ? `<small>${brl(cheio)} − crédito ${brl(Math.min(cr, cheio))}</small>` : ""}${an ? `<small>+ ${brl(an)} em atraso</small>` : ""}${cheio < preco(c, t) ? `<small>sem entrega em ${feriadosNo(c, addDays(basePagamento(c), 3), addDays(basePagamento(c), 7 * MULT[t])).map(br).join(", ")} (feriado)</small>` : ""}</button>`; }).join("")}${devido(c) ? `<button class="opt" type="button" data-a="pagar" data-id="${c.id}" data-t="atrasado"${ocupado ? " disabled" : ""}><span>Só o atrasado</span><b>${brl(devido(c))}</b><small>${esc(textoDevido(c))}</small></button>` : ""}</div>`;
+      more += opcoesPagar(c);
     }
     if (abertos.has(c.id)) {
       more += `<div class="det"><span><b>${esc(c.paes || 0)}</b> pães/dia</span>${c.endereco ? `<span>${esc(c.endereco)}</span>` : ""}<span>Entregador: <b>${esc(entregadorDe(c))}</b></span>${c.frios ? `<span>Frios: ${esc(c.frios)}</span>` : ""}${Array.isArray(c.dias) && c.dias.length ? `<span>Recebe: ${c.dias.map(d => DOW[d]).join(", ")}</span>` : ""}</div>
@@ -941,9 +947,9 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const row = c => {
       const ok = cobEnviado(c), dv = devido(c), cr = credDe(c.id);
       return `<div class="row st-${ok ? c.plano : "due"}"><div class="rline" style="flex-wrap:wrap"><span class="ini" aria-hidden="true">${esc((c.nome || "?").trim().slice(0,1).toUpperCase())}</span><div class="who" style="cursor:default;flex:1 1 200px;min-width:0"><strong>${esc(c.nome)}</strong><small style="white-space:normal">${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""} · ${c.paes || 0} pães · pago até ${br(c.pagoAte)}</small><small style="white-space:normal">Semanal <b>${brl(cobValor(c))}</b>${dv ? ` · inclui ${brl(dv)} em atraso` : ""}${cr ? ` · crédito ${brl(cr)}` : ""}${c.suspenso && c.volta ? ` · volta ${br(c.volta)}` : ""}</small></div>
-        <div class="acts" style="flex:1 1 100%;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap">${ok ? `<span class="badge semanal">Enviado ${br(c.linkEnviado)}</span>` : `<span class="badge due">Mandar link</span>`}<button class="b ${ok ? "" : "pri "}sm" type="button" data-cob="${c.id}">${ic("copy")}${ok ? "Copiar de novo" : "Copiar link"}</button></div></div></div>`;
+        <div class="acts" style="flex:1 1 100%;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap">${ok ? `<span class="badge semanal">Enviado ${br(c.linkEnviado)}</span>` : `<span class="badge due">Mandar link</span>`}<button class="b ${ok ? "" : "pri "}sm" type="button" data-cob="${c.id}">${ic("copy")}${ok ? "Copiar de novo" : "Copiar link"}</button><button class="b sm" type="button" data-a="abrir" data-id="${c.id}" aria-expanded="${aberto === c.id}">${ic("wallet")}Pagar</button></div></div>${aberto === c.id ? `<div class="more">${opcoesPagar(c)}</div>` : ""}</div>`;
     };
-    return head("Cobrança · semana de " + br(addDays(alvo, -4)) + " a " + br(alvo), "Links da semana.", `Quem precisa pagar para receber de ${br(addDays(alvo, -4))} a ${br(alvo)}. Toque em Copiar link e cole no WhatsApp do cliente.`, `<button class="b" type="button" data-q="linkNovo">${ic("copy")}Link para cliente novo</button><button class="b" type="button" data-q="linkGrupo">${ic("copy")}Link para os grupos</button>`) +
+    return head("Cobrança · semana de " + br(addDays(alvo, -4)) + " a " + br(alvo), "Links da semana.", `Quem precisa pagar para receber de ${br(addDays(alvo, -4))} a ${br(alvo)}. Toque em Copiar link e cole no WhatsApp do cliente. Se o Pix veio direto para você, confira e toque em Pagar.`, `<button class="b" type="button" data-q="linkNovo">${ic("copy")}Link para cliente novo</button><button class="b" type="button" data-q="linkGrupo">${ic("copy")}Link para os grupos</button>`) +
       `<div class="conds" role="group" aria-label="Condomínios"><button type="button" data-cc="" aria-pressed="${cobCond === ""}">Todos os condomínios${falta("") ? `<span class="n">${falta("")}</span>` : ""}</button>${nomesCond.map(n => `<button type="button" data-cc="${esc(n)}" aria-pressed="${cobCond === n}">${esc(n)}${falta(n) ? `<span class="n">${falta(n)}</span>` : ""}</button>`).join("")}</div>
       <div class="panel"><div class="ptitle"><h2>${cobCond ? esc(cobCond) : "Todos"} <span class="count">${lst.length}</span></h2><span class="muted">${env} de ${lst.length} enviados · ${brl(total)} no semanal</span>${env < lst.length ? `<button class="b sm" type="button" data-cobtodos="1">${ic("check")}Marcar ${cobCond ? "todos daqui" : "todos"} como enviados</button>` : ""}</div>
       ${lst.length ? `<div class="rows">${lst.map(row).join("")}</div>` : `<div class="empty">${ic("check")}<h3>Ninguém para cobrar aqui.</h3><p>Todos já estão pagos até ${br(alvo)}.</p></div>`}</div>
