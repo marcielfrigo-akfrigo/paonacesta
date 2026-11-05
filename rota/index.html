@@ -121,6 +121,8 @@ const ls = { get: k => { try { return JSON.parse(localStorage.getItem(k)); } cat
 function toast(t){ document.querySelectorAll(".toast").forEach(x => x.remove()); const el = document.createElement("div"); el.className = "toast"; el.setAttribute("role", "status"); el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2800); }
 
 const cod = location.hash.replace(/^#/, "").trim();
+const GESTOR = new URLSearchParams(location.search).has("gestor");   // link do Marciel: só acompanha, sem o botão Entregue
+const botaoOk = (id, feito) => GESTOR ? "" : `<button type="button" class="ok" data-ok="${id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button>`;
 const HOJE = iso(new Date());
 let R = null, dia = null, app = ls.get("rota-app") || "google";
 const locais = {};          // locais salvos agora neste celular (antes de a gestão gravar no cliente)
@@ -290,7 +292,7 @@ function desenharMapa(){
       <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><div class="pq"><b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}</div></div>
       ${it.frios && it.frios.length ? `<div class="dfr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
     ${locDe(it) ? "" : `<div class="aviso">Sem local salvo nesta casa</div>`}
-    <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir<small>através do ${app === "waze" ? "Waze" : "Google Maps"}</small></a><button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div>`;
+    <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir<small>através do ${app === "waze" ? "Waze" : "Google Maps"}</small></a>${botaoOk(it.id, feito)}</div>`;
 }
 
 function render(){
@@ -319,7 +321,7 @@ function render(){
     return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}${it.frios && it.frios.length ? " temfr" : ""}${it.nova ? " nova" : ""}" data-id="${it.id}"><span class="n">${num.get(it.id)}</span>
       <div><div class="nm">${it.nova ? `<span class="marca">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</span>` : `${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}`}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 LEVAR FRIOS: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
       <span class="pa">${it.paes} pães</span>
-      <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a>${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">📍 Corrigir local</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Salvar local</button>`}<button type="button" class="ok" data-ok="${it.id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button></div></div>`;
+      <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a>${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">📍 Corrigir local</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Salvar local</button>`}${botaoOk(it.id, feito)}</div></div>`;
   };
   let h = "";
   if ((X.recolher || []).length) h += `<div class="box red"><h2>Recolher a cesta (não entregar)</h2><ul>${X.recolher.map(r => `<li><b>${esc(r.nome)}</b>${r.casa ? " " + esc(r.casa) : ""} · ${esc(r.cond)}</li>`).join("")}</ul></div>`;
