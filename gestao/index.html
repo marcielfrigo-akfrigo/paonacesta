@@ -1161,6 +1161,13 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     if (credDe(c.id) > 0) q.set("k", String(r2(credDe(c.id))));   // créditos em aberto: o app desconta e o aceite marca como usados   // valor da semana do cadastro (o app usa enquanto o pedido não mudar)
     const dv = devidoNoLink(c);
     if (dv.valor) { q.set("a", String(dv.valor)); if (dv.txt) q.set("at", dv.txt); }
+    // Se ele escolher começar mais tarde, o app soma os dias que recebe antes disso (as próximas 3 semanas)
+    if (!anterior(c) && diaria(c) > 0) {
+      const base = q.get("ini") || entregaDepoisDeHoje(), pc = primeiroACobrar(c), pend = [];
+      let D = pc > base ? pc : base;
+      for (let i = 0; i < 21; i++, D = addDays(D, 1)) if (recebe(c, D)) pend.push(D);
+      if (pend.length) { q.set("pd", pend.join(",")); q.set("pv", String(r2(diaria(c)))); }
+    }
     return SITE_CLIENTES + "?" + q.toString();
   }
   // Mensagem com o link do site para quem ainda não é cliente (ele preenche nome, condomínio e casa)

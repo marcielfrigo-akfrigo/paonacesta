@@ -286,6 +286,8 @@ try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s)
 // Dias combinados sem entrega para este cliente (?x=AAAA-MM-DD,AAAA-MM-DD, vindo do app de gestão): saem do valor como feriado
 (qp.get("x") || "").split(",").filter(D => /^\d{4}-\d{2}-\d{2}$/.test(D) && !CONFIG.feriados[D]).forEach(D => CONFIG.feriados[D] = "combinado");
 const ANTERIOR = { valor: Math.max(0, Number(qp.get("a")) || 0), txt: (qp.get("at") || "").slice(0, 80) };
+// Dias de entrega depois dos já somados (?pd= datas, ?pv= valor do dia): quem escolhe começar depois deles paga por eles, porque recebe do mesmo jeito
+const PENDENTES = (qp.get("pd") || "").split(",").filter(D => /^\d{4}-\d{2}-\d{2}$/.test(D)), VALOR_PENDENTE = Math.max(0, Number(qp.get("pv")) || 0);
 // Crédito do cliente (entrega que faltou etc.), vem no link pessoal: ?k=25.2 (descontado do total)
 const CREDITO = Math.max(0, Number(qp.get("k")) || 0);
 // Valor da semana combinado com o cliente (?v=120): vale enquanto ele mantém os mesmos pães, dias e frios do link
@@ -379,6 +381,7 @@ function calc(){
   const valorDoDia = w => r2(paes / nd + (CONFIG.diasFrios[w] ? (st.frios[w] || []).reduce((s, i) => s + (CONFIG.frios[i] || 0), 0) : 0));
   const feriadosDe = k => per[k].sem === 0 ? [] : Object.keys(CONFIG.feriados).filter(D => D >= iso(per[k].ini) && D <= iso(per[k].fim) && st.dias.includes(parse(D).getDay()));
   const cheio = {}, planos = {}, desc = {}, falta = {}, fer = {};
+  const antes = PENDENTES.filter(D => D < iso(per.inicio)), ant = { valor: r2(ANTERIOR.valor + antes.length * VALOR_PENDENTE), txt: [ANTERIOR.txt, antes.map(D => ddmm(parse(D))).join(", ")].filter(Boolean).join(" + ") };
   per.disp.forEach(k => {
     fer[k] = feriadosDe(k);
     cheio[k] = r2(semana * per[k].sem + avulso - fer[k].reduce((s, D) => s + valorDoDia(parse(D).getDay()), 0));
@@ -386,17 +389,17 @@ function calc(){
     planos[k] = desc[k] ? r2(cheio[k] - CONFIG.descontoMensal) : cheio[k];
     falta[k] = per[k].fechaMes && !desc[k] ? r2(CONFIG.minimoDesconto - cheio[k]) : 0;
     // dias anteriores entram no total a pagar (fora da conta do desconto)
-    if (ANTERIOR.valor) { cheio[k] = r2(cheio[k] + ANTERIOR.valor); planos[k] = r2(planos[k] + ANTERIOR.valor); }
+    if (ant.valor) { cheio[k] = r2(cheio[k] + ant.valor); planos[k] = r2(planos[k] + ant.valor); }
     if (CREDITO) { const usa = Math.min(CREDITO, planos[k]); cheio[k] = r2(cheio[k] - usa); planos[k] = r2(planos[k] - usa); }
   });
   const textoAvulso = per.avulsos.length ? per.avulsos.map(d => DIASEM[d.getDay()]).join(" e ") + " (" + per.avulsos.map(ddmm).join(" e ") + ")" : "";
   if (avulso) linhas.push([`Esta semana: ${textoAvulso}`, avulso]);
-  return { ok: true, linhas, semana, per, cheio, planos, desc, falta, avulso, textoAvulso, fer };
+  return { ok: true, linhas, semana, per, cheio, planos, desc, falta, avulso, textoAvulso, fer, ant };
 }
 const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMensal || c.per.fimMes)})` : NOMEPLANO[k];
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
 const textoFeriado = (c, k) => c.fer && c.fer[k] && c.fer[k].length ? ` · sem entrega em ${c.fer[k].map(D => ddmm(parse(D)) + " (" + CONFIG.feriados[D] + ")").join(", ")}, já descontado` : "";
-const textoPlano = (c, k) => (ANTERIOR.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""}${c.per[k].sem ? ` + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : ""}` : textoPeriodo(c.per[k])) + textoFeriado(c, k);
+const textoPlano = (c, k) => (c.ant.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""}${c.per[k].sem ? ` + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : ""}` : textoPeriodo(c.per[k])) + textoFeriado(c, k);
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
 
 function opcoesInicio(){
@@ -419,7 +422,7 @@ function render(){
   const seloDe = k => c.ok && c.desc[k] ? `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo cinza">falta ${brl(c.falta[k])} p/ desconto</span>` : "";
   $("#planos").innerHTML = disp.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]} ${seloDe(k)}</b><small>${c.ok ? (c.desc[k] ? `<s>${brl(c.cheio[k])}</s> ` : "") + brl(c.planos[k]) + " · " + textoPlano(c, k) : "—"}</small></button>`).join("") + `<p class="regra">Pagando até o fim do mês, pedidos de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto.${c.ok && c.per.restam === 2 ? ` Faltam só 2 semanas em ${c.per.mes}: o quinzenal fecha o mês.` : c.ok && c.per.restam === 1 ? ` Última semana de ${c.per.mes}: o mensal já inclui ${c.per.mesMensal} inteiro.` : ""}</p>`;
   $("#resumo").textContent = c.ok ? `${st.paes} pães por dia · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
-  $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` + (ANTERIOR.valor ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Dias que você já recebeu</b>${ANTERIOR.txt ? "<br>" + esc(ANTERIOR.txt) : ""}<br><small>somado no plano abaixo</small></span><b>+ ${brl(ANTERIOR.valor)}</b></div>` : "") + (CREDITO ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Seu crédito</b><br><small>descontado no plano abaixo</small></span><b>− ${brl(CREDITO)}</b></div>` : "") : "";
+  $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` + (c.ant.valor ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Dias antes do início do plano</b>${c.ant.txt ? "<br>" + esc(c.ant.txt) : ""}<br><small>somado no plano abaixo</small></span><b>+ ${brl(c.ant.valor)}</b></div>` : "") + (CREDITO ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Seu crédito</b><br><small>descontado no plano abaixo</small></span><b>− ${brl(CREDITO)}</b></div>` : "") : "";
   $("#calcPlanos").innerHTML = disp.map(k => `<button class="plan${c.ok && (c.desc[k] || c.falta[k]) ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${c.ok && c.desc[k] ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo flut cinza">Falta ${brl(c.falta[k])} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}<span>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]}<small>${c.ok ? textoPlano(c, k) : ""}</small></span><b>${c.ok && c.desc[k] ? `<s>${brl(c.cheio[k])}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
   $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
   $("#avisoDias").hidden = st.dias.length >= MIN_DIAS; $("#avisoDias").textContent = `O mínimo é ${MIN_DIAS} dias por semana (você marcou ${st.dias.length}).`;
@@ -459,7 +462,7 @@ function textoPedido(c){
     `Dias: ${DIAS.filter(([d]) => st.dias.includes(d)).map(([, n]) => n).join(", ")}`,
     fr.length ? `Frios: ${fr.join(" | ")}` : "Frios: não",
     `Plano: ${NOMEPLANO[st.plano]} – ${brl(c.planos[st.plano])} (${textoPlano(c, st.plano)})`,
-    ANTERIOR.valor ? `Inclui ${brl(ANTERIOR.valor)} dos dias já recebidos${ANTERIOR.txt ? " (" + ANTERIOR.txt + ")" : ""}` : null,
+    c.ant.valor ? `Inclui ${brl(c.ant.valor)} dos dias antes do início do plano${c.ant.txt ? " (" + c.ant.txt + ")" : ""}` : null,
     CREDITO ? `Crédito descontado: ${brl(CREDITO)}` : null,
     $("#inicio").value ? `Começar em: ${$("#inicio").value.split("-").reverse().join("/")}` : "",
     "", "Segue o comprovante do Pix.",
@@ -470,7 +473,7 @@ function textoPedido(c){
 function dadosPedido(c){
   return { n: $("#nome").value.trim(), c: $("#cond").value, h: $("#casa").value.trim(), p: st.paes, d: st.dias,
     f: Object.fromEntries(Object.entries(st.frios).filter(([d, l]) => st.dias.includes(Number(d)) && l.length)),
-    pl: st.plano === "semana" ? "semanal" : st.plano, v: c.planos[st.plano], s: c.semana, i: iso(c.per.inicio), ini: iso(c.per.inicio), fim: iso(c.per[st.plano].fim), a: ANTERIOR.valor, t: TESTE ? 1 : 0 };
+    pl: st.plano === "semana" ? "semanal" : st.plano, v: c.planos[st.plano], s: c.semana, i: iso(c.per.inicio), ini: iso(c.per.inicio), fim: iso(c.per[st.plano].fim), a: c.ant.valor, t: TESTE ? 1 : 0 };
 }
 function codigoPedido(c){ return "PNC1." + btoa(unescape(encodeURIComponent(JSON.stringify(dadosPedido(c))))); }
 // Grava o pedido no banco do Pão na Cesta (aparece em "Pedidos novos" no app de gestão)
