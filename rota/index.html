@@ -90,7 +90,10 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 #mapaFicha .dest{background:#12324a;color:#fff;border-radius:12px;padding:10px 12px}
 #mapaFicha .dest.ok{background:var(--ok)}
 #mapaFicha .dest small{display:block;font-size:13px;font-weight:700;opacity:.85;margin-bottom:2px}
-#mapaFicha .dest .lin{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#mapaFicha .dest .lin{display:flex;align-items:center;gap:12px}
+/* os pães ficam a 20% do vão entre o nome e a borda, sem encostar nela */
+#mapaFicha .dest .lin .vao{flex:4 0 0}
+#mapaFicha .dest .lin::after{content:"";flex:1 0 14px}
 #mapaFicha .dest .nm{font-weight:800;font-size:25px;line-height:1.12;min-width:0;overflow-wrap:anywhere}
 #mapaFicha .dest .pq{flex:0 0 auto;text-align:center;font-weight:800;font-size:13px;line-height:1}
 #mapaFicha .dest .pq b{display:block;font-size:42px;line-height:1;font-weight:900}
@@ -229,7 +232,10 @@ async function abrirMapa(cond){
     // bolinha azul: onde o entregador está agora
     if (navigator.geolocation) navigator.geolocation.watchPosition(p => {
       const ll = [p.coords.latitude, p.coords.longitude];
-      if (M.eu) M.eu.setLatLng(ll); else M.eu = L.circleMarker(ll, { radius: 8, color: "#fff", weight: 3, fillColor: "#1a73e8", fillOpacity: 1 }).addTo(M.map);
+      if (M.eu) M.eu.setLatLng(ll); else {
+        if (!M.map.getPane("eu")) M.map.createPane("eu").style.zIndex = 460;   // acima do tracejado e abaixo dos pinos
+        M.eu = L.circleMarker(ll, { pane: "eu", interactive: false, radius: 8, color: "#fff", weight: 3, fillColor: "#1a73e8", fillOpacity: 1 }).addTo(M.map);
+      }
     }, () => {}, { enableHighAccuracy: true, maximumAge: 5000 });
   }
   setTimeout(() => { M.map.invalidateSize(); desenharMapa(); }, 30);
@@ -268,9 +274,9 @@ function desenharMapa(){
   const proxima = V.itens.find(x => !V.ok[x.id] && locDe(x));
   if (ultima && proxima && (!M.cond || ultima.cond === M.cond || proxima.cond === M.cond)) (async () => {
     const pts = [locDe(ultima), locDe(proxima)];
-    // pontinhos pretos com contorno branco: o azul é só a bolinha do GPS
+    // traço fino e esticado em bege claro, com contorno discreto: a bolinha azul do GPS fica por cima e bem visível
     if (!M.map.getPane("pontos")) M.map.createPane("pontos").style.zIndex = 450;   // sempre acima da linha da rota, que às vezes chega depois
-    const pontinhos = ll => L.layerGroup([{ color: "#fff", weight: 10 }, { color: "#000", weight: 6 }].map(c => L.polyline(ll, { ...c, pane: "pontos", interactive: false, opacity: 1, dashArray: "2 12", lineCap: "round" }))).addTo(M.camada);
+    const pontinhos = ll => L.layerGroup([{ color: "#9c8660", weight: 4 }, { color: "#f4e8cf", weight: 2 }].map(c => L.polyline(ll, { ...c, pane: "pontos", interactive: false, opacity: 1, dashArray: "16 12", lineCap: "butt" }))).addTo(M.camada);
     const reta = pontinhos(pts.map(p => [p.lat, p.lng]));
     const ruas = await linhaRuas(pts);
     if (ruas && M.aberto && vez === M.vez) { M.camada.removeLayer(reta); pontinhos(ruas); }
@@ -289,7 +295,7 @@ function desenharMapa(){
   if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; return; }
   const feito = !!V.ok[it.id];
   $("#mapaFicha").innerHTML = `<div class="dest${feito ? " ok" : ""}"><small>${feito ? "Entregue" : it === prox ? "Próxima" : "Casa"} · nº ${V.num.get(it.id)}</small>
-      <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><div class="pq"><b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}</div></div>
+      <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><i class="vao"></i><div class="pq"><b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}</div></div>
       ${it.frios && it.frios.length ? `<div class="dfr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
     ${locDe(it) ? "" : `<div class="aviso">Sem local salvo nesta casa</div>`}
     <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir<small>através do ${app === "waze" ? "Waze" : "Google Maps"}</small></a>${botaoOk(it.id, feito)}</div>`;
