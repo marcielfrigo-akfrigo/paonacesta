@@ -1126,6 +1126,15 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   // Link pessoal para o cliente renovar no app dos clientes, já com o pedido de hoje preenchido
   const SITE_CLIENTES = "https://paonacesta.com.br/";
   const NOME_FRIO_APP = { "Mortadela": "Mortadela defumada" };
+  // Cliente que nunca pagou: o link começa na próxima entrega, e os dias que já recebeu depois da cortesia (ou do início) vêm somados
+  const novaNoLink = c => !pags.some(p => p.clienteId === c.id) && (!c.pagoAte || !!c.inicio);
+  const primeiroACobrar = c => { const a = c.pagoAte ? addDays(c.pagoAte, 1) : "", i = c.inicio || ""; return a > i ? a : i; };
+  function devidoNoLink(c){
+    if (!novaNoLink(c) || anterior(c)) return { valor: devido(c), txt: textoDevido(c) };
+    const d = [], lim = entregaDepoisDeHoje(); let D = primeiroACobrar(c);
+    for (let i = 0; D && D < lim && i < 120; i++, D = addDays(D, 1)) if (recebe(c, D)) d.push(D);
+    return { valor: r2(d.length * diaria(c)), txt: !d.length ? "" : d.length === 1 ? `1 dia: ${br(d[0])}` : `${d.length} dias de ${br(d[0])} a ${br(d[d.length - 1])}` };
+  }
   function linkCliente(c){
     const f = Object.entries({ 1: "seg", 3: "qua" }).map(([d, nome]) => {
       const itens = c.frios ? friosItens(c.frios.split("|").filter(sg => sg.includes(":") && norm(sg.split(":")[0]).includes(nome)).map(sg => sg.split(":").slice(1).join(":")).join(" e ")) : [];
@@ -1135,13 +1144,17 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     if (f) q.set("f", f);
     if (c.valor > 0) q.set("v", String(c.valor));
     // Quem nunca pagou começa na próxima entrega e paga só os dias que faltam; quem já é cliente segue da segunda da semana cobrada
-    const nova = !pags.some(p => p.clienteId === c.id) && (!c.pagoAte || !!c.inicio);
-    if (nova) { q.set("novo", "1"); if (c.inicio > HOJE) q.set("comeca", c.inicio); }
+    if (novaNoLink(c)) {
+      q.set("novo", "1");
+      let D = primeiroACobrar(c);   // cortesia num dia futuro: só começa a cobrar depois dela
+      if (D > HOJE) { while (!ehEntrega(D)) D = addDays(D, 1); q.set("comeca", D); }
+    }
     else q.set("ini", addDays(cobAlvo(), -4));
     const fora = (c.fora || []).filter(D => D >= (q.get("ini") || HOJE)).sort();
     if (fora.length) q.set("x", fora.join(","));   // dias combinados sem entrega: o app desconta como feriado
     if (credDe(c.id) > 0) q.set("k", String(r2(credDe(c.id))));   // créditos em aberto: o app desconta e o aceite marca como usados   // valor da semana do cadastro (o app usa enquanto o pedido não mudar)
-    if (devido(c)) { q.set("a", String(devido(c))); if (textoDevido(c)) q.set("at", textoDevido(c)); }
+    const dv = devidoNoLink(c);
+    if (dv.valor) { q.set("a", String(dv.valor)); if (dv.txt) q.set("at", dv.txt); }
     return SITE_CLIENTES + "?" + q.toString();
   }
   // Mensagem com o link do site para quem ainda não é cliente (ele preenche nome, condomínio e casa)
@@ -1171,13 +1184,13 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   }
   async function copiarLinkCliente(id, bt){
     const c = clientes.find(x => x.id === id); if (!c) return;
-    const h = agora.getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+    const h = agora.getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite", dv = devidoNoLink(c);
     const txt = [
       `${saud}, ${c.nome.replace(/\s*\((cortesia|teste)\)/i, "").split(/[ /]/)[0]}, tudo bem? 😊`,
       "Criei um aplicativo para facilitar os pedidos do Pão na Cesta. É só tocar no link abaixo: ele já abre com o seu nome e o seu condomínio.",
       "Lá você escolhe a quantidade de pães, os frios e os dias em que quer receber. Agora dá para escolher só alguns dias da semana (mínimo de 3), sem precisar pegar a semana inteira. Ótimo para quando for viajar. 🥖",
       "Depois é só escolher o plano e fazer o Pix pelo próprio aplicativo, tudo bem prático.",
-      devido(c) ? `O valor que ficou em aberto (${brl(devido(c))}${textoDevido(c) ? ", " + textoDevido(c) : ""}) já vem somado no aplicativo.` : "",
+      dv.valor ? `O valor que ficou em aberto (${brl(dv.valor)}${dv.txt ? ", " + dv.txt : ""}) já vem somado no aplicativo.` : "",
       credDe(c.id) > 0 ? `Seu crédito de ${brl(credDe(c.id))} já vem descontado.` : "",
       // aviso só da semana de lançamento do aplicativo
       HOJE <= "2026-11-01" ? "Só nesta primeira semana, quando terminar, me manda um “ok” aqui para eu conferir que deu tudo certo. Das próximas vezes não precisa avisar." : "",
