@@ -79,11 +79,10 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 #btNorte{position:absolute;right:10px;top:10px;z-index:1001;width:46px;height:46px;border:0;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);padding:0}
 #btNorte i{display:block;font:800 13px/46px "DM Sans",sans-serif;font-style:normal;color:#12324a;position:relative}
 #btNorte i::before{content:"";position:absolute;left:50%;top:2px;margin-left:-5px;border:5px solid transparent;border-top:0;border-bottom:8px solid #d6001c}
-/* bolinha azul com o bico para a frente; sem direção conhecida fica só a bolinha */
-.eu{position:absolute;left:-20px;top:-20px;width:40px;height:40px}
-.eu::before{content:"";position:absolute;left:11px;top:11px;width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.45)}
-.eu::after{content:"";position:absolute;left:12px;top:0;border:8px solid transparent;border-top:0;border-bottom:13px solid #1a73e8;filter:drop-shadow(0 -1px 0 #fff)}
-.eu.sem::after{display:none}
+/* setinha azul do GPS, igual à do Waze; antes de saber a direção do carro fica mais clara */
+.eu{position:absolute;left:-23px;top:-23px;width:46px;height:46px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+.eu svg{display:block;width:100%;height:100%}
+.eu.sem{opacity:.7}
 .pin{position:absolute;left:0;top:0;transform:translate(-12px,calc(-100% - 7px));display:flex;align-items:center;gap:4px;background:#fff;color:var(--ink);border:1.5px solid var(--cor);border-radius:8px;padding:2px 6px 2px 2px;font:700 11px/1.1 "DM Sans",sans-serif;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .pin small{display:block;font-size:10px;font-weight:600;color:var(--muted)}.pin.fr small{color:#000;font-weight:800}
 .pin::after{content:"";position:absolute;left:7px;bottom:-7px;border:5px solid transparent;border-top:6px solid var(--cor);border-bottom:0}
@@ -259,7 +258,7 @@ async function abrirMapa(cond){
       };
       area.addEventListener("touchend", soltou); area.addEventListener("touchcancel", soltou);
     }
-    // bolinha azul: onde o entregador está agora
+    // setinha azul: onde o entregador está agora
     if (navigator.geolocation) navigator.geolocation.watchPosition(novaPosicao, () => {}, { enableHighAccuracy: true, maximumAge: 1000 });
   } else if (M.gira) M.map.setBearing(0);
   setTimeout(() => { M.map.invalidateSize(); desenharMapa(); }, 30);
@@ -278,12 +277,12 @@ function novaPosicao(p){
   M.pos = ll;
   if (!M.eu) {
     M.visto = ll;
-    M.eu = L.marker(ll, { interactive: false, keyboard: false, zIndexOffset: -500, icon: L.divIcon({ className: "", html: `<div class="eu sem"></div>`, iconSize: [0, 0] }) }).addTo(M.map);   // acima do tracejado e abaixo dos pinos
+    M.eu = L.marker(ll, { interactive: false, keyboard: false, zIndexOffset: 3000, icon: L.divIcon({ className: "", html: `<div class="eu sem"><svg viewBox="0 0 46 46"><path d="M23 4 39 41 23 32 7 41Z" fill="#1a73e8" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/></svg></div>`, iconSize: [0, 0] }) }).addTo(M.map);   // por cima de tudo, sem pegar o toque nas casas
   } else if (!M.seguindo) { M.visto = ll; M.eu.setLatLng(ll); }
   ajustarGiro();
   if (M.seguindo && !M.quadroLigado) comecarSeguir();
 }
-// o bico aponta para onde o carro vai, descontando quanto o mapa está girado; a bússola mostra onde fica o norte
+// a setinha aponta para onde o carro vai, descontando quanto o mapa está girado; a bússola mostra onde fica o norte
 function ajustarGiro(){
   const b = M.map.getBearing ? M.map.getBearing() : 0, el = M.eu && M.eu.getElement() && M.eu.getElement().querySelector(".eu");
   if (el) { el.classList.toggle("sem", M.rumo === null); el.style.transform = `rotate(${(M.rumo || 0) + b}deg)`; }
