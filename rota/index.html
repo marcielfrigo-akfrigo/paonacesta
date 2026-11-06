@@ -71,7 +71,19 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 #mapa .mt b{flex:1;font-size:16px;text-transform:uppercase;letter-spacing:.03em}
 #mapa .mt button{border:0;background:var(--cream);color:var(--brown);border-radius:9px;padding:8px 12px;font:800 14px "DM Sans",sans-serif}
 #mapa .mt small{font-size:12px;opacity:.85;font-weight:600;text-transform:none;letter-spacing:0;display:block}
-#mapaArea{flex:1;min-height:0}
+#mapaCaixa{flex:1;min-height:0;position:relative}
+#mapaArea{position:absolute;inset:0}
+/* seguir direção: o mapa gira sozinho conforme o carro anda */
+#btSeguir{position:absolute;right:10px;bottom:22px;z-index:1001;min-height:48px;border:2px solid #12324a;border-radius:999px;background:#fff;color:#12324a;padding:0 16px;font:800 15px "DM Sans",sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+#btSeguir[aria-pressed=true]{background:#1a73e8;border-color:#1a73e8;color:#fff}
+#btNorte{position:absolute;right:10px;top:10px;z-index:1001;width:46px;height:46px;border:0;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);padding:0}
+#btNorte i{display:block;font:800 13px/46px "DM Sans",sans-serif;font-style:normal;color:#12324a;position:relative}
+#btNorte i::before{content:"";position:absolute;left:50%;top:2px;margin-left:-5px;border:5px solid transparent;border-top:0;border-bottom:8px solid #d6001c}
+/* bolinha azul com o bico para a frente; sem direção conhecida fica só a bolinha */
+.eu{position:absolute;left:-20px;top:-20px;width:40px;height:40px}
+.eu::before{content:"";position:absolute;left:11px;top:11px;width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.45)}
+.eu::after{content:"";position:absolute;left:12px;top:0;border:8px solid transparent;border-top:0;border-bottom:13px solid #1a73e8;filter:drop-shadow(0 -1px 0 #fff)}
+.eu.sem::after{display:none}
 .pin{position:absolute;left:0;top:0;transform:translate(-12px,calc(-100% - 7px));display:flex;align-items:center;gap:4px;background:#fff;color:var(--ink);border:1.5px solid var(--cor);border-radius:8px;padding:2px 6px 2px 2px;font:700 11px/1.1 "DM Sans",sans-serif;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .pin small{display:block;font-size:10px;font-weight:600;color:var(--muted)}.pin.fr small{color:#000;font-weight:800}
 .pin::after{content:"";position:absolute;left:7px;bottom:-7px;border:5px solid transparent;border-top:6px solid var(--cor);border-bottom:0}
@@ -109,7 +121,7 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 <div class="bar" aria-hidden="true"><i id="barra" style="width:0"></i></div><div class="prog"><span id="prog"></span><span id="paes"></span></div>
 <div class="dias" id="dias" role="tablist"></div></header>
 <main id="main"><p class="vazio">Carregando a rota…</p></main>
-<div id="mapa" hidden><div class="mt"><b id="mapaTit"></b><button type="button" data-fechar-mapa>✕ Lista</button></div><div id="mapaArea"></div><div id="mapaFicha"></div></div>
+<div id="mapa" hidden><div class="mt"><b id="mapaTit"></b><button type="button" data-fechar-mapa>✕ Lista</button></div><div id="mapaCaixa"><div id="mapaArea"></div><button type="button" id="btNorte" data-norte hidden aria-label="Voltar o norte para cima"><i>N</i></button><button type="button" id="btSeguir" data-seguir aria-pressed="false" hidden>🧭 Seguir direção</button></div><div id="mapaFicha"></div></div>
 <script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyCDjC2i08rrbegFaBAPRg33wJLuHLjmEWk","authDomain":"pao-na-cesta.firebaseapp.com","projectId":"pao-na-cesta","storageBucket":"pao-na-cesta.firebasestorage.app","messagingSenderId":"562755057813","appId":"1:562755057813:web:61f7132e3d23bb211c039c"};</script>
 <script type="module">
 // O Firebase é carregado depois (import dinâmico): a rota aparece primeiro por uma leitura simples, que funciona em qualquer celular
@@ -190,6 +202,8 @@ else {
     }
     const m = e.target.closest("[data-mapa]"); if (m) { abrirMapa(m.dataset.mapa); return; }
     if (e.target.closest("[data-fechar-mapa]")) { fecharMapa(); return; }
+    if (e.target.closest("[data-seguir]")) { ligarSeguir(!M.seguindo); return; }
+    if (e.target.closest("[data-norte]")) { ligarSeguir(false); M.map.setBearing(0); return; }
     const d = e.target.closest("[data-dia]"); if (d) { dia = d.dataset.dia; render(); window.scrollTo(0, 0); return; }
     const a = e.target.closest("[data-app]"); if (a) { app = a.dataset.app; ls.set("rota-app", app); render(); return; }
   });
@@ -206,14 +220,15 @@ function linkIr(it){
 
 // ---------- Mapa próprio (Leaflet): etiqueta em cada casa com nº da ordem, nome, casa e pães ----------
 let V = { itens: [], num: new Map(), ok: {} };
-const M = { aberto: false, cond: "", map: null, camada: null, sel: null, linhas: {}, ajustado: "", eu: null };
+const M = { aberto: false, cond: "", map: null, camada: null, sel: null, linhas: {}, ajustado: "", eu: null, rumo: null, dedos: null, seguindo: false };
 const LEAF = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+const GIRAR = "https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js";   // Leaflet não gira sozinho; sem este arquivo o mapa abre normal, sem girar
 let leafEspera = null;
 function carregarLeaflet(){
   if (window.L) return Promise.resolve();
   if (!leafEspera) leafEspera = new Promise((ok, erro) => {
     const css = document.createElement("link"); css.rel = "stylesheet"; css.href = LEAF + "leaflet.min.css"; document.head.appendChild(css);
-    const js = document.createElement("script"); js.src = LEAF + "leaflet.min.js"; js.onload = ok; js.onerror = () => { leafEspera = null; erro(); }; document.head.appendChild(js);
+    const js = document.createElement("script"); js.src = LEAF + "leaflet.min.js"; js.onload = () => { const g = document.createElement("script"); g.src = GIRAR; g.onload = g.onerror = ok; document.head.appendChild(g); }; js.onerror = () => { leafEspera = null; erro(); }; document.head.appendChild(js);
   });
   return leafEspera;
 }
@@ -222,25 +237,89 @@ async function abrirMapa(cond){
   $("#mapa").hidden = false; document.body.style.overflow = "hidden";
   try { await carregarLeaflet(); } catch (e) { toast("Sem internet para abrir o mapa."); fecharMapa(); return; }
   if (!M.map) {
-    M.map = L.map("mapaArea", { zoomControl: false, attributionControl: true });
+    // começa já com uma vista (Prudente): antes disso o Leaflet não atualiza o tamanho do mapa, e o painel de baixo ainda vai encolhê-lo
+    M.map = L.map("mapaArea", { center: [-22.12, -51.4], zoom: 13, zoomControl: false, attributionControl: true, rotate: true, touchRotate: true, rotateControl: false, shiftKeyRotate: false });
+    M.gira = !!M.map.setBearing; $("#btSeguir").hidden = !M.gira;
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(M.map);
     M.camada = L.layerGroup().addTo(M.map);
     // de longe só o número (os nomes se amontoam); chegando perto aparecem nome, casa e pães
     const zoomNomes = () => $("#mapaArea").classList.toggle("longe", M.map.getZoom() < 16);
     M.map.on("zoomend", zoomNomes); M.map.whenReady(zoomNomes);
     M.map.on("click", () => { M.sel = null; desenharMapa(); });
+    if (M.gira) {
+      M.map.on("rotate", ajustarGiro);
+      // arrastar o mapa, ou girar com os dedos, tira do modo seguir; só dar zoom com os dois dedos não tira
+      M.map.on("dragstart", () => ligarSeguir(false));
+      const area = $("#mapaArea");
+      area.addEventListener("touchstart", e => { if (e.touches.length === 2) M.dedos = M.map.getBearing(); }, { passive: true });
+      const soltou = e => {
+        if (M.dedos === null || e.touches.length) return;
+        const girou = Math.abs(difAngulo(M.map.getBearing(), M.dedos)) > 8;
+        M.dedos = null; if (girou) ligarSeguir(false);
+      };
+      area.addEventListener("touchend", soltou); area.addEventListener("touchcancel", soltou);
+    }
     // bolinha azul: onde o entregador está agora
-    if (navigator.geolocation) navigator.geolocation.watchPosition(p => {
-      const ll = [p.coords.latitude, p.coords.longitude];
-      if (M.eu) M.eu.setLatLng(ll); else {
-        if (!M.map.getPane("eu")) M.map.createPane("eu").style.zIndex = 460;   // acima do tracejado e abaixo dos pinos
-        M.eu = L.circleMarker(ll, { pane: "eu", interactive: false, radius: 8, color: "#fff", weight: 3, fillColor: "#1a73e8", fillOpacity: 1 }).addTo(M.map);
-      }
-    }, () => {}, { enableHighAccuracy: true, maximumAge: 5000 });
-  }
+    if (navigator.geolocation) navigator.geolocation.watchPosition(novaPosicao, () => {}, { enableHighAccuracy: true, maximumAge: 1000 });
+  } else if (M.gira) M.map.setBearing(0);
   setTimeout(() => { M.map.invalidateSize(); desenharMapa(); }, 30);
 }
-function fecharMapa(){ M.aberto = false; $("#mapa").hidden = true; document.body.style.overflow = ""; }
+function fecharMapa(){ ligarSeguir(false); M.aberto = false; $("#mapa").hidden = true; document.body.style.overflow = ""; }
+const difAngulo = (a, b) => ((a - b) % 360 + 540) % 360 - 180;   // o caminho mais curto de b até a, em graus
+function novaPosicao(p){
+  const { latitude: lat, longitude: lng, heading, speed } = p.coords, ll = L.latLng(lat, lng);
+  // a direção vem do GPS quando o carro anda; se ele não informar, sai de dois pontos seguidos. Parado, fica a última
+  if (Number.isFinite(heading) && speed >= 1.5) M.rumo = heading;
+  else if (!Number.isFinite(heading) && M.refRumo && M.refRumo.distanceTo(ll) >= 10) {
+    const r = Math.PI / 180, a = M.refRumo, y = Math.sin((lng - a.lng) * r) * Math.cos(lat * r), x = Math.cos(a.lat * r) * Math.sin(lat * r) - Math.sin(a.lat * r) * Math.cos(lat * r) * Math.cos((lng - a.lng) * r);
+    M.rumo = (Math.atan2(y, x) / r + 360) % 360;
+  }
+  if (!M.refRumo || M.refRumo.distanceTo(ll) >= 10) M.refRumo = ll;
+  M.pos = ll;
+  if (!M.eu) {
+    M.visto = ll;
+    M.eu = L.marker(ll, { interactive: false, keyboard: false, zIndexOffset: -500, icon: L.divIcon({ className: "", html: `<div class="eu sem"></div>`, iconSize: [0, 0] }) }).addTo(M.map);   // acima do tracejado e abaixo dos pinos
+  } else if (!M.seguindo) { M.visto = ll; M.eu.setLatLng(ll); }
+  ajustarGiro();
+  if (M.seguindo && !M.quadroLigado) comecarSeguir();
+}
+// o bico aponta para onde o carro vai, descontando quanto o mapa está girado; a bússola mostra onde fica o norte
+function ajustarGiro(){
+  const b = M.map.getBearing ? M.map.getBearing() : 0, el = M.eu && M.eu.getElement() && M.eu.getElement().querySelector(".eu");
+  if (el) { el.classList.toggle("sem", M.rumo === null); el.style.transform = `rotate(${(M.rumo || 0) + b}deg)`; }
+  const n = $("#btNorte"); n.hidden = M.seguindo || Math.abs(difAngulo(b, 0)) < 1; n.firstChild.style.transform = `rotate(${b}deg)`;
+}
+function ligarSeguir(ligar){
+  if (!M.gira || M.seguindo === ligar) return;
+  M.seguindo = ligar;
+  const bt = $("#btSeguir"); bt.setAttribute("aria-pressed", String(ligar)); bt.textContent = ligar ? "🧭 Seguindo" : "🧭 Seguir direção";
+  ajustarGiro();
+  if (!ligar) { M.quadroLigado = false; return; }
+  if (!navigator.geolocation) { toast("Este celular não deixa usar o GPS aqui."); return ligarSeguir(false); }
+  if (!M.pos) { toast("Procurando o GPS…"); return; }
+  comecarSeguir();
+}
+function comecarSeguir(){
+  if (M.rumo === null) toast("O mapa gira quando o carro começar a andar.");
+  M.visto = M.pos; M.eu.setLatLng(M.pos);
+  M.map.setView(M.pos, Math.max(M.map.getZoom(), 17), { animate: false });
+  M.quadroLigado = true; requestAnimationFrame(quadroSeguir);
+}
+// a cada quadro: anda um pouco até a direção e a posição novas, para o mapa não dar pulos entre uma leitura do GPS e outra
+function quadroSeguir(){
+  if (!M.seguindo || !M.quadroLigado) return;
+  requestAnimationFrame(quadroSeguir);
+  if (M.dedos !== null) return;
+  if (M.rumo !== null) {
+    const b = M.map.getBearing(), d = difAngulo(-M.rumo, b);
+    if (Math.abs(d) > .3) M.map.setBearing(b + d * .1);
+  }
+  const lat = M.visto.lat + (M.pos.lat - M.visto.lat) * .1, lng = M.visto.lng + (M.pos.lng - M.visto.lng) * .1;
+  M.visto = L.latLng(lat, lng); M.eu.setLatLng(M.visto);
+  // o carro fica na parte de baixo da tela, para mostrar mais do caminho à frente
+  const s = M.map.getSize(), atual = M.map.latLngToContainerPoint(M.visto), falta = atual.subtract(L.point(s.x / 2, s.y * .72));
+  if (Math.abs(falta.x) >= 1 || Math.abs(falta.y) >= 1) M.map.panBy(falta, { animate: false });
+}
 // linha pelas ruas (OSRM); se não der, linha reta tracejada
 async function linhaRuas(pts){
   const chave = pts.map(p => p.lat + "," + p.lng).join(";");
@@ -288,17 +367,22 @@ function desenharMapa(){
     L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : it.nova ? 600 : fr ? 500 : 0 })
       .on("click", ev => { L.DomEvent.stopPropagation(ev); M.sel = it.id; desenharMapa(); }).addTo(M.camada);
   });
-  const chave = M.cond + "|" + dia;
-  if (M.ajustado !== chave && com.length) { M.ajustado = chave; M.map.fitBounds(com.map(it => { const l = locDe(it); return [l.lat, l.lng]; }), { padding: [60, 30], maxZoom: 19 }); }
+  // o painel de baixo muda a altura do mapa: só enquadra as casas depois de ele estar na tela
+  const enquadrar = () => {
+    M.map.invalidateSize({ pan: false });
+    const chave = M.cond + "|" + dia;
+    if (M.ajustado !== chave && com.length) { M.ajustado = chave; M.map.fitBounds(com.map(it => { const l = locDe(it); return [l.lat, l.lng]; }), { padding: [60, 30], maxZoom: 19 }); }
+  };
   // ficha embaixo: a casa tocada, ou a próxima a entregar
   const it = todos.find(x => x.id === M.sel) || prox;
-  if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; return; }
+  if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; enquadrar(); return; }
   const feito = !!V.ok[it.id];
   $("#mapaFicha").innerHTML = `<div class="dest${feito ? " ok" : ""}"><small>${feito ? "Entregue" : it === prox ? "Próxima" : "Casa"} · nº ${V.num.get(it.id)}</small>
       <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><i class="vao"></i><div class="pq"><b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}</div></div>
       ${it.frios && it.frios.length ? `<div class="dfr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
     ${locDe(it) ? "" : `<div class="aviso">Sem local salvo nesta casa</div>`}
     <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir<small>através do ${app === "waze" ? "Waze" : "Google Maps"}</small></a>${botaoOk(it.id, feito)}</div>`;
+  enquadrar();
 }
 
 function render(){
