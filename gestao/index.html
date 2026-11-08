@@ -1262,7 +1262,10 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     try {
       const ref = await db.collection("pagamentos").add({ clienteId: id, nome: c.nome, tipo, valor: r2(cheio - usado + an), credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois, criadoEm: Date.now(), ...(an ? { atraso: an } : {}), ...(anterior(c) ? { anterior: c.anterior } : {}) });
       for (const k of ks) await db.doc("creditos/" + k.id).update({ usadoEm: ref.id });
-      await db.doc("clientes/" + id).update({ pagoAte: depois, ...(soAtraso ? {} : { plano: tipo, ...fimSuspensao(c, addDays(base, 3)) }), ...(anterior(c) ? { anterior: null } : {}) });
+      const mud = { pagoAte: depois, ...(soAtraso ? {} : { plano: tipo, ...fimSuspensao(c, addDays(base, 3)) }), ...(anterior(c) ? { anterior: null } : {}) };
+      const ini = an ? (atrasoDias(c)[0] || addDays(base, 3)) : addDays(base, 3);
+      mud.obs = obsPagamento({ ...c, ...mud }, { clienteId: id, valor: r2(cheio - usado + an), credito: usado, ini, fim: depois, usados: ks.map(k => k.id) });
+      await db.doc("clientes/" + id).update(mud);
       aberto = null; toast(c.nome + ": pago até " + br(depois));
     } catch (e) { toast("Não salvou: " + (e && e.message || "tente de novo"), true); }
     ocupado = false; render();
@@ -1483,35 +1486,71 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const parecidos = noCond.filter(c => { const b = nomeLimpo(c); return n.startsWith(b + " ") || b.startsWith(n + " ") || (prim(b) === prim(n) && casa && norm(c.endereco || "").replace(/\D/g, "") === casa); });
     return parecidos.length === 1 ? parecidos[0] : null;
   };
-  // Aceitar o pedido = o Pix já foi conferido: atualiza o cliente e já registra o pagamento
+  // Observação do cliente: a cada pagamento apaga a antiga e escreve só o resumo atual
+  function diasTexto(c){ const d = Array.isArray(c.dias) && c.dias.length ? c.dias.slice().sort() : []; return d.length ? d.map(w => DOW[w]).join(", ") : "seg a sex"; }
+  function obsPagamento(c, pg){
+    const ent = []; for (let D = pg.ini; D && D <= pg.fim && ent.length < 200; D = addDays(D, 1)) if (recebe(c, D)) ent.push(D);
+    const sobra = r2(creds.filter(k => k.clienteId === pg.clienteId && !k.usadoEm && !(pg.usados || []).includes(k.id)).reduce((s, k) => s + (Number(k.valor) || 0), 0));
+    const pend = devido(c);
+    return [
+      `Plano atual: ${c.plano || "semanal"} · ${diasTexto(c)} · ${c.paes || 0} pães · frios: ${c.frios ? c.frios : "não"} · ${brl(c.valor || 0)} por semana`,
+      `Último pagamento: ${br(HOJE)}, ${brl(pg.valor)}${pg.credito ? ` (crédito usado ${brl(pg.credito)})` : ""} · ${br(pg.ini)} a ${br(pg.fim)} · ${ent.length} entrega${ent.length === 1 ? "" : "s"}`,
+      pend ? `Pendência: ${brl(pend)}${textoDevido(c) ? ` (${textoDevido(c)})` : ""}` : sobra ? `Crédito em aberto: ${brl(sobra)}` : "Sem crédito nem pendência",
+      `Pago até ${br(c.pagoAte)}`
+    ].join(" · ");
+  }
+  // Transação do Firestore (no site). Sem ela (app no Claude), grava em sequência, como antes.
+  async function transacao(fn){
+    if (db.tx) return db.tx(fn);
+    const fila = [];
+    await fn({ get: async () => ({ exists: false, data: () => ({}) }), set: (p, d) => { fila.push(() => db.doc(p).set(d)); }, update: (p, d) => { fila.push(() => db.doc(p).update(d)); } });
+    for (const f of fila) await f();
+  }
+  // Pagamento já gravado? Mesmo pedido do app, ou mesmo cliente + valor + data final
+  const pagRepetido = (clienteId, valor, fim, pedidoId) => pags.find(p => (pedidoId && p.pedidoId === pedidoId) || (p.clienteId === clienteId && r2(Number(p.valor) || 0) === r2(Number(valor) || 0) && p.depois === fim));
+  const JA = "Esse pagamento já foi registrado (pago até ";
+  // Aceitar o pedido = o Pix já foi conferido: atualiza o cliente e já registra o pagamento, tudo numa transação
   async function salvarPedido(pd, pedidoId){
     const alvo = clienteDoPedido(pd);
     const frios = Object.entries(pd.f || {}).map(([d, l]) => `${DOWC[d]}: ${l.map(i => i.toLowerCase()).join(" e ")}`).join(" | ");
-    const linha = `Pedido pelo app em ${br(HOJE)}: ${pd.pl} ${brl(pd.v)}${pd.a ? ` (com ${brl(pd.a)} em atraso)` : ""} (${br(pd.ini)} a ${br(pd.fim)}). Pix conferido.${pd.t ? " PEDIDO DE TESTE (valores ÷10)." : ""}`;
     const dados = { nome: pd.n + (pd.t && !/teste/i.test(pd.n) ? " (teste)" : ""), condominio: condCanon(pd.c), endereco: pd.h || "", plano: pd.pl || "semanal",
-      valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i && pd.i < HOJE ? entregaDepoisDeHoje() : pd.i || "", obs: linha };
+      valor: pd.s || 0, paes: pd.p || 0, frios, dias: (pd.d || []).length === 5 ? [] : (pd.d || []), inicio: pd.i && pd.i < HOJE ? entregaDepoisDeHoje() : pd.i || "" };
     let id;
     if (alvo) {
       id = alvo.id;
-      // cliente que já existe: mantém as anotações, o endereço cadastrado (se o pedido veio sem casa) e a data de início
-      const antigas = String(alvo.obs || "").split(/\s*·?\s*Pedido pelo app em /)[0].trim();
-      dados.obs = antigas ? antigas + " · " + linha : linha;
       if (!dados.endereco) dados.endereco = alvo.endereco || "";
       if (alvo.pagoAte) delete dados.inicio;   // já era cliente: não pode aparecer como "levar a cesta" na rota
-      await db.doc("clientes/" + id).update(dados);
     }
-    else { id = slug(pd.c + " " + pd.n) || "cliente"; while (clientes.some(c => c.id === id)) id += "-2"; await db.doc("clientes/" + id).set({ ...dados, pagoAte: "", suspenso: false, suspIni: "", volta: "", motivo: "", recolher: false }); }
-    if (!pd.t && pd.v && pd.fim) {
-      const antes = alvo ? alvo.pagoAte || "" : "", ks = alvo ? credAberto(alvo.id) : [], usado = r2(ks.reduce((s, k) => s + (Number(k.valor) || 0), 0));
-      const ref = await db.collection("pagamentos").add({ clienteId: id, nome: dados.nome, tipo: pd.pl || "semanal", valor: pd.v, credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes, depois: pd.fim, criadoEm: Date.now(), pedidoId: pedidoId || "",
-        ...(alvo && devido(alvo) ? { atraso: devido(alvo) } : {}), ...(alvo && anterior(alvo) ? { anterior: alvo.anterior } : {}) });
-      for (const k of ks) await db.doc("creditos/" + k.id).update({ usadoEm: ref.id });
-      await db.doc("clientes/" + id).update({ pagoAte: pd.fim, ...(alvo && anterior(alvo) ? { anterior: null } : {}), ...(alvo ? fimSuspensao(alvo, pd.i || pd.ini) : {}) });
-    }
-    if (pedidoId) {
-      await db.doc("pedidos/" + pedidoId).update({ status: "aceito", clienteId: id, aceitoEm: Date.now() });
-      for (const x of pedidosAnteriores(pd)) await db.doc("pedidos/" + x.id).update({ status: "recusado" });
-    }
+    else { id = slug(pd.c + " " + pd.n) || "cliente"; while (clientes.some(c => c.id === id)) id += "-2"; }
+    const comPag = !!(!pd.t && pd.v && pd.fim);
+    // checagem rápida com o que já está na tela
+    if (pedidoId && (pedidos.find(x => x.id === pedidoId) || {}).status === "aceito") throw new Error("Esse pedido já foi aceito");
+    const rep = comPag && pagRepetido(id, pd.v, pd.fim, pedidoId); if (rep) throw new Error(JA + br(rep.depois) + ", em " + br(rep.data) + ")");
+    // chave fixa do pagamento (cliente + valor + data final): aceitar no celular e no computador, ou aceitar e colar o mesmo pedido, caem no mesmo documento e só um grava
+    const chave = "pag-" + slug(id + "-" + r2(pd.v) + "-" + pd.fim);
+    const ks0 = alvo && comPag ? credAberto(alvo.id) : [];
+    await transacao(async t => {
+      if (pedidoId) { const s = await t.get("pedidos/" + pedidoId); if (s.exists && (s.data() || {}).status === "aceito") throw new Error("Esse pedido já foi aceito"); }
+      if (comPag) { const s = await t.get("pagamentos/" + chave); if (s.exists) throw new Error(JA + br((s.data() || {}).depois) + ")"); }
+      const ks = [];
+      for (const k of ks0) { const s = await t.get("creditos/" + k.id); if (!s.exists || !(s.data() || {}).usadoEm) ks.push(k); }
+      const usado = r2(ks.reduce((s, k) => s + (Number(k.valor) || 0), 0));
+      const base = alvo || { id, pagoAte: "", suspenso: false };
+      const fim = comPag ? { pagoAte: pd.fim, ...(alvo && anterior(alvo) ? { anterior: null } : {}), ...(alvo ? fimSuspensao(alvo, pd.i || pd.ini) : {}) } : {};
+      const depois = { ...base, ...dados, ...fim, id };
+      const ini = alvo && devido(alvo) ? (atrasoDias(alvo)[0] || pd.ini) : pd.ini || pd.i;
+      dados.obs = comPag ? obsPagamento(depois, { clienteId: id, valor: pd.v, credito: usado, ini, fim: pd.fim, usados: ks.map(k => k.id) })
+        : `Plano atual: ${dados.plano} · ${diasTexto(dados)} · ${dados.paes} pães · frios: ${frios || "não"} · ${brl(dados.valor)} por semana${pd.t ? " · PEDIDO DE TESTE (valores ÷10)" : ""}`;
+      if (alvo) t.update("clientes/" + id, { ...dados, ...fim });
+      else t.set("clientes/" + id, { ...dados, pagoAte: "", suspenso: false, suspIni: "", volta: "", motivo: "", recolher: false, ...fim });
+      if (comPag) {
+        t.set("pagamentos/" + chave, { clienteId: id, nome: dados.nome, tipo: pd.pl || "semanal", valor: pd.v, credito: usado, creditoIds: ks.map(k => k.id), data: HOJE, semana: SEG, antes: alvo ? alvo.pagoAte || "" : "", depois: pd.fim, criadoEm: Date.now(), pedidoId: pedidoId || "",
+          ...(alvo && devido(alvo) ? { atraso: devido(alvo) } : {}), ...(alvo && anterior(alvo) ? { anterior: alvo.anterior } : {}) });
+        for (const k of ks) t.update("creditos/" + k.id, { usadoEm: chave });
+      }
+      if (pedidoId) t.update("pedidos/" + pedidoId, { status: "aceito", clienteId: id, aceitoEm: Date.now() });
+    });
+    if (pedidoId) for (const x of pedidosAnteriores(pd)) await db.doc("pedidos/" + x.id).update({ status: "recusado" });
     return alvo;
   }
   $("#formP").addEventListener("submit", async e => {
@@ -1574,7 +1613,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
 // Liga o app de gestão ao Firebase: login só do Marciel e banco Firestore no lugar do banco do Claude
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, setDoc, deleteDoc, getDocs, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const app = initializeApp(window.FIREBASE_CONFIG);
 const auth = getAuth(app);
@@ -1598,7 +1637,13 @@ const db = {
     add: async d => refDoc(await addDoc(collection(fs, nome), d)),
     doc: id => refDoc(id ? doc(fs, nome, id) : doc(collection(fs, nome)))
   }),
-  doc: caminho => refDoc(doc(fs, ...caminho.split("/")))
+  doc: caminho => refDoc(doc(fs, ...caminho.split("/"))),
+  // Transação: lê e grava tudo de uma vez; se outro aparelho mexer nos mesmos documentos no meio, o Firestore refaz a conta
+  tx: fn => runTransaction(fs, t => fn({
+    get: async caminho => snapDoc(await t.get(doc(fs, ...caminho.split("/")))),
+    set: (caminho, d) => { t.set(doc(fs, ...caminho.split("/")), d); },
+    update: (caminho, d) => { t.update(doc(fs, ...caminho.split("/")), d); }
+  }))
 };
 
 const tela = document.getElementById("login");
