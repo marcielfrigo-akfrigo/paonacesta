@@ -239,17 +239,15 @@ async function abrirMapa(cond){
     // começa já com uma vista (Prudente): antes disso o Leaflet não atualiza o tamanho do mapa, e o painel de baixo ainda vai encolhê-lo
     M.map = L.map("mapaArea", { center: [-22.12, -51.4], zoom: 13, zoomControl: false, attributionControl: true, rotate: true, touchRotate: true, rotateControl: false, shiftKeyRotate: false });
     M.gira = !!M.map.setBearing; $("#btSeguir").hidden = !M.gira;
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(M.map);
+    // fundo sempre carregado (imagens de longe, poucas): ao diminuir o zoom, em volta do mapa antigo aparece ele, e não o "mapinha" no meio do cinza
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, maxNativeZoom: 13, minZoom: 0, zIndex: 0, updateWhenZooming: false, keepBuffer: 6 }).addTo(M.map);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, zIndex: 1, attribution: "© OpenStreetMap" }).addTo(M.map);
     M.camada = L.layerGroup().addTo(M.map);
     // de longe só o número (os nomes se amontoam); chegando perto aparecem nome, casa e pães
     const zoomNomes = () => $("#mapaArea").classList.toggle("longe", M.map.getZoom() < 16);
     M.map.on("zoomend", zoomNomes); M.map.whenReady(zoomNomes);
     M.map.on("click", () => { M.sel = null; desenharMapa(); });
     if (M.gira) {
-      // com o mapa girado, a animação de zoom do Leaflet deixa o mapa "duplicado" por um instante (defeito do plugin de girar).
-      // Girado: zoom sem animação. Com o norte para cima: zoom animado, como antes
-      const animarZoom = () => { const reto = Math.abs(difAngulo(M.map.getBearing(), 0)) < .5; M.map.options.zoomAnimation = reto; M.map._zoomAnimated = reto; };
-      M.map.on("rotate", animarZoom);
       M.map.on("rotate", ajustarGiro);
       // arrastar o mapa, ou girar com os dedos, tira do modo seguir; só dar zoom com os dois dedos não tira
       M.map.on("dragstart", () => ligarSeguir(false));
