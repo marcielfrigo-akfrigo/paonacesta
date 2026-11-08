@@ -252,9 +252,15 @@ async function abrirMapa(cond){
       // arrastar o mapa, ou girar com os dedos, tira do modo seguir; só dar zoom com os dois dedos não tira
       M.map.on("dragstart", () => ligarSeguir(false));
       const area = $("#mapaArea");
-      area.addEventListener("touchstart", e => { if (e.touches.length === 2) M.dedos = M.map.getBearing(); }, { passive: true });
+      // a linha da rota (desenho por cima do mapa) fica para trás enquanto os dedos dão zoom ou giram: some durante o gesto e volta no lugar certo
+      const linhas = v => ["overlayPane", "pontos"].forEach(n => { const p = M.map.getPane(n); if (p) p.style.visibility = v ? "" : "hidden"; });
+      let voltar = 0;
+      const mostrar = () => { clearTimeout(voltar); voltar = setTimeout(() => { if (!M.map._animatingZoom && M.dedos === null) linhas(true); }, 120); };
+      M.map.on("zoomstart", () => linhas(false)); M.map.on("zoomend moveend", mostrar);
+      area.addEventListener("touchstart", e => { if (e.touches.length === 2) { M.dedos = M.map.getBearing(); linhas(false); } }, { passive: true });
       const soltou = e => {
         if (M.dedos === null || e.touches.length) return;
+        setTimeout(mostrar, 0);
         const girou = Math.abs(difAngulo(M.map.getBearing(), M.dedos)) > 8;
         M.dedos = null; if (girou) ligarSeguir(false);
       };
