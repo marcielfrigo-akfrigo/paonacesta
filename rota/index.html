@@ -283,6 +283,8 @@ function novaPosicao(p){
   }
   if (!M.refRumo || M.refRumo.distanceTo(ll) >= 10) M.refRumo = ll;
   M.pos = ll;
+  // tracejado saindo da setinha (antes da primeira entrega): desenha quando o GPS chega e refaz se ele andou mais de 300 m
+  if (M.aberto && !V.itens.some(x => V.ok[x.id]) && (!M.tracoGps || M.tracoGps.distanceTo(ll) > 300)) { M.tracoGps = ll; clearTimeout(M.tracoEspera); M.tracoEspera = setTimeout(desenharMapa, 400); }
   if (!M.eu) {
     M.visto = ll;
     M.eu = L.marker(ll, { interactive: false, keyboard: false, zIndexOffset: 3000, icon: L.divIcon({ className: "", html: `<div class="eu sem"><svg viewBox="0 0 46 46"><path d="M23 4 39 41 23 32 7 41Z" fill="#1a73e8" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/></svg></div>`, iconSize: [0, 0] }) }).addTo(M.map);   // por cima de tudo, sem pegar o toque nas casas
@@ -355,11 +357,14 @@ function desenharMapa(){
     const ruas = await linhaRuas(pts);
     if (ruas && M.aberto && vez === M.vez) { M.camada.removeLayer(reta); L.polyline(ruas, { color: COR_LINHA, weight: 5, opacity: .75 }).addTo(M.camada); }
   });
-  // tracejada: da última casa entregue até a próxima da vez (o trecho que ele está fazendo agora)
+  // tracejada: o trecho que ele está fazendo agora. Antes da primeira entrega, da setinha (GPS) até a primeira casa;
+  // depois, da última casa entregue até a próxima
   const ultima = V.itens.filter(x => V.ok[x.id] && locDe(x)).sort((a, b) => V.ok[b.id] - V.ok[a.id])[0];
   const proxima = V.itens.find(x => !V.ok[x.id] && locDe(x));
-  if (ultima && proxima && (!M.cond || ultima.cond === M.cond || proxima.cond === M.cond)) (async () => {
-    const pts = [locDe(ultima), locDe(proxima)];
+  const deOnde = ultima ? locDe(ultima) : M.pos ? { lat: M.pos.lat, lng: M.pos.lng } : null;
+  M.tracoGps = !ultima && deOnde ? L.latLng(deOnde.lat, deOnde.lng) : null;
+  if (deOnde && proxima && (!M.cond || !ultima || ultima.cond === M.cond || proxima.cond === M.cond)) (async () => {
+    const pts = [deOnde, locDe(proxima)];
     // traço fino e esticado, amarelo com contorno preto: a bolinha azul do GPS fica por cima e bem visível
     if (!M.map.getPane("pontos")) M.map.createPane("pontos").style.zIndex = 450;   // sempre acima da linha da rota, que às vezes chega depois
     const pontinhos = ll => L.layerGroup([{ color: "#000", weight: 3.5 }, { color: "#ffd600", weight: 1.75 }].map(c => L.polyline(ll, { ...c, pane: "pontos", interactive: false, opacity: 1, dashArray: "16 12", lineCap: "butt" }))).addTo(M.camada);
