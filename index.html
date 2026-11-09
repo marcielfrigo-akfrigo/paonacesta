@@ -196,7 +196,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
       <div>
         <section class="step" aria-labelledby="s1"><h2 id="s1"><span class="n">1</span>Quantos pães por dia?</h2><p class="hint">Entregamos todos os dias da semana escolhidos abaixo.</p><div class="opts" id="paes"></div></section>
         <section class="step" aria-labelledby="s1b"><h2 id="s1b"><span class="n">2</span>Quando quer começar?</h2><p class="hint">Pode começar no meio da semana: os dias até sexta entram no primeiro pagamento.</p><div class="opts" id="quando"></div><label class="outra" id="outraData" hidden>Escolha a data<input id="inicio" type="date"></label></section>
-        <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">3</span>Em quais dias?</h2><p class="hint">De segunda a sexta, mínimo de 3 dias. Desmarque os dias em que não quer receber.</p><div class="opts" id="dias"></div><p class="hint" id="avisoDias" style="color:#b0503a;font-weight:600;margin-top:8px" hidden></p></section>
+        <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">3</span>Em quais dias?</h2><p class="hint">De segunda a sexta, mínimo de 3 dias. Toque nos dias em que quer receber.</p><div class="opts" id="dias"></div><p class="hint" id="avisoDias" style="color:#b0503a;font-weight:600;margin-top:8px" hidden></p></section>
         <section class="step" aria-labelledby="s3"><h2 id="s3"><span class="n">4</span>Quer frios?</h2><p class="hint">Pacotes de 200 g, que chegam junto com o pão na segunda e na quarta. Toque para escolher.</p><div class="frios" id="frios"></div></section>
         <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">5</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
         <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">6</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
@@ -280,8 +280,10 @@ const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL",
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const DIAS = [[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"]];
 const NOMEPLANO = { semana: "Só esta semana", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
-const st = { paes: 5, dias: [1,2,3,4,5], frios: {}, plano: "semanal" };
+const st = { paes: 5, dias: [], frios: {}, plano: "semanal" };
 try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
+// os dias nunca vêm marcados: a cada pedido o cliente escolhe (uma semana com feriado não pode virar o plano dele)
+st.dias = [];
 // Dias que o cliente já recebeu e ainda não pagou (vem só no link pessoal: ?a=28&at=quinta e sexta)
 // Dias combinados sem entrega para este cliente (?x=AAAA-MM-DD,AAAA-MM-DD, vindo do app de gestão): saem do valor como feriado
 (qp.get("x") || "").split(",").filter(D => /^\d{4}-\d{2}-\d{2}$/.test(D) && !CONFIG.feriados[D]).forEach(D => CONFIG.feriados[D] = "combinado");
@@ -400,6 +402,15 @@ const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMens
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
 const textoFeriado = (c, k) => c.fer && c.fer[k] && c.fer[k].length ? ` · sem entrega em ${c.fer[k].map(D => ddmm(parse(D)) + " (" + CONFIG.feriados[D] + ")").join(", ")}, já descontado` : "";
 const textoPlano = (c, k) => (c.ant.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""}${c.per[k].sem ? ` + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : ""}` : textoPeriodo(c.per[k])) + textoFeriado(c, k);
+// Dias da semana bloqueados: no período do plano escolhido, todas as datas desse dia são feriado (ex.: semana com sexta feriado)
+function diasFeriado(){
+  const per = periodos(), k = per.disp.includes(st.plano) ? st.plano : per.disp[per.disp.length - 1], fim = per[k].fim, out = [];
+  for (const [w] of DIAS) {
+    const datas = []; for (let d = new Date(per.inicio); d <= fim; d = mais(d, 1)) if (d.getDay() === w) datas.push(iso(d));
+    if (datas.length && datas.every(D => CONFIG.feriados[D])) out.push(w);
+  }
+  return out;
+}
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
 
 function opcoesInicio(){
@@ -412,7 +423,9 @@ function opcoesInicio(){
 }
 function render(){
   $("#paes").innerHTML = CONFIG.quantidades.map(q => [q, semanaPaes(q, 5)]).map(([q, v]) => `<button class="opt" type="button" data-paes="${q}" aria-pressed="${q === st.paes}">${q}<small>${brl(v)}/sem</small></button>`).join("");
-  $("#dias").innerHTML = DIAS.map(([d, n]) => `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
+  const bloq = diasFeriado();
+  if (st.dias.some(d => bloq.includes(d))) st.dias = st.dias.filter(d => !bloq.includes(d));
+  $("#dias").innerHTML = DIAS.map(([d, n]) => bloq.includes(d) ? `<button class="opt" type="button" disabled aria-pressed="false">${n}<small>feriado</small></button>` : `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
   $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
   const ops = opcoesInicio(), atual = $("#inicio").value, ehRapida = ops.some(([v]) => v === atual);
   $("#quando").innerHTML = ops.map(([v, t, sub]) => `<button class="opt big" type="button" data-ini="${v}" aria-pressed="${atual === v && !st.outraData}"><b>${t}</b><small>${sub}</small></button>`).join("") + `<button class="opt big" type="button" data-ini="outra" aria-pressed="${!!st.outraData || !ehRapida}"><b>Outra data</b><small>${!ehRapida || st.outraData ? ddmm(parse(atual)) : "escolher no calendário"}</small></button>`;
@@ -528,11 +541,13 @@ if (qp.get("h")) $("#casa").value = qp.get("h");
 if (qp.get("p")) {
   // link pessoal de quem já é cliente: o pedido vem montado com o que ele recebe hoje
   const n = Number(qp.get("p")); if (CONFIG.quantidades.includes(n)) st.paes = n;
+  // os dias do link servem só para conferir o valor combinado; o cliente marca os dias de novo
   const d = (qp.get("d") || "").split(",").map(Number).filter(x => x >= 1 && x <= 5); st.dias = d.length ? d : [1,2,3,4,5];
   st.frios = {}; (qp.get("f") || "").split(";").forEach(par => { const [dia, itens] = par.split(":"); if (CONFIG.diasFrios[dia] && itens) st.frios[dia] = itens.split(",").filter(i => i in CONFIG.frios); });
   if (["semanal","quinzenal","mensal"].includes(qp.get("pl"))) st.plano = qp.get("pl");
   if (Number(qp.get("v")) > 0) COMBINADO = { v: Number(qp.get("v")), cfg: cfgAtual() };
-  if (qp.get("n")) { const b = document.createElement("div"); b.className = "boasvindas"; b.innerHTML = `<b></b><span>Seu pedido já vem com ${NOVA ? "o que combinamos" : "o que você recebe hoje"}. Confira, mude o que quiser e faça o Pix.</span>`; b.querySelector("b").textContent = `Olá, ${qp.get("n").split(" ")[0]}!`; $("#tela-pedido").prepend(b); }
+  st.dias = [];
+  if (qp.get("n")) { const b = document.createElement("div"); b.className = "boasvindas"; b.innerHTML = `<b></b><span>Seu pedido já vem com ${NOVA ? "o que combinamos" : "os pães e frios de hoje"}. Marque os dias em que quer receber, confira e faça o Pix.</span>`; b.querySelector("b").textContent = `Olá, ${qp.get("n").split(" ")[0]}!`; $("#tela-pedido").prepend(b); }
 }
 $("#inicio").min = iso(primeiroDia());
 if (!$("#inicio").value || $("#inicio").value < $("#inicio").min || INICIO_SEMANA) $("#inicio").value = iso(primeiroDia());
