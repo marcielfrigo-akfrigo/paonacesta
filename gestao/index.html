@@ -735,10 +735,12 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     dlgM.showModal();
     try { await carregarLeaflet(); } catch (er) { toast("Sem internet para abrir o mapa.", true); return; }
     if (!ORG.map) {
-      ORG.map = L.map("mMapa", { maxZoom: 21 });
-      const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 21, maxNativeZoom: 19, attribution: "Esri" });
-      const rua = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 21, maxNativeZoom: 19, attribution: "© OpenStreetMap" });
-      sat.addTo(ORG.map); L.control.layers({ "Satélite": sat, "Ruas": rua }).addTo(ORG.map);
+      // Zoom: cada camada só tem imagem até o maxNativeZoom dela; acima disso o mapa amplia a última imagem em vez de ficar branco.
+      ORG.map = L.map("mMapa", { maxZoom: 22 });
+      const sat = L.tileLayer("https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", { subdomains: "0123", maxZoom: 22, maxNativeZoom: 20, attribution: "Google" });
+      const sat2 = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 22, maxNativeZoom: 18, attribution: "Esri" });
+      const rua = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 22, maxNativeZoom: 19, attribution: "© OpenStreetMap" });
+      sat.addTo(ORG.map); L.control.layers({ "Satélite": sat, "Satélite 2": sat2, "Ruas": rua }).addTo(ORG.map);
       ORG.camada = L.layerGroup().addTo(ORG.map);
       ORG.map.on("click", ev => { if (!ORG.sel || ORG.loc[ORG.sel]) return; ORG.loc[ORG.sel] = { lat: ev.latlng.lat, lng: ev.latlng.lng }; ORG.mov[ORG.sel] = true; desenharOrg(); });
     }
