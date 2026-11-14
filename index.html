@@ -57,7 +57,7 @@ h1{font:400 38px/1.12 var(--display);margin:0 0 6px;letter-spacing:-.5px;text-wr
 .opt small{font-weight:500;font-size:12px;color:var(--muted)}
 .opt[aria-pressed="true"]{background:var(--brown);border-color:var(--brown);color:var(--on-brown)}
 .opt[aria-pressed="true"] small{color:color-mix(in srgb,var(--on-brown) 80%,transparent)}
-.opt:disabled{opacity:.5;cursor:not-allowed}
+.opt:disabled,.xop:disabled{opacity:.5;cursor:not-allowed}
 .opt.big{flex:1 1 140px;align-items:flex-start;text-align:left;padding:12px 14px}
 .opt.big b{font-size:16px}
 .frios{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
@@ -220,7 +220,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
         <section class="step" aria-labelledby="s1"><h2 id="s1"><span class="n">1</span>Quantos pães por dia?</h2><p class="hint">Entregamos todos os dias da semana escolhidos abaixo.</p><div class="opts" id="paes"></div></section>
         <section class="step" aria-labelledby="s1b"><h2 id="s1b"><span class="n">2</span>Quando quer começar?</h2><p class="hint">Pode começar no meio da semana: os dias até sexta entram no primeiro pagamento.</p><div class="opts" id="quando"></div><label class="outra" id="outraData" hidden>Escolha a data<input id="inicio" type="date"></label></section>
         <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">3</span>Em quais dias?</h2><p class="hint">De segunda a sexta, mínimo de 3 dias. Toque nos dias em que quer receber.</p><div class="opts" id="dias"></div><p class="hint" id="avisoDias" style="color:#b0503a;font-weight:600;margin-top:8px" hidden></p></section>
-        <section class="step" aria-labelledby="s3x"><h2 id="s3x"><span class="n">4</span>Quer pães especiais?</h2><p class="hint">Escolha por dia: cada dia pode ter um pão diferente, ou nenhum. O pão francês do passo 1 continua normal.</p><div id="extras"></div></section>
+        <section class="step" aria-labelledby="s3x"><h2 id="s3x"><span class="n">4</span>Pão de cada dia: francês ou especial</h2><p class="hint">Escolha por dia: cada dia pode ter um pão diferente. Se quiser só o pão especial num dia, toque em “Sem francês” nesse dia. Com só 3 dias por semana, o pão especial sem francês começa em 4 unidades.</p><div id="extras"></div></section>
         <section class="step" aria-labelledby="s3"><h2 id="s3"><span class="n">5</span>Quer frios?</h2><p class="hint">Pacotes de 200 g, que chegam junto com o pão na segunda e na quarta. Toque para escolher.</p><div class="frios" id="frios"></div></section>
         <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">6</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
         <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">7</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
@@ -309,8 +309,14 @@ const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL",
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const DIAS = [[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"]];
 const NOMEPLANO = { semana: "Só esta semana", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
-const st = { paes: 5, dias: [], frios: {}, extras: {}, plano: "semanal" };
+const st = { paes: 5, dias: [], frios: {}, extras: {}, semF: {}, plano: "semanal" };
 const EXTRAS = CONFIG.extras;
+// dia sem pão francês (só pão especial)
+const semFr = w => !!(st.semF || {})[w];
+const nFr = () => st.dias.filter(d => !semFr(d)).length;
+// com só 3 dias na semana, o dia sem francês precisa de pelo menos 4 pães especiais (o de 2 não vale)
+const opValida = (d, o) => !(semFr(d) && st.dias.length === 3 && o.q === 2);
+const temEspecial = d => EXTRAS.some(e => { const j = (st.extras[d] || {})[e.k]; return j != null && e.ops[j]; });
 const extraDia = w => EXTRAS.reduce((s, e) => { const j = (st.extras[w] || {})[e.k]; return s + (j != null && e.ops[j] ? e.ops[j].v : 0); }, 0);
 const extrasTexto = () => DIAS.filter(([d]) => st.dias.includes(d)).flatMap(([d, n]) => { const it = EXTRAS.flatMap(e => { const j = (st.extras[d] || {})[e.k]; return j != null && e.ops[j] ? [`${e.nome} (${e.ops[j].q} un)`] : []; }); return it.length ? [`${n}: ${it.join(", ")}`] : []; });
 try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
@@ -326,7 +332,7 @@ const PENDENTES = (qp.get("pd") || "").split(",").filter(D => /^\d{4}-\d{2}-\d{2
 const CREDITO = Math.max(0, Number(qp.get("k")) || 0);
 // Valor da semana combinado com o cliente (?v=120): vale enquanto ele mantém os mesmos pães, dias e frios do link
 let COMBINADO = null;
-const cfgAtual = () => JSON.stringify([st.paes, [...st.dias].sort(), Object.keys(st.frios).sort().map(k => [k, [...st.frios[k]].sort()]).filter(([, l]) => l.length)]);
+const cfgAtual = () => JSON.stringify([st.paes, Object.keys(st.semF || {}).filter(d => st.semF[d]).sort(), [...st.dias].sort(), Object.keys(st.frios).sort().map(k => [k, [...st.frios[k]].sort()]).filter(([, l]) => l.length)]);
 
 const semanaPaes = (q, nd) => { const cheia = CONFIG.precoFixo[q] ?? q * CONFIG.precoPaoDia * 5; return Math.round(cheia / 5 * nd * 100) / 100; };
 // Datas: cada semana (seg a sex) pertence ao mês da sua quinta-feira. Ex.: out/2026 = 28/09 a 30/10 (5 semanas)
@@ -394,8 +400,11 @@ const DIASEM = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"
 function calc(){
   const nd = st.dias.length;
   if (nd < MIN_DIAS) return { ok: false, motivo: `O mínimo é ${MIN_DIAS} dias por semana. Escolha pelo menos ${MIN_DIAS} dias para ver os planos e pagar.` };
-  let paes = semanaPaes(st.paes, nd);
-  const linhas = [[`${st.paes} pães × ${nd} dia${nd > 1 ? "s" : ""}`, paes]];
+  const vazio = st.dias.find(d => semFr(d) && !temEspecial(d));
+  if (vazio) return { ok: false, motivo: `Em ${DIASEM[vazio]} você tirou o pão francês: escolha um pão especial para esse dia (passo 4).` };
+  const nf = nFr();
+  let paes = nf ? semanaPaes(st.paes, nf) : 0;
+  const linhas = nf ? [[`${st.paes} pães × ${nf} dia${nf > 1 ? "s" : ""}`, paes]] : [];
   let frios = 0;
   for (const [d, nomeDia] of Object.entries(CONFIG.diasFrios)) {
     if (!st.dias.includes(Number(d))) continue;
@@ -404,18 +413,18 @@ function calc(){
   const agg = {};
   st.dias.forEach(d => EXTRAS.forEach(e => { const j = (st.extras[d] || {})[e.k]; if (j != null && e.ops[j]) { const key = e.k + "|" + j; (agg[key] = agg[key] || { e, o: e.ops[j], n: 0 }).n++; } }));
   Object.values(agg).forEach(a => { const v = Math.round(a.o.v * a.n * 100) / 100; frios += v; linhas.push([`${a.e.nome} · ${a.o.q} un × ${a.n} dia${a.n > 1 ? "s" : ""}`, v]); });
-  if (COMBINADO && COMBINADO.cfg === cfgAtual() && COMBINADO.v > frios) { paes = Math.round((COMBINADO.v - frios) * 100) / 100; linhas[0][1] = paes; }
+  if (COMBINADO && COMBINADO.cfg === cfgAtual() && COMBINADO.v > frios && nf) { paes = Math.round((COMBINADO.v - frios) * 100) / 100; linhas[0][1] = paes; }
   const semana = Math.round((paes + frios) * 100) / 100;
   const per = periodos();
   if (!per.disp.includes(st.plano)) st.plano = per.disp[per.disp.length - 1];
   // dias avulsos desta semana: pão do dia + frios se cair na segunda/quarta
   let avulso = 0;
-  per.avulsos.forEach(d => { avulso += Math.round(paes / nd * 100) / 100; (CONFIG.diasFrios[d.getDay()] ? (st.frios[d.getDay()] || []) : []).forEach(i => avulso += CONFIG.frios[i] || 0); avulso += extraDia(d.getDay()); });
+  per.avulsos.forEach(d => { avulso += nf && !semFr(d.getDay()) ? Math.round(paes / nf * 100) / 100 : 0; (CONFIG.diasFrios[d.getDay()] ? (st.frios[d.getDay()] || []) : []).forEach(i => avulso += CONFIG.frios[i] || 0); avulso += extraDia(d.getDay()); });
   avulso = Math.round(avulso * 100) / 100;
   // desconto: só no plano que fecha até o fim do mês e quando o pagamento chega ao mínimo
   const r2 = v => Math.round(v * 100) / 100;
   // feriados dentro de cada plano, nos dias escolhidos: não tem entrega, então não paga
-  const valorDoDia = w => r2(paes / nd + (CONFIG.diasFrios[w] ? (st.frios[w] || []).reduce((s, i) => s + (CONFIG.frios[i] || 0), 0) : 0) + extraDia(w));
+  const valorDoDia = w => r2((nf && !semFr(w) ? paes / nf : 0) + (CONFIG.diasFrios[w] ? (st.frios[w] || []).reduce((s, i) => s + (CONFIG.frios[i] || 0), 0) : 0) + extraDia(w));
   const feriadosDe = k => per[k].sem === 0 ? [] : Object.keys(CONFIG.feriados).filter(D => D >= iso(per[k].ini) && D <= iso(per[k].fim) && st.dias.includes(parse(D).getDay()));
   const cheio = {}, planos = {}, desc = {}, falta = {}, fer = {};
   const antes = PENDENTES.filter(D => D < iso(per.inicio)), ant = { valor: r2(ANTERIOR.valor + antes.length * VALOR_PENDENTE), txt: [ANTERIOR.txt, antes.map(D => ddmm(parse(D))).join(", ")].filter(Boolean).join(" + ") };
@@ -457,12 +466,15 @@ function opcoesInicio(){
   return o;
 }
 function render(){
+  // limpeza: dia desmarcado perde as escolhas; dia sem francês com só 3 dias não aceita pão especial de 2 un
+  Object.keys(st.semF || {}).forEach(d => { if (!st.dias.includes(Number(d))) delete st.semF[d]; });
+  st.dias.forEach(d => EXTRAS.forEach(e => { const m = st.extras[d]; if (m && m[e.k] != null && e.ops[m[e.k]] && !opValida(d, e.ops[m[e.k]])) delete m[e.k]; }));
   $("#paes").innerHTML = CONFIG.quantidades.map(q => [q, semanaPaes(q, 5)]).map(([q, v]) => `<button class="opt" type="button" data-paes="${q}" aria-pressed="${q === st.paes}">${q}<small>${brl(v)}/sem</small></button>`).join("");
   const bloq = diasFeriado();
   if (st.dias.some(d => bloq.includes(d))) st.dias = st.dias.filter(d => !bloq.includes(d));
   $("#dias").innerHTML = DIAS.map(([d, n]) => bloq.includes(d) ? `<button class="opt" type="button" disabled aria-pressed="false">${n}<small>feriado</small></button>` : `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
   $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
-  $("#extras").innerHTML = !st.dias.length ? '<p class="hint">Marque os dias no passo 3 para escolher os pães de cada dia.</p>' : `<div class="xfotos">${EXTRAS.map(e => `<div><img src="fotos-paes/${e.foto[0]}" alt="${e.nome}"><b>${e.nome}</b></div>`).join("")}</div><div class="xgrid">` + DIAS.filter(([d]) => st.dias.includes(d)).map(([d]) => `<div class="xday"><div class="xh"><h3>${DIASEM[d]}</h3>${st.dias.length > 1 ? `<button class="rep" type="button" data-rep="${d}" title="Repetir nos outros dias">Repetir</button>` : ""}</div>${EXTRAS.map(e => { const j = (st.extras[d] || {})[e.k]; return `<div class="xit"><div class="xb"><b>${e.nome}</b><div class="xops">${e.ops.map((o, k) => `<button class="xop" type="button" data-ex="${d}|${e.k}|${k}" aria-pressed="${j === k}">${o.q + " un"}<small>${brl(o.v)}</small></button>`).join("")}</div></div></div>`; }).join("")}<div class="xtot">${extraDia(d) ? "Dia: " + brl(extraDia(d)) : "nenhum"}</div></div>`).join("") + "</div>";
+  $("#extras").innerHTML = !st.dias.length ? '<p class="hint">Marque os dias no passo 3 para escolher os pães de cada dia.</p>' : `<div class="xfotos">${EXTRAS.map(e => `<div><img src="fotos-paes/${e.foto[0]}" alt="${e.nome}"><b>${e.nome}</b></div>`).join("")}</div><div class="xgrid">` + DIAS.filter(([d]) => st.dias.includes(d)).map(([d]) => `<div class="xday"><div class="xh"><h3>${DIASEM[d]}</h3>${st.dias.length > 1 ? `<button class="rep" type="button" data-rep="${d}" title="Repetir nos outros dias">Repetir</button>` : ""}</div><div class="xit"><div class="xb"><b>Pão francês</b><div class="xops"><button class="xop" type="button" data-sf="${d}|0" aria-pressed="${!semFr(d)}">${st.paes} un</button><button class="xop" type="button" data-sf="${d}|1" aria-pressed="${semFr(d)}">Sem francês</button></div></div></div>${EXTRAS.map(e => { const j = (st.extras[d] || {})[e.k]; return `<div class="xit"><div class="xb"><b>${e.nome}</b><div class="xops">${e.ops.map((o, k) => `<button class="xop" type="button" data-ex="${d}|${e.k}|${k}" aria-pressed="${j === k}"${opValida(d, o) ? "" : " disabled"}>${o.q + " un"}<small>${brl(o.v)}</small></button>`).join("")}</div></div></div>`; }).join("")}<div class="xtot">${extraDia(d) ? "Dia: " + brl(extraDia(d)) : "nenhum"}</div></div>`).join("") + "</div>";
   const ops = opcoesInicio(), atual = $("#inicio").value, ehRapida = ops.some(([v]) => v === atual);
   $("#quando").innerHTML = ops.map(([v, t, sub]) => `<button class="opt big" type="button" data-ini="${v}" aria-pressed="${atual === v && !st.outraData}"><b>${t}</b><small>${sub}</small></button>`).join("") + `<button class="opt big" type="button" data-ini="outra" aria-pressed="${!!st.outraData || !ehRapida}"><b>Outra data</b><small>${!ehRapida || st.outraData ? ddmm(parse(atual)) : "escolher no calendário"}</small></button>`;
   $("#outraData").hidden = !(st.outraData || !ehRapida);
@@ -470,7 +482,7 @@ function render(){
   const disp = c.ok ? c.per.disp : ["semanal", "quinzenal", "mensal"];
   const seloDe = k => c.ok && c.desc[k] ? `<span class="selo">${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo cinza">falta ${brl(c.falta[k])} p/ desconto</span>` : "";
   $("#planos").innerHTML = disp.map(k => `<button class="opt big" type="button" data-plano="${k}" aria-pressed="${st.plano === k}"><b>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]} ${seloDe(k)}</b><small>${c.ok ? (c.desc[k] ? `<s>${brl(c.cheio[k])}</s> ` : "") + brl(c.planos[k]) + " · " + textoPlano(c, k) : "—"}</small></button>`).join("") + `<p class="regra">Pagando até o fim do mês, pedidos de ${brl(CONFIG.minimoDesconto)} ou mais ganham ${brl(CONFIG.descontoMensal)} de desconto.${c.ok && c.per.restam === 2 ? ` Faltam só 2 semanas em ${c.per.mes}: o quinzenal fecha o mês.` : c.ok && c.per.restam === 1 ? ` Última semana de ${c.per.mes}: o mensal já inclui ${c.per.mesMensal} inteiro.` : ""}</p>`;
-  $("#resumo").textContent = c.ok ? `${st.paes} pães por dia · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
+  $("#resumo").textContent = c.ok ? `${nFr() ? st.paes + " pães por dia" : "Só pães especiais"} · ${st.dias.length} dia${st.dias.length > 1 ? "s" : ""} por semana` : c.motivo;
   $("#linhas").innerHTML = c.ok ? c.linhas.map(([t, v]) => `<div><span>${t}</span><b>${brl(v)}</b></div>`).join("") + `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Por semana</b></span><b>${brl(c.semana)}</b></div>` + (c.ant.valor ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Dias antes do início do plano</b>${c.ant.txt ? "<br>" + esc(c.ant.txt) : ""}<br><small>somado no plano abaixo</small></span><b>+ ${brl(c.ant.valor)}</b></div>` : "") + (CREDITO ? `<div style="border-top:1px dashed var(--line);padding-top:6px"><span><b style="color:var(--ink)">Seu crédito</b><br><small>descontado no plano abaixo</small></span><b>− ${brl(CREDITO)}</b></div>` : "") : "";
   $("#calcPlanos").innerHTML = disp.map(k => `<button class="plan${c.ok && (c.desc[k] || c.falta[k]) ? " mensal" : ""}" type="button" data-plano="${k}" aria-pressed="${st.plano === k}">${c.ok && c.desc[k] ? `<span class="selo flut">Aproveite: ${brl(CONFIG.descontoMensal)} de desconto</span>` : c.ok && c.falta[k] ? `<span class="selo flut cinza">Falta ${brl(c.falta[k])} para ganhar ${brl(CONFIG.descontoMensal)} de desconto</span>` : ""}<span>${c.ok ? NOMEPLANOC(c, k) : NOMEPLANO[k]}<small>${c.ok ? textoPlano(c, k) : ""}</small></span><b>${c.ok && c.desc[k] ? `<s>${brl(c.cheio[k])}</s>` : ""}${c.ok ? brl(c.planos[k]) : "—"}</b></button>`).join("");
   $("#aviso").hidden = c.ok; $("#aviso").textContent = c.ok ? "" : c.motivo;
@@ -486,7 +498,8 @@ document.addEventListener("click", e => {
   else if (b.dataset.dia) { const d = Number(b.dataset.dia); st.dias = st.dias.includes(d) ? st.dias.filter(x => x !== d) : [...st.dias, d].sort(); }
   else if (b.dataset.fd) { const d = b.dataset.fd, i = b.dataset.fi, l = st.frios[d] || []; st.frios[d] = l.includes(i) ? l.filter(x => x !== i) : [...l, i]; }
   else if (b.dataset.ex) { const [d, k, j] = b.dataset.ex.split("|"); const m = st.extras[d] = st.extras[d] || {}; if (m[k] === Number(j)) delete m[k]; else m[k] = Number(j); }
-  else if (b.dataset.rep) { const src = st.extras[b.dataset.rep] || {}; st.dias.forEach(d => { st.extras[d] = { ...src }; }); toast("Repetido em todos os dias marcados"); }
+  else if (b.dataset.sf) { const [d, v] = b.dataset.sf.split("|"); st.semF = st.semF || {}; if (v === "1") st.semF[d] = true; else delete st.semF[d]; }
+  else if (b.dataset.rep) { const src = st.extras[b.dataset.rep] || {}; const sf = semFr(b.dataset.rep); st.dias.forEach(d => { st.extras[d] = { ...src }; st.semF = st.semF || {}; if (sf) st.semF[d] = true; else delete st.semF[d]; }); toast("Repetido em todos os dias marcados"); }
   else if (b.dataset.plano) { st.plano = b.dataset.plano; }
   else if (b.dataset.ini) { if (b.dataset.ini === "outra") { st.outraData = true; } else { st.outraData = false; $("#inicio").value = b.dataset.ini; } }
   else return;
@@ -509,7 +522,7 @@ function textoPedido(c){
     `*Pedido Pão na Cesta*`,
     `Nome: ${$("#nome").value.trim()}`,
     `Condomínio: ${$("#cond").value} · ${$("#casa").value.trim()}`,
-    `Pães: ${st.paes} por dia`,
+    nFr() ? `Pães: ${st.paes} por dia${nFr() < st.dias.length ? " (sem francês em: " + DIAS.filter(([d]) => st.dias.includes(d) && semFr(d)).map(([, n]) => n).join(", ") + ")" : ""}` : "Pães: sem pão francês, só pães especiais",
     `Dias: ${DIAS.filter(([d]) => st.dias.includes(d)).map(([, n]) => n).join(", ")}`,
     fr.length ? `Frios: ${fr.join(" | ")}` : "Frios: não",
     extrasTexto().length ? `Pães especiais: ${extrasTexto().join(" | ")}` : "Pães especiais: não",
@@ -523,9 +536,9 @@ function textoPedido(c){
 }
 // Código que o app de gestão lê para cadastrar o pedido sozinho
 function dadosPedido(c){
-  return { n: $("#nome").value.trim(), c: $("#cond").value, h: $("#casa").value.trim(), p: st.paes, d: st.dias,
+  return { n: $("#nome").value.trim(), c: $("#cond").value, h: $("#casa").value.trim(), p: st.paes, d: st.dias,   // sem pão francês em nenhum dia: o banco exige p ≥ 1, e a marca "Sem pão francês" em cada dia vale mais
     // frios + pães especiais do dia, juntos no mesmo campo (o banco já aceita este campo)
-    f: Object.fromEntries(st.dias.map(d => [d, [...(CONFIG.diasFrios[d] ? st.frios[d] || [] : []), ...EXTRAS.flatMap(e => { const j = (st.extras[d] || {})[e.k]; return j != null && e.ops[j] ? [`${e.nome} (${e.ops[j].q} un)`] : []; })]]).filter(([, l]) => l.length)),
+    f: Object.fromEntries(st.dias.map(d => [d, [...(semFr(d) ? ["Sem pão francês"] : []), ...(CONFIG.diasFrios[d] ? st.frios[d] || [] : []), ...EXTRAS.flatMap(e => { const j = (st.extras[d] || {})[e.k]; return j != null && e.ops[j] ? [`${e.nome} (${e.ops[j].q} un)`] : []; })]]).filter(([, l]) => l.length)),
     pl: st.plano === "semana" ? "semanal" : st.plano, v: c.planos[st.plano], s: c.semana, i: iso(c.per.inicio), ini: iso(c.per.inicio), fim: iso(c.per[st.plano].fim), a: c.ant.valor, t: TESTE ? 1 : 0 };
 }
 function codigoPedido(c){ return "PNC1." + btoa(unescape(encodeURIComponent(JSON.stringify(dadosPedido(c))))); }
@@ -546,7 +559,7 @@ function confirmar(){
   const falta = !$("#nome").value.trim() ? ["nome", "Preencha seu nome"] : !$("#cond").value ? ["cond", "Escolha o seu condomínio"] : !$("#casa").value.trim() && !qp.get("n") ? ["casa", "Preencha o número da sua casa"] : null;
   if (falta) { toast(falta[1]); $("#" + falta[0]).scrollIntoView({ behavior: "smooth", block: "center" }); $("#" + falta[0]).focus({ preventScroll: true }); return; }
   const valor = c.planos[st.plano];
-  $("#pixPlano").textContent = `${NOMEPLANO[st.plano]} · ${textoPlano(c, st.plano)} · ${st.paes} pães por dia`;
+  $("#pixPlano").textContent = `${NOMEPLANO[st.plano]} · ${textoPlano(c, st.plano)}${nFr() ? " · " + st.paes + " pães por dia" : ""}`;
   $("#pixValor").textContent = brl(valor);
   $("#pixResumo").textContent = textoPedido(c).replace(/\*/g, "");
   if (CONFIG.pix.chave) {
