@@ -113,6 +113,29 @@ h1{font:400 38px/1.12 var(--display);margin:0 0 6px;letter-spacing:-.5px;text-wr
 .teste{background:#ffd500;color:#111;font-weight:700;text-align:center;border-radius:10px;padding:10px 14px;margin-bottom:18px}
 .warn{margin:0 10px 12px;font-size:13px;color:#9a4a33;background:#f9e7e0;border-radius:8px;padding:8px 10px}
 .bar{display:none}
+.xday{border:1px solid var(--line2);border-radius:12px;padding:12px;background:var(--bg);margin-top:12px}
+.xh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.xh h3{margin:0;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold)}
+.rep{white-space:nowrap;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--ink2);min-height:34px}
+.xit{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line2)}
+.xit:first-of-type{border-top:0}
+.xit img{width:64px;height:64px;border-radius:10px;object-fit:cover;flex:none;background:var(--soft)}
+.xb{flex:1;min-width:0}.xb>b{font-size:15px}
+.xops{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.xop{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:6px 12px;min-height:44px;font-weight:600;color:var(--ink2);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2}
+.xop small{font-weight:500;font-size:12px;color:var(--muted)}
+.xop[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff}
+.xop[aria-pressed="true"] small{color:#fff}
+.xgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.xgrid .xday{margin-top:0;padding:10px}.xgrid .rep{padding:4px 9px;font-size:11px;min-height:30px}.xgrid .xh h3{font-size:12px;letter-spacing:.6px}
+@media(min-width:700px){.xgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.xfotos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.xfotos div{text-align:center;font-size:12px;line-height:1.2}
+.xfotos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;display:block;margin-bottom:4px}
+.xgrid .xit{padding:8px 0}.xgrid .xb>b{font-size:13px}
+.xgrid .xop{padding:4px 8px;min-width:0;flex:1 1 60px;font-size:14px}
+.xtot{text-align:right;font-size:13px;color:var(--muted);margin-top:4px}
+
 .note{font-size:12px;color:var(--muted);padding:0 18px 14px;margin:0}
 /* Pix */
 .pix{max-width:560px;margin:0 auto}
@@ -197,9 +220,10 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
         <section class="step" aria-labelledby="s1"><h2 id="s1"><span class="n">1</span>Quantos pães por dia?</h2><p class="hint">Entregamos todos os dias da semana escolhidos abaixo.</p><div class="opts" id="paes"></div></section>
         <section class="step" aria-labelledby="s1b"><h2 id="s1b"><span class="n">2</span>Quando quer começar?</h2><p class="hint">Pode começar no meio da semana: os dias até sexta entram no primeiro pagamento.</p><div class="opts" id="quando"></div><label class="outra" id="outraData" hidden>Escolha a data<input id="inicio" type="date"></label></section>
         <section class="step" aria-labelledby="s2"><h2 id="s2"><span class="n">3</span>Em quais dias?</h2><p class="hint">De segunda a sexta, mínimo de 3 dias. Toque nos dias em que quer receber.</p><div class="opts" id="dias"></div><p class="hint" id="avisoDias" style="color:#b0503a;font-weight:600;margin-top:8px" hidden></p></section>
-        <section class="step" aria-labelledby="s3"><h2 id="s3"><span class="n">4</span>Quer frios?</h2><p class="hint">Pacotes de 200 g, que chegam junto com o pão na segunda e na quarta. Toque para escolher.</p><div class="frios" id="frios"></div></section>
-        <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">5</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
-        <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">6</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
+        <section class="step" aria-labelledby="s3x"><h2 id="s3x"><span class="n">4</span>Quer pães especiais?</h2><p class="hint">Escolha por dia: cada dia pode ter um pão diferente, ou nenhum. O pão francês do passo 1 continua normal.</p><div id="extras"></div></section>
+        <section class="step" aria-labelledby="s3"><h2 id="s3"><span class="n">5</span>Quer frios?</h2><p class="hint">Pacotes de 200 g, que chegam junto com o pão na segunda e na quarta. Toque para escolher.</p><div class="frios" id="frios"></div></section>
+        <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">6</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
+        <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">7</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
           <div class="fields">
             <label class="wide">Nome<input id="nome" autocomplete="name" placeholder="Seu nome"></label>
             <label>Condomínio<select id="cond"></select></label>
@@ -258,6 +282,11 @@ const CONFIG = {
   // Pacote de 200 g, valor por semana em cada dia escolhido
   descontoMensal: 20,   // R$ 20 a menos no plano mensal…
   minimoDesconto: 250,  // …quando o mês (pães + frios, antes do desconto) fecha em R$ 250 ou mais
+  extras: [
+    { k: "batata", nome: "Pão de batata", foto: ["batata2.jpg","batata4.jpg"], ops: [{ q: 2, v: 5.16 }, { q: 4, v: 10.32 }] },
+    { k: "caseirinho", nome: "Pão caseirinho", foto: ["caseirinho2.jpg","caseirinho4.jpg"], ops: [{ q: 2, v: 4.76 }, { q: 4, v: 9.52 }] },
+    { k: "vitaminado", nome: "Pãozinho vitaminado", foto: ["vitaminado9.jpg"], ops: [{ q: 9, v: 16.5 }] }
+  ],
   frios: { "Presunto": 14, "Mussarela": 20, "Peito de peru": 20, "Queijo prato": 23, "Mortadela defumada": 14 },
   condominios: ["Bosque dos Tamburis","Bourbon","Central Parque","Dama 1","Dama 2","Dama 3","Dama Beatriz","Dama Belvedere","Gramado","Porto Madeiro","Quinta das Flores","Valência 1","Vila Toscana","Outro"],
   pix: { chave: "+5518996470899", nome: "PAO NA CESTA", cidade: "PRESIDENTE PRUDENTE" },   // chave Pix celular (18) 99647-0899
@@ -280,7 +309,10 @@ const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL",
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const DIAS = [[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"]];
 const NOMEPLANO = { semana: "Só esta semana", semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
-const st = { paes: 5, dias: [], frios: {}, plano: "semanal" };
+const st = { paes: 5, dias: [], frios: {}, extras: {}, plano: "semanal" };
+const EXTRAS = CONFIG.extras;
+const extraDia = w => EXTRAS.reduce((s, e) => { const j = (st.extras[w] || {})[e.k]; return s + (j != null && e.ops[j] ? e.ops[j].v : 0); }, 0);
+const extrasTexto = () => DIAS.filter(([d]) => st.dias.includes(d)).flatMap(([d, n]) => { const it = EXTRAS.flatMap(e => { const j = (st.extras[d] || {})[e.k]; return j != null && e.ops[j] ? [`${e.nome} (${e.ops[j].q} un)`] : []; }); return it.length ? [`${n}: ${it.join(", ")}`] : []; });
 try { const s = JSON.parse(localStorage.getItem("pnc-pedido") || "null"); if (s) Object.assign(st, s); } catch (e) {}
 // os dias nunca vêm marcados: a cada pedido o cliente escolhe (uma semana com feriado não pode virar o plano dele)
 st.dias = [];
@@ -369,18 +401,21 @@ function calc(){
     if (!st.dias.includes(Number(d))) continue;
     (st.frios[d] || []).forEach(i => { const v = CONFIG.frios[i]; if (v != null) { frios += v; linhas.push([`${i} (${nomeDia.toLowerCase()})`, v]); } });
   }
+  const agg = {};
+  st.dias.forEach(d => EXTRAS.forEach(e => { const j = (st.extras[d] || {})[e.k]; if (j != null && e.ops[j]) { const key = e.k + "|" + j; (agg[key] = agg[key] || { e, o: e.ops[j], n: 0 }).n++; } }));
+  Object.values(agg).forEach(a => { const v = Math.round(a.o.v * a.n * 100) / 100; frios += v; linhas.push([`${a.e.nome} · ${a.o.q} un × ${a.n} dia${a.n > 1 ? "s" : ""}`, v]); });
   if (COMBINADO && COMBINADO.cfg === cfgAtual() && COMBINADO.v > frios) { paes = Math.round((COMBINADO.v - frios) * 100) / 100; linhas[0][1] = paes; }
   const semana = Math.round((paes + frios) * 100) / 100;
   const per = periodos();
   if (!per.disp.includes(st.plano)) st.plano = per.disp[per.disp.length - 1];
   // dias avulsos desta semana: pão do dia + frios se cair na segunda/quarta
   let avulso = 0;
-  per.avulsos.forEach(d => { avulso += Math.round(paes / nd * 100) / 100; (CONFIG.diasFrios[d.getDay()] ? (st.frios[d.getDay()] || []) : []).forEach(i => avulso += CONFIG.frios[i] || 0); });
+  per.avulsos.forEach(d => { avulso += Math.round(paes / nd * 100) / 100; (CONFIG.diasFrios[d.getDay()] ? (st.frios[d.getDay()] || []) : []).forEach(i => avulso += CONFIG.frios[i] || 0); avulso += extraDia(d.getDay()); });
   avulso = Math.round(avulso * 100) / 100;
   // desconto: só no plano que fecha até o fim do mês e quando o pagamento chega ao mínimo
   const r2 = v => Math.round(v * 100) / 100;
   // feriados dentro de cada plano, nos dias escolhidos: não tem entrega, então não paga
-  const valorDoDia = w => r2(paes / nd + (CONFIG.diasFrios[w] ? (st.frios[w] || []).reduce((s, i) => s + (CONFIG.frios[i] || 0), 0) : 0));
+  const valorDoDia = w => r2(paes / nd + (CONFIG.diasFrios[w] ? (st.frios[w] || []).reduce((s, i) => s + (CONFIG.frios[i] || 0), 0) : 0) + extraDia(w));
   const feriadosDe = k => per[k].sem === 0 ? [] : Object.keys(CONFIG.feriados).filter(D => D >= iso(per[k].ini) && D <= iso(per[k].fim) && st.dias.includes(parse(D).getDay()));
   const cheio = {}, planos = {}, desc = {}, falta = {}, fer = {};
   const antes = PENDENTES.filter(D => D < iso(per.inicio)), ant = { valor: r2(ANTERIOR.valor + antes.length * VALOR_PENDENTE), txt: [ANTERIOR.txt, antes.map(D => ddmm(parse(D))).join(", ")].filter(Boolean).join(" + ") };
@@ -427,6 +462,7 @@ function render(){
   if (st.dias.some(d => bloq.includes(d))) st.dias = st.dias.filter(d => !bloq.includes(d));
   $("#dias").innerHTML = DIAS.map(([d, n]) => bloq.includes(d) ? `<button class="opt" type="button" disabled aria-pressed="false">${n}<small>feriado</small></button>` : `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
   $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
+  $("#extras").innerHTML = !st.dias.length ? '<p class="hint">Marque os dias no passo 3 para escolher os pães de cada dia.</p>' : `<div class="xfotos">${EXTRAS.map(e => `<div><img src="fotos-paes/${e.foto[0]}" alt="${e.nome}"><b>${e.nome}</b></div>`).join("")}</div><div class="xgrid">` + DIAS.filter(([d]) => st.dias.includes(d)).map(([d]) => `<div class="xday"><div class="xh"><h3>${DIASEM[d]}</h3>${st.dias.length > 1 ? `<button class="rep" type="button" data-rep="${d}" title="Repetir nos outros dias">Repetir</button>` : ""}</div>${EXTRAS.map(e => { const j = (st.extras[d] || {})[e.k]; return `<div class="xit"><div class="xb"><b>${e.nome}</b><div class="xops">${e.ops.map((o, k) => `<button class="xop" type="button" data-ex="${d}|${e.k}|${k}" aria-pressed="${j === k}">${o.q + " un"}<small>${brl(o.v)}</small></button>`).join("")}</div></div></div>`; }).join("")}<div class="xtot">${extraDia(d) ? "Dia: " + brl(extraDia(d)) : "nenhum"}</div></div>`).join("") + "</div>";
   const ops = opcoesInicio(), atual = $("#inicio").value, ehRapida = ops.some(([v]) => v === atual);
   $("#quando").innerHTML = ops.map(([v, t, sub]) => `<button class="opt big" type="button" data-ini="${v}" aria-pressed="${atual === v && !st.outraData}"><b>${t}</b><small>${sub}</small></button>`).join("") + `<button class="opt big" type="button" data-ini="outra" aria-pressed="${!!st.outraData || !ehRapida}"><b>Outra data</b><small>${!ehRapida || st.outraData ? ddmm(parse(atual)) : "escolher no calendário"}</small></button>`;
   $("#outraData").hidden = !(st.outraData || !ehRapida);
@@ -449,6 +485,8 @@ document.addEventListener("click", e => {
   if (b.dataset.paes) { st.paes = Number(b.dataset.paes); }
   else if (b.dataset.dia) { const d = Number(b.dataset.dia); st.dias = st.dias.includes(d) ? st.dias.filter(x => x !== d) : [...st.dias, d].sort(); }
   else if (b.dataset.fd) { const d = b.dataset.fd, i = b.dataset.fi, l = st.frios[d] || []; st.frios[d] = l.includes(i) ? l.filter(x => x !== i) : [...l, i]; }
+  else if (b.dataset.ex) { const [d, k, j] = b.dataset.ex.split("|"); const m = st.extras[d] = st.extras[d] || {}; if (m[k] === Number(j)) delete m[k]; else m[k] = Number(j); }
+  else if (b.dataset.rep) { const src = st.extras[b.dataset.rep] || {}; st.dias.forEach(d => { st.extras[d] = { ...src }; }); toast("Repetido em todos os dias marcados"); }
   else if (b.dataset.plano) { st.plano = b.dataset.plano; }
   else if (b.dataset.ini) { if (b.dataset.ini === "outra") { st.outraData = true; } else { st.outraData = false; $("#inicio").value = b.dataset.ini; } }
   else return;
@@ -474,6 +512,7 @@ function textoPedido(c){
     `Pães: ${st.paes} por dia`,
     `Dias: ${DIAS.filter(([d]) => st.dias.includes(d)).map(([, n]) => n).join(", ")}`,
     fr.length ? `Frios: ${fr.join(" | ")}` : "Frios: não",
+    extrasTexto().length ? `Pães especiais: ${extrasTexto().join(" | ")}` : "Pães especiais: não",
     `Plano: ${NOMEPLANO[st.plano]} – ${brl(c.planos[st.plano])} (${textoPlano(c, st.plano)})`,
     c.ant.valor ? `Inclui ${brl(c.ant.valor)} dos dias antes do início do plano${c.ant.txt ? " (" + c.ant.txt + ")" : ""}` : null,
     CREDITO ? `Crédito descontado: ${brl(CREDITO)}` : null,
@@ -485,7 +524,8 @@ function textoPedido(c){
 // Código que o app de gestão lê para cadastrar o pedido sozinho
 function dadosPedido(c){
   return { n: $("#nome").value.trim(), c: $("#cond").value, h: $("#casa").value.trim(), p: st.paes, d: st.dias,
-    f: Object.fromEntries(Object.entries(st.frios).filter(([d, l]) => st.dias.includes(Number(d)) && l.length)),
+    // frios + pães especiais do dia, juntos no mesmo campo (o banco já aceita este campo)
+    f: Object.fromEntries(st.dias.map(d => [d, [...(CONFIG.diasFrios[d] ? st.frios[d] || [] : []), ...EXTRAS.flatMap(e => { const j = (st.extras[d] || {})[e.k]; return j != null && e.ops[j] ? [`${e.nome} (${e.ops[j].q} un)`] : []; })]]).filter(([, l]) => l.length)),
     pl: st.plano === "semana" ? "semanal" : st.plano, v: c.planos[st.plano], s: c.semana, i: iso(c.per.inicio), ini: iso(c.per.inicio), fim: iso(c.per[st.plano].fim), a: c.ant.valor, t: TESTE ? 1 : 0 };
 }
 function codigoPedido(c){ return "PNC1." + btoa(unescape(encodeURIComponent(JSON.stringify(dadosPedido(c))))); }

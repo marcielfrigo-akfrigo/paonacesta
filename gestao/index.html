@@ -582,7 +582,11 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   function friosItens(txt){
     const out = [];
     norm(txt).split(/,| e /).map(s => s.trim()).filter(Boolean).forEach(s => {
-      if (s.includes("peito")) out.push("Peito de peru");
+      const q = (s.match(/(\d+)\s*un/) || [])[1] || "";
+      if (s.includes("batata")) out.push("Pão de batata" + (q ? " (" + q + ")" : ""));
+      else if (s.includes("caseirinho")) out.push("Pão caseirinho" + (q ? " (" + q + ")" : ""));
+      else if (s.includes("vitaminado")) out.push("Vitaminado" + (q ? " (" + q + ")" : ""));
+      else if (s.includes("peito")) out.push("Peito de peru");
       else if (s.includes("prato")) out.push("Queijo prato");
       else if (s.includes("mussarela") || s.includes("mucarela") || s.includes("queijo")) out.push("Mussarela");
       else if (s.includes("presunto")) out.push("Presunto");
