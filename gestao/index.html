@@ -1189,7 +1189,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   }
   // Mensagem com o link do site para quem ainda não é cliente (ele preenche nome, condomínio e casa)
   async function copiarLinkNovo(){
-    const h = agora.getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+    const h = new Date().getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
     const txt = [`${saud}! Tudo bem? 😊`,
       "Para fazer seu pedido do Pão na Cesta é só tocar no link abaixo. Lá você coloca seu nome, condomínio e número da casa, escolhe a quantidade de pães, os frios e os dias em que quer receber, e faz o Pix pelo próprio aplicativo. 🥖",
       SITE_CLIENTES].join("\n\n");
@@ -1198,7 +1198,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   }
   // Mensagem com o link do site para postar nos grupos dos condomínios (cada um coloca o nome e paga; o aceite acha o cliente pelo nome)
   async function copiarLinkGrupo(){
-    const h = agora.getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+    const h = new Date().getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
     // feriados em dia útil nos próximos 45 dias (o app dos clientes já desconta)
     const fer = Object.keys(FERIADOS).filter(D => D >= HOJE && D <= addDays(HOJE, 45) && parse(D).getDay() >= 1 && parse(D).getDay() <= 5).sort();
     const txt = [`${saud}, pessoal! 🥖☀️`,
@@ -1214,7 +1214,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   }
   async function copiarLinkCliente(id, bt){
     const c = clientes.find(x => x.id === id); if (!c) return;
-    const h = agora.getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite", dv = devidoNoLink(c);
+    const h = new Date().getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite", dv = devidoNoLink(c);
     // conta fechada: só o valor travado e o Pix, sem plano novo
     const txt = fechada(c) ? [
       `${saud}, ${c.nome.split(/[ /]/)[0]}, tudo bem? 😊`,
