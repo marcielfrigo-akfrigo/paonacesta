@@ -226,6 +226,7 @@ h1{font:400 38px/1.15 var(--display);letter-spacing:-.6px;margin:8px 0 6px;text-
 .condh span{font-family:var(--display);font-size:17px;color:var(--ink)}
 .rn{color:var(--faint);font-family:Georgia,serif;font-size:15px;width:36px}
 .fr{color:var(--quin);font-weight:600;font-size:12px}
+.avis{display:inline-block;background:#fff3b0;color:#5a4300;font-weight:700;font-size:12px;border-radius:6px;padding:2px 7px;margin-top:2px}
 .espaz{display:inline-block;background:#1565c0;color:#fff;font-weight:700;font-size:12px;border-radius:6px;padding:2px 7px;margin-top:2px}
 .tag{font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:1px}
 .tag.nova{background:var(--quin-bg);color:var(--quin)}
@@ -649,7 +650,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   }
   function diasRota(){ const out = []; let D = HOJE; while (out.length < 4) { if (ehEntrega(D)) out.push(D); D = addDays(D, 1); } return out; }
   function casaRua(end){ const m = String(end || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i); return m ? { casa: m[2], rua: m[1] } : { casa: "", rua: String(end || "").trim() }; }
-  const parada = c => { const { casa, rua } = casaRua(c.endereco); return { id: c.id, nome: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), cond: c.condominio, casa, rua, ...(c.lat && c.lng ? { lat: c.lat, lng: c.lng } : {}) }; };
+  const parada = c => { const { casa, rua } = casaRua(c.endereco); return { id: c.id, nome: c.nome.replace(/\s*\((cortesia|teste)\)/i, ""), cond: c.condominio, casa, rua, ...(c.aviso ? { aviso: c.aviso } : {}), ...(c.lat && c.lng ? { lat: c.lat, lng: c.lng } : {}) }; };
   // Dentro de cada condomínio, as casas com local salvo vão na ordem do caminho mais curto (as sem local ficam no fim do condomínio),
   // a não ser que o Marciel tenha escolhido a ordem daquele condomínio (config/app ordemCasas)
   const distM = (a, b) => { const k = 111320, dx = (a.lng - b.lng) * k * Math.cos(a.lat * Math.PI / 180), dy = (a.lat - b.lat) * k; return Math.hypot(dx, dy); };
@@ -1052,7 +1053,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
         i++;
         const tags = (/cortesia/i.test(c.nome + " " + (c.obs || "")) ? `<span class="tag cort">CORTESIA</span>` : "");
         const jaCred = creds.some(k => k.clienteId === c.id && k.dataEntrega === D);
-        rows += `<tr><td class="rn">${String(i).padStart(2, "0")}</td><td>${ok[c.id] ? `<span class="badge cred">✓ Entregue ${new Date(ok[c.id]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> ` : ""}${ehNova(c, D) ? `<span class="marca">${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</span>` : `<b>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</b>`}${tags}${c.lat ? "" : ` <span class="muted" title="O entregador ainda não salvou o local desta casa">· sem local</span>`}${c.endereco ? `<br><span class="muted">${esc(c.endereco)}</span>` : ""}${ehNova(c, D) ? `<br><span class="cestaG">🧺 LEVAR A CESTA</span>` : ""}${f.filter(ehEsp).length ? `<br><span class="espaz">🔵 LEVAR PÃO ESPECIAL: ${f.filter(ehEsp).join(", ")}</span>` : ""}${f.filter(i => !ehEsp(i)).length ? `<br><span class="fr">+ ${f.filter(i => !ehEsp(i)).join(", ")}</span>` : ""}${ok[c.id] ? "" : `<br>${jaCred ? `<span class="badge cred">Crédito lançado</span>` : `<button class="mini" type="button" data-ne="${c.id}">Não entregue</button>`}`}</td><td class="r"><span class="qt">${c.paes} pães</span></td></tr>`;
+        rows += `<tr><td class="rn">${String(i).padStart(2, "0")}</td><td>${ok[c.id] ? `<span class="badge cred">✓ Entregue ${new Date(ok[c.id]).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> ` : ""}${ehNova(c, D) ? `<span class="marca">${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</span>` : `<b>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}</b>`}${tags}${c.lat ? "" : ` <span class="muted" title="O entregador ainda não salvou o local desta casa">· sem local</span>`}${c.endereco ? `<br><span class="muted">${esc(c.endereco)}</span>` : ""}${ehNova(c, D) ? `<br><span class="cestaG">🧺 LEVAR A CESTA</span>` : ""}${c.aviso ? `<br><span class="avis">⚠️ ${esc(c.aviso)}</span>` : ""}${f.filter(ehEsp).length ? `<br><span class="espaz">🔵 LEVAR PÃO ESPECIAL: ${f.filter(ehEsp).join(", ")}</span>` : ""}${f.filter(i => !ehEsp(i)).length ? `<br><span class="fr">+ ${f.filter(i => !ehEsp(i)).join(", ")}</span>` : ""}${ok[c.id] ? "" : `<br>${jaCred ? `<span class="badge cred">Crédito lançado</span>` : `<button class="mini" type="button" data-ne="${c.id}">Não entregue</button>`}`}</td><td class="r"><span class="qt">${c.paes} pães</span></td></tr>`;
       });
       const novas = x.lista.filter(({ c }) => ehNova(c, D));
       const pes = (cfg.pessoal || {})[eTab] || [];
@@ -1078,6 +1079,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     x.lista.forEach(({ c, f }, i) => {
       if (c.condominio !== condAtual) { condAtual = c.condominio; L.push("", `*${condAtual.toUpperCase()}*`); }
       let t = `${i + 1}. ${c.nome.replace(/\s*\(cortesia\)/i, "")}${c.endereco ? " – " + c.endereco : ""} – *${paesDia(c, M.D) ? paesDia(c, M.D) + " pães" : "só pão especial"}*`;
+      if (c.aviso) t += ` – ⚠️ _${c.aviso}_`;
       if (f.filter(ehEsp).length) t += ` – 🔵 *LEVAR PÃO ESPECIAL: ${f.filter(ehEsp).join(", ")}*`;
       if (f.filter(i => !ehEsp(i)).length) t += ` + ${f.filter(i => !ehEsp(i)).join(", ")}`;
       if (ehNova(c, M.D)) t += " – 🧺 *LEVAR CESTA (cliente nova)*";
@@ -1105,7 +1107,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       g.itens.map(({ c, f }) => { n++;
         // Número da casa sobe para o lado do nome; embaixo fica só a rua
         const m = (c.endereco || "").trim().match(/^(.*?)[\s,–-]*(?:casa\s*)?(\d+[A-Za-z]?)$/i), num = m ? m[2] : "", rua = m ? m[1] : (c.endereco || "").trim();
-        return `<div class="r"><b class="n">${n}</b><div class="t"><strong>${ehNova(c, M.D) ? `<mark>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}</mark>` : `${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}`}${/cortesia/i.test(c.nome) ? ' <em class="v">CORTESIA</em>' : ""}</strong>${rua ? `<span>${esc(rua)}</span>` : ""}${ehNova(c, M.D) ? `<i class="cesta">🧺 LEVAR A CESTA</i>` : ""}${f.filter(ehEsp).length ? `<span class="esp">🔵 LEVAR PÃO ESPECIAL: ${esc(f.filter(ehEsp).join(", "))}</span>` : ""}${f.filter(i => !ehEsp(i)).length ? `<span class="fr">+ ${esc(f.filter(i => !ehEsp(i)).join(", "))}</span>` : ""}</div>${pill(paesDia(c, M.D) ? paesDia(c, M.D) + " pães" : "só especial")}</div>`; }).join("")).join("");
+        return `<div class="r"><b class="n">${n}</b><div class="t"><strong>${ehNova(c, M.D) ? `<mark>${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}</mark>` : `${esc(c.nome.replace(/\s*\(cortesia\)/i, ""))}${num ? ` ${esc(num)}` : ""}`}${/cortesia/i.test(c.nome) ? ' <em class="v">CORTESIA</em>' : ""}</strong>${rua ? `<span>${esc(rua)}</span>` : ""}${ehNova(c, M.D) ? `<i class="cesta">🧺 LEVAR A CESTA</i>` : ""}${c.aviso ? `<span class="av">⚠️ ${esc(c.aviso)}</span>` : ""}${f.filter(ehEsp).length ? `<span class="esp">🔵 LEVAR PÃO ESPECIAL: ${esc(f.filter(ehEsp).join(", "))}</span>` : ""}${f.filter(i => !ehEsp(i)).length ? `<span class="fr">+ ${esc(f.filter(i => !ehEsp(i)).join(", "))}</span>` : ""}</div>${pill(paesDia(c, M.D) ? paesDia(c, M.D) + " pães" : "só especial")}</div>`; }).join("")).join("");
     const novas = x.lista.filter(({ c }) => ehNova(c, M.D));
     const blocoNovas = novas.length ? `<div class="band gr"><h2>CLIENTES NOVOS</h2><small>levar a cesta vazia junto</small></div>` + novas.map(({ c }) => `<div class="r"><b class="n">★</b><div class="t"><strong><mark>${esc(c.nome)}</mark></strong><span>${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""}</span><i class="cesta">🧺 LEVAR A CESTA</i></div></div>`).join("") : "";
     const blocoRec = x.recolher.length ? `<div class="band rd"><h2>CESTAS PARA RECOLHER</h2><small>não entregar nestas casas</small></div>` + x.recolher.map(c => `<div class="r"><b class="n">✗</b><div class="t"><strong>${esc(c.nome)}</strong><span>${esc(c.condominio)}${c.endereco ? " · " + esc(c.endereco) : ""}</span></div>${pill("recolher")}</div>`).join("") : "";
@@ -1133,6 +1135,7 @@ body{margin:0;background:#f3ede1;font-family:-apple-system,BlinkMacSystemFont,"S
 .t strong{display:block;font-size:12.5px}
 .t span{display:block;color:#9a6a3a;font-size:10.5px;line-height:1.25;overflow-wrap:anywhere}
 .t .fr{color:#1e7d45;font-weight:700}
+.t .av{display:block;background:#fff3b0;color:#5a4300;font-weight:700;border-radius:6px;padding:3px 7px;margin-top:3px}
 .t .esp{display:inline-block;background:#1565c0;color:#fff;font-weight:800;border-radius:6px;padding:2px 7px;margin-top:3px}
 .p{flex:none;background:#dff3e6;color:#1e6b3d;font-weight:700;border-radius:999px;padding:1px 7px;font-size:11px;white-space:nowrap}
 em{font-style:normal;font-size:9px;font-weight:800;border-radius:4px;padding:0 5px;color:#fff;vertical-align:1px;margin-left:3px}
