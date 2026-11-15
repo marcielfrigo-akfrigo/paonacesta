@@ -1222,14 +1222,14 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       "Pode fazer o Pix para a chave (18) 99647-0899 (celular), em nome de Pão na Cesta, e me mandar o comprovante aqui. Obrigado! 🥖"
     ].join("\n\n") : [
       `${saud}, ${c.nome.replace(/\s*\((cortesia|teste)\)/i, "").split(/[ /]/)[0]}, tudo bem? 😊`,
-      "Criei um aplicativo para facilitar os pedidos do Pão na Cesta. É só tocar no link abaixo: ele já abre com o seu nome e o seu condomínio.",
-      "Lá você escolhe a quantidade de pães, os frios e os dias em que quer receber. Agora dá para escolher só alguns dias da semana (mínimo de 3), sem precisar pegar a semana inteira. Ótimo para quando for viajar. 🥖",
-      "Depois é só escolher o plano e fazer o Pix pelo próprio aplicativo, tudo bem prático.",
+      // a prévia da notificação mostra só a saudação e esta frase: ela já diz do que se trata
+      "Segue o link do pedido dos pães da semana 🥖👇",
+      linkCliente(c),
+      "É só tocar no link: ele já abre com o seu nome e o seu condomínio. Lá você escolhe os pães, os frios e os dias em que quer receber, depois o plano, e faz o Pix pelo próprio aplicativo.",
       dv.valor ? `O valor que ficou em aberto (${brl(dv.valor)}${dv.txt ? ", " + dv.txt : ""}) já vem somado no aplicativo.` : "",
       credDe(c.id) > 0 ? `Seu crédito de ${brl(credDe(c.id))} já vem descontado.` : "",
       // aviso só da semana de lançamento do aplicativo
-      HOJE <= "2026-11-01" ? "Só nesta primeira semana, quando terminar, me manda um “ok” aqui para eu conferir que deu tudo certo. Das próximas vezes não precisa avisar." : "",
-      linkCliente(c)
+      HOJE <= "2026-11-01" ? "Só nesta primeira semana, quando terminar, me manda um “ok” aqui para eu conferir que deu tudo certo. Das próximas vezes não precisa avisar." : ""
     ].filter(Boolean).join("\n\n");
     try { await navigator.clipboard.writeText(txt); toast("Mensagem com o link copiada. Cole no WhatsApp de " + c.nome.split(" ")[0]); }
     catch (er) { const ta = document.createElement("textarea"); ta.value = txt; ta.rows = 4; ta.style.cssText = "width:100%;margin-top:8px"; bt.closest(".acts").after(ta); ta.select(); toast("Selecione e copie a mensagem"); }
