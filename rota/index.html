@@ -41,6 +41,10 @@ main{padding:14px 12px 120px;max-width:640px;margin:0 auto}
 .st .ru{color:var(--muted);font-size:12.5px;line-height:1.25}
 .st .fr{display:inline-block;background:#e07a1f;color:#fff;font-weight:800;font-size:13.5px;border-radius:7px;padding:3px 8px;margin-top:4px;letter-spacing:.02em}
 .st.temfr{border:2px solid #e07a1f;background:#fff4e8}
+.st .esp{display:inline-block;background:#1565c0;color:#fff;font-weight:800;font-size:13.5px;border-radius:7px;padding:3px 8px;margin-top:4px;letter-spacing:.02em}
+.st.temesp{border:2px solid #1565c0;background:#e8f1fc}.st.temfr.temesp{border:2px solid #1565c0}
+.pin.esp{border:2px solid #1565c0}.pin.esp::after{border-top-color:#1565c0}.pin.esp i{background:#1565c0;color:#fff;border:2px solid #fff;font-weight:800}.pin.esp small{color:#1565c0;font-weight:800}
+#mapaFicha .dest .desp{background:#1565c0;color:#fff;font-weight:800;font-size:17px;line-height:1.2;border-radius:8px;padding:5px 10px;margin-top:8px}
 /* cliente nova: nome em marca-texto amarelo e LEVAR A CESTA grande */
 .marca{background:#ffe600;color:#000;font-weight:800;padding:1px 5px;border-radius:3px}
 .cestaG{display:inline-block;background:#d6001c;color:#fff;font-weight:900;font-size:17px;line-height:1.2;border-radius:8px;padding:5px 12px;margin-top:4px}
@@ -374,8 +378,8 @@ function desenharMapa(){
   })();
   com.forEach(it => {
     const l = locDe(it), feito = !!V.ok[it.id], fr = it.frios && it.frios.length;
-    const cls = "pin" + (fr ? " fr" : "") + (it.nova ? " nova" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
-    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.paes} pães${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}${it.nova ? ' · <b style="color:#d6001c">🧺 CESTA</b>' : ""}</small></span></div>`;
+    const esp = it.especiais && it.especiais.length, cls = "pin" + (fr ? " fr" : "") + (esp ? " esp" : "") + (it.nova ? " nova" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
+    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.paes ? it.paes + " pães" : "só pão especial"}${esp ? " · 🔵 " + esc(it.especiais.join(", ")) : ""}${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}${it.nova ? ' · <b style="color:#d6001c">🧺 CESTA</b>' : ""}</small></span></div>`;
     L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : it.nova ? 600 : fr ? 500 : 0 })
       .on("click", ev => { L.DomEvent.stopPropagation(ev); M.sel = it.id; desenharMapa(); }).addTo(M.camada);
   });
@@ -390,8 +394,8 @@ function desenharMapa(){
   if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; enquadrar(); return; }
   const feito = !!V.ok[it.id];
   $("#mapaFicha").innerHTML = `<div class="dest${feito ? " ok" : ""}"><small>${feito ? "Entregue" : it === prox ? "Próxima" : "Casa"} · nº ${V.num.get(it.id)}</small>
-      <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><i class="vao"></i><div class="pq"><b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}</div></div>
-      ${it.frios && it.frios.length ? `<div class="dfr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
+      <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><i class="vao"></i><div class="pq">${it.paes ? `<b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}` : `<b>0</b>francês`}</div></div>
+      ${it.especiais && it.especiais.length ? `<div class="desp">🔵 LEVAR PÃO ESPECIAL: ${esc(it.especiais.join(", "))}</div>` : ""}${it.frios && it.frios.length ? `<div class="dfr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
     ${locDe(it) ? "" : `<div class="aviso">Sem local salvo nesta casa</div>`}
     <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir<small>através do ${app === "waze" ? "Waze" : "Google Maps"}</small></a>${botaoOk(it.id, feito)}</div>`;
   enquadrar();
@@ -403,7 +407,7 @@ function render(){
   if (!dia || !dias.includes(dia)) dia = dias[0];
   $("#tit").textContent = "Rota do " + (R.entregador || "");
   document.title = "Rota do " + (R.entregador || "") + " · Pão na Cesta";
-  $("#dias").innerHTML = dias.slice(0, 5).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}${(R.dias[D].itens || []).some(it => it.frios && it.frios.length) ? `<span class="q">🧀</span>` : ""}</button>`).join("");
+  $("#dias").innerHTML = dias.slice(0, 5).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}${(R.dias[D].itens || []).some(it => it.frios && it.frios.length) ? `<span class="q">🧀</span>` : ""}${(R.dias[D].itens || []).some(it => it.especiais && it.especiais.length) ? `<span class="q">🔵</span>` : ""}</button>`).join("");
   if (!dia) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Nenhuma rota publicada para os próximos dias.</p>`; return; }
   const X = R.dias[dia], ok = (R.entregues || {})[dia] || {};
   // ordem: a da gestão (o Marciel organiza em Entregas → Mapa e ordem)
@@ -420,9 +424,9 @@ function render(){
 
   const card = (it, prox) => {
     const l = locDe(it), feito = !!ok[it.id];
-    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}${it.frios && it.frios.length ? " temfr" : ""}${it.nova ? " nova" : ""}" data-id="${it.id}"><span class="n">${num.get(it.id)}</span>
-      <div><div class="nm">${it.nova ? `<span class="marca">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</span>` : `${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}`}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 LEVAR FRIOS: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
-      <span class="pa">${it.paes} pães</span>
+    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}${it.frios && it.frios.length ? " temfr" : ""}${it.especiais && it.especiais.length ? " temesp" : ""}${it.nova ? " nova" : ""}" data-id="${it.id}"><span class="n">${num.get(it.id)}</span>
+      <div><div class="nm">${it.nova ? `<span class="marca">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</span>` : `${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}`}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.especiais && it.especiais.length ? `<div class="esp">🔵 LEVAR PÃO ESPECIAL: ${esc(it.especiais.join(", "))}</div> ` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 LEVAR FRIOS: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
+      <span class="pa">${it.paes ? it.paes + " pães" : "só especial"}</span>
       <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a>${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">📍 Corrigir local</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Salvar local</button>`}${botaoOk(it.id, feito)}</div></div>`;
   };
   let h = "";
