@@ -110,6 +110,7 @@ h1{font:400 38px/1.12 var(--display);margin:0 0 6px;letter-spacing:-.5px;text-wr
 .b.pri{background:var(--brown);border-color:var(--brown);color:var(--on-brown)}
 .b.wa{background:#1f8a4c;border-color:#1f8a4c;color:#fff}
 .b:disabled{opacity:.45;cursor:not-allowed}
+.predio{background:#e8f1e4;color:#2f5d2a;font-weight:700;text-align:center;border-radius:10px;padding:10px 14px;margin-bottom:18px}
 .teste{background:#ffd500;color:#111;font-weight:700;text-align:center;border-radius:10px;padding:10px 14px;margin-bottom:18px}
 .warn{margin:0 10px 12px;font-size:13px;color:#9a4a33;background:#f9e7e0;border-radius:8px;padding:8px 10px}
 .bar{display:none}
@@ -211,6 +212,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
     <div class="partner"><img src="logo-chantilly.jpg" alt="Chantilly Fábrica de Delícias" width="290" height="290"><span>Em parceria com<b>Chantilly</b></span></div>
   </header>
 
+  <div class="predio" id="avisoPredio" hidden>Valor especial para prédios: 3 pães por dia, R$ 45 por semana (de segunda a sexta).</div>
   <div class="teste" id="avisoTeste" hidden>Modo de teste: todos os valores estão divididos por 10.</div>
   <main id="tela-pedido">
     <h1>Monte a sua cesta.</h1>
@@ -305,6 +307,9 @@ if (TESTE) {
   for (const k in CONFIG.frios) CONFIG.frios[k] = d10(CONFIG.frios[k]);
   CONFIG.descontoMensal = d10(CONFIG.descontoMensal); CONFIG.minimoDesconto = d10(CONFIG.minimoDesconto);
 }
+// Link dos prédios (?predio=1): 3 pães por dia sai por R$ 45 na semana (o normal é R$ 55)
+const PREDIO = qp.get("predio") === "1";
+if (PREDIO) CONFIG.precoFixo[3] = TESTE ? 4.5 : 45;
 const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const DIAS = [[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"]];
@@ -611,6 +616,7 @@ if (NOVA) {
 if ((NOVA || !qp.get("n")) && periodos().disp.includes("semana")) st.plano = "semana";
 $("#inicio").addEventListener("change", render);
 $("#avisoTeste").hidden = !TESTE;
+$("#avisoPredio").hidden = !PREDIO;
 render();
 </script>
 <script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyCDjC2i08rrbegFaBAPRg33wJLuHLjmEWk","authDomain":"pao-na-cesta.firebaseapp.com","projectId":"pao-na-cesta","storageBucket":"pao-na-cesta.firebasestorage.app","messagingSenderId":"562755057813","appId":"1:562755057813:web:61f7132e3d23bb211c039c"};</script>
