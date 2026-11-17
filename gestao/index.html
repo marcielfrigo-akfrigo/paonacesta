@@ -739,6 +739,20 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       } catch (err) {}
     }
   }
+  // Cesta recolhida: o entregador tocou em "Recolhido" na rota; a gestão tira "recolher a cesta" do cliente (continua cancelado)
+  async function guardarRecolhidos(){
+    for (const r of Object.values(rotasDocs)) {
+      for (const [D, ids] of Object.entries(r.entregues || {})) {
+        if (!/^\d{4}-\d\d-\d\d$/.test(D)) continue;
+        const itens = ((r.dias || {})[D] || {}).itens || [];
+        for (const [id, marca] of Object.entries(ids || {})) {
+          if (!marca || !itens.some(i => i.id === id && i.rec)) continue;
+          const c = clientes.find(x => x.id === id);
+          if (c && c.recolher) { try { await db.doc("clientes/" + id).update({ recolher: false }); } catch (err) {} }
+        }
+      }
+    }
+  }
   // Primeiro/último antigos que o entregador marcou no celular (rotas/{código}.entregues.fixos): a gestão apaga ao salvar a ordem
   const fixosDe = e => { const r = rotasDocs[(cfg.rotaCod || {})[e]]; return (r && r.entregues && r.entregues.fixos) || {}; };
   // ---------- Mapa e ordem de um condomínio (só na gestão): arrastar o pino da casa e numerar a ordem ----------
@@ -1650,7 +1664,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     db.collection("pagamentos").onSnapshot(s => { pags = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
     db.collection("creditos").onSnapshot(s => { creds = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
     db.collection("pedidos").onSnapshot(s => { pedidos = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
-    db.collection("rotas").onSnapshot(s => { rotasDocs = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); loaded.rotas = true; guardarLocais(); render(); }, () => {});
+    db.collection("rotas").onSnapshot(s => { rotasDocs = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); loaded.rotas = true; guardarLocais(); guardarRecolhidos(); render(); }, () => {});
     db.collection("prospeccao").onSnapshot(s => { prosp = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
   })();
 })();
