@@ -1036,12 +1036,18 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     } else if (eTab === "Quadro") {
       const cols = Object.keys(pe).filter(e => pe[e].paes > 0 || pe[e].lista.length);
       const mud = cols.flatMap(e => pe[e].mud.map(m => ({ ...m, e })));
-      const entDe = e => pe[e].lista.length + ((cfg.pessoal || {})[e] || []).length;
+      // "Entregas de pão francês" = só os saquinhos de francês; pão especial fica em bloco separado (pedido do Marciel, 16/11)
+      const sacDe = e => Object.values(pe[e].sac).reduce((a, b) => a + b, 0);
+      const soEsp = e => pe[e].lista.filter(({ c }) => paesDia(c, D) === 0).length;
+      const ehEspQ = i => /^(Pão de batata|Pão caseirinho|Vitaminado)/.test(i);
+      const itEsp = Object.keys(M.friT).filter(ehEspQ).sort(), itFri = Object.keys(M.friT).filter(i => !ehEspQ(i)).sort();
+      const linhasIt = its => its.map(i => `<tr class="frow"><td><b>${i}</b></td>${cols.map(e => `<td>${pe[e].frios[i] || "·"}</td>`).join("")}</tr>`).join("");
       corpo = `<div class="panel"><div class="ptitle"><h2>Quadro das entregas</h2><span class="muted">${tit(D)}</span></div>
         <table class="tbl quadro"><tr><th>Sacola</th>${cols.map(e => `<th><i style="background:${COR[e] || "var(--faint)"}"></i>${esc(e)}</th>`).join("")}</tr>
         ${tamanhos.map(q => `<tr><td><b>${q} pães</b></td>${cols.map(e => `<td>${pe[e].sac[q] || "·"}</td>`).join("")}</tr>`).join("")}
-        <tr class="tot"><td>Entregas</td>${cols.map(e => `<td>${entDe(e)}</td>`).join("")}</tr>
-        ${Object.keys(M.friT).length ? `<tr class="fsep"><td colspan="${cols.length + 1}">Frios</td></tr>` + Object.keys(M.friT).sort().map(i => `<tr class="frow"><td><b>${i}</b></td>${cols.map(e => `<td>${pe[e].frios[i] || "·"}</td>`).join("")}</tr>`).join("") : `<tr class="fsep"><td colspan="${cols.length + 1}">Sem frios neste dia</td></tr>`}</table>
+        <tr class="tot"><td>Entregas de pão francês</td>${cols.map(e => `<td>${sacDe(e)}</td>`).join("")}</tr>
+        ${itEsp.length ? `<tr class="fsep"><td colspan="${cols.length + 1}">Pão especial</td></tr>` + linhasIt(itEsp) + `<tr class="tot"><td>Casas só com pão especial</td>${cols.map(e => `<td>${soEsp(e) || "·"}</td>`).join("")}</tr>` : ""}
+        ${itFri.length ? `<tr class="fsep"><td colspan="${cols.length + 1}">Frios</td></tr>` + linhasIt(itFri) : `<tr class="fsep"><td colspan="${cols.length + 1}">Sem frios neste dia</td></tr>`}</table>
         ${mudHtml(mud, nomeAnt, true)}</div>`;
     } else {
       const x = pe[eTab] || { lista: [], sac: {}, paes: 0, mud: [], recolher: [] };
