@@ -694,8 +694,20 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   }
   function rotaDoDia(e, M){
     const x = M.porE[e] || { lista: [], paes: 0, mud: [], recolher: [] };
-    return { paes: x.paes, pessoal: (cfg.pessoal || {})[e] || [],
-      itens: x.lista.map(({ c, f }) => ({ ...parada(c), paes: paesDia(c, M.D), frios: f.filter(i => !ehEsp(i)), especiais: f.filter(ehEsp), nova: ehNova(c, M.D) })),
+    const itens = x.lista.map(({ c, f }) => ({ ...parada(c), paes: paesDia(c, M.D), frios: f.filter(i => !ehEsp(i)), especiais: f.filter(ehEsp), nova: ehNova(c, M.D) }));
+    // cesta para buscar vira parada da rota e pino do mapa (rec: true), no lugar dela na ordem do condomínio
+    x.recolher.forEach(c => {
+      if (itens.some(i => i.id === c.id)) return;
+      const p = { ...parada(c), paes: 0, frios: [], especiais: [], nova: false, rec: true };
+      const k = chaveCond(c.condominio), doCond = itens.map((it, i) => chaveCond(it.cond) === k ? i : -1).filter(i => i >= 0);
+      if (!doCond.length) { itens.push(p); return; }
+      const man = Object.entries(cfg.ordemCasas || {}).find(([n]) => chaveCond(n) === k), ids = man ? man[1] : [], meu = ids.indexOf(c.id);
+      let pos = doCond[doCond.length - 1] + 1;
+      if (meu >= 0) { pos = doCond[0]; doCond.forEach(i => { const o = ids.indexOf(itens[i].id); if (o >= 0 && o < meu) pos = i + 1; }); }
+      else if (p.lat) { let perto = -1, dm = Infinity; doCond.forEach(i => { if (itens[i].lat) { const d = distM(p, itens[i]); if (d < dm) { dm = d; perto = i; } } }); if (perto >= 0) pos = perto + 1; }
+      itens.splice(pos, 0, p);
+    });
+    return { paes: x.paes, pessoal: (cfg.pessoal || {})[e] || [], itens,
       recolher: x.recolher.map(parada),
       fora: x.mud.filter(m => m.s === "-").map(m => ({ nome: parada(m.c).nome, cond: m.c.condominio, txt: m.txt })) };
   }

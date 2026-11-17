@@ -51,6 +51,12 @@ main{padding:14px 12px 120px;max-width:640px;margin:0 auto}
 .marca{background:#ffe600;color:#000;font-weight:800;padding:1px 5px;border-radius:3px}
 .cestaG{display:inline-block;background:#d6001c;color:#fff;font-weight:900;font-size:17px;line-height:1.2;border-radius:8px;padding:5px 12px;margin-top:4px}
 .st.nova{border:2px solid #d6001c}
+/* buscar a cesta: roxo, cor que não aparece em mais nada na rota */
+.buscaG{display:inline-block;background:#7b1fa2;color:#fff;font-weight:900;font-size:17px;line-height:1.2;border-radius:8px;padding:5px 12px;margin-top:4px}
+.st.rec{border:3px solid #7b1fa2;background:#f6e9fb}.st.rec .n{background:#7b1fa2;border-color:#7b1fa2;color:#fff}.st.rec .pa{background:#7b1fa2;color:#fff}
+.box.rec{background:#f6e9fb;border:2px solid #7b1fa2}.box.rec h2{color:#7b1fa2}
+.pin.rec{border:2.5px solid #7b1fa2;background:#f6e9fb}.pin.rec::after{border-top-color:#7b1fa2}.pin.rec i{background:#7b1fa2;color:#fff;border:2px solid #7b1fa2;font-weight:800}.pin.rec small{color:#7b1fa2;font-weight:800}
+#mapaFicha .dest.rec{background:#7b1fa2}#mapaFicha .dest .buscaG{display:block;background:#fff;color:#7b1fa2;font-size:20px;text-align:center;margin-top:8px}
 .st .pa{background:var(--brown);color:var(--cream);border-radius:999px;padding:3px 9px;font-weight:700;font-size:13px;white-space:nowrap}
 .st .acts{grid-column:1/-1;display:flex;gap:6px;margin-top:6px}
 .st .acts a,.st .acts button{flex:1;min-height:38px;border-radius:9px;font:700 14px "DM Sans",sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;text-decoration:none;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
@@ -142,7 +148,7 @@ function toast(t){ document.querySelectorAll(".toast").forEach(x => x.remove());
 
 const cod = location.hash.replace(/^#/, "").trim();
 const GESTOR = new URLSearchParams(location.search).has("gestor");   // link do Marciel: só acompanha, sem o botão Entregue
-const botaoOk = (id, feito) => GESTOR ? "" : `<button type="button" class="ok" data-ok="${id}">${feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button>`;
+const botaoOk = (id, feito, rec) => GESTOR ? "" : `<button type="button" class="ok" data-ok="${id}">${rec ? (feito ? "✓ Cesta recolhida · desfazer" : "✓ Peguei a cesta") : feito ? "✓ Entregue · desfazer" : "✓ Entregue"}</button>`;
 const HOJE = iso(new Date());
 let R = null, dia = null, app = ls.get("rota-app") || "google";
 const locais = {};          // locais salvos agora neste celular (antes de a gestão gravar no cliente)
@@ -352,8 +358,8 @@ function desenharMapa(){
   if (!M.map || !R) return;
   const todos = V.itens.filter(it => !M.cond || it.cond === M.cond), com = todos.filter(locDe);
   const falta = todos.filter(it => !V.ok[it.id]), prox = falta[0];
-  const nPaes = falta.reduce((s, it) => s + (it.paes || 0), 0);
-  $("#mapaTit").innerHTML = `${esc(M.cond || "Rota do dia")}<small>${falta.length ? `Faltam ${falta.length} · ${nPaes} pães` : "Tudo entregue ✓"}${todos.length > com.length ? ` · ${todos.length - com.length} sem local salvo` : ""}</small>`;
+  const nPaes = falta.reduce((s, it) => s + (it.paes || 0), 0), nRec = falta.filter(it => it.rec).length;
+  $("#mapaTit").innerHTML = `${esc(M.cond || "Rota do dia")}<small>${falta.length ? `Faltam ${falta.length - nRec} · ${nPaes} pães${nRec ? ` · 🧺 buscar ${nRec} ${nRec === 1 ? "cesta" : "cestas"}` : ""}` : "Tudo entregue ✓"}${todos.length > com.length ? ` · ${todos.length - com.length} sem local salvo` : ""}</small>`;
   M.camada.clearLayers(); const vez = M.vez = (M.vez || 0) + 1;   // linha que chega atrasada de um desenho antigo não entra
   // linha por condomínio, ligando as casas que faltam na ordem
   const grupos = {}; falta.filter(locDe).forEach(it => (grupos[it.cond] = grupos[it.cond] || []).push(locDe(it)));
@@ -380,9 +386,9 @@ function desenharMapa(){
   })();
   com.forEach(it => {
     const l = locDe(it), feito = !!V.ok[it.id], fr = it.frios && it.frios.length;
-    const esp = it.especiais && it.especiais.length, cls = "pin" + (fr ? " fr" : "") + (esp ? " esp" : "") + (it.nova ? " nova" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
-    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.paes ? it.paes + " pães" : "só pão especial"}${esp ? " · 🔵 " + esc(it.especiais.join(", ")) : ""}${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}${it.nova ? ' · <b style="color:#d6001c">🧺 CESTA</b>' : ""}</small></span></div>`;
-    L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : it.nova ? 600 : fr ? 500 : 0 })
+    const esp = it.especiais && it.especiais.length, cls = "pin" + (fr ? " fr" : "") + (esp ? " esp" : "") + (it.nova ? " nova" : "") + (it.rec ? " rec" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
+    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.rec ? "🧺 BUSCAR A CESTA" : it.paes ? it.paes + " pães" : "só pão especial"}${esp ? " · 🔵 " + esc(it.especiais.join(", ")) : ""}${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}${it.nova ? ' · <b style="color:#d6001c">🧺 CESTA</b>' : ""}</small></span></div>`;
+    L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : it.rec ? 700 : it.nova ? 600 : fr ? 500 : 0 })
       .on("click", ev => { L.DomEvent.stopPropagation(ev); M.sel = it.id; desenharMapa(); }).addTo(M.camada);
   });
   // o painel de baixo muda a altura do mapa: só enquadra as casas depois de ele estar na tela
@@ -395,11 +401,11 @@ function desenharMapa(){
   const it = todos.find(x => x.id === M.sel) || prox;
   if (!it) { $("#mapaFicha").innerHTML = `<div class="nm">Todas as entregas deste mapa foram feitas ✓</div>`; enquadrar(); return; }
   const feito = !!V.ok[it.id];
-  $("#mapaFicha").innerHTML = `<div class="dest${feito ? " ok" : ""}"><small>${feito ? "Entregue" : it === prox ? "Próxima" : "Casa"} · nº ${V.num.get(it.id)}</small>
-      <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><i class="vao"></i><div class="pq">${it.paes ? `<b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}` : `<b>0</b>francês`}</div></div>
-      ${it.aviso ? `<div class="dav">⚠️ ${esc(it.aviso)}</div>` : ""}${it.especiais && it.especiais.length ? `<div class="desp">🔵 LEVAR PÃO ESPECIAL: ${esc(it.especiais.join(", "))}</div>` : ""}${it.frios && it.frios.length ? `<div class="dfr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
+  $("#mapaFicha").innerHTML = `<div class="dest${feito ? " ok" : it.rec ? " rec" : ""}"><small>${it.rec ? (feito ? "Cesta recolhida" : "Buscar a cesta") : feito ? "Entregue" : it === prox ? "Próxima" : "Casa"} · nº ${V.num.get(it.id)}</small>
+      <div class="lin"><div class="nm">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</div><i class="vao"></i><div class="pq">${it.rec ? `<b>🧺</b>buscar` : it.paes ? `<b>${it.paes}</b>${it.paes === 1 ? "pão" : "pães"}` : `<b>0</b>francês`}</div></div>
+      ${it.aviso ? `<div class="dav">⚠️ ${esc(it.aviso)}</div>` : ""}${it.especiais && it.especiais.length ? `<div class="desp">🔵 LEVAR PÃO ESPECIAL: ${esc(it.especiais.join(", "))}</div>` : ""}${it.frios && it.frios.length ? `<div class="dfr">🧀 Levar: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}${it.rec ? `<div class="buscaG">🧺 BUSCAR A CESTA · não entregar pão</div>` : ""}</div>
     ${locDe(it) ? "" : `<div class="aviso">Sem local salvo nesta casa</div>`}
-    <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir<small>através do ${app === "waze" ? "Waze" : "Google Maps"}</small></a>${botaoOk(it.id, feito)}</div>`;
+    <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir<small>através do ${app === "waze" ? "Waze" : "Google Maps"}</small></a>${botaoOk(it.id, feito, it.rec)}</div>`;
   enquadrar();
 }
 
@@ -409,7 +415,7 @@ function render(){
   if (!dia || !dias.includes(dia)) dia = dias[0];
   $("#tit").textContent = "Rota do " + (R.entregador || "");
   document.title = "Rota do " + (R.entregador || "") + " · Pão na Cesta";
-  $("#dias").innerHTML = dias.slice(0, 5).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}${(R.dias[D].itens || []).some(it => it.frios && it.frios.length) ? `<span class="q">🧀</span>` : ""}${(R.dias[D].itens || []).some(it => it.especiais && it.especiais.length) ? `<span class="q">🔵</span>` : ""}</button>`).join("");
+  $("#dias").innerHTML = dias.slice(0, 5).map(D => `<button type="button" data-dia="${D}" aria-pressed="${D === dia}">${D === HOJE ? "Hoje" : nomeDia(D).split(",")[0]} ${D.slice(8,10)}/${D.slice(5,7)}${(R.dias[D].itens || []).some(it => it.frios && it.frios.length) ? `<span class="q">🧀</span>` : ""}${(R.dias[D].itens || []).some(it => it.especiais && it.especiais.length) ? `<span class="q">🔵</span>` : ""}${(R.dias[D].itens || []).some(it => it.rec) ? `<span class="q">🧺</span>` : ""}</button>`).join("");
   if (!dia) { $("#sub").textContent = ""; $("#main").innerHTML = `<p class="vazio">Nenhuma rota publicada para os próximos dias.</p>`; return; }
   const X = R.dias[dia], ok = (R.entregues || {})[dia] || {};
   // ordem: a da gestão (o Marciel organiza em Entregas → Mapa e ordem)
@@ -418,7 +424,7 @@ function render(){
   const porCond = {}, num = new Map(itens.map(it => [it.id, porCond[it.cond] = (porCond[it.cond] || 0) + 1]));
   const falta = itens.filter(it => !ok[it.id]), feitos = itens.filter(it => ok[it.id]);
   V = { itens, num, ok };
-  const nOk = feitos.length, tot = itens.length;
+  const nOk = feitos.filter(it => !it.rec).length, tot = itens.filter(it => !it.rec).length;   // buscar cesta não conta como entrega
   $("#sub").textContent = nomeDia(dia) + (dia === HOJE ? " · hoje" : "");
   $("#barra").style.width = tot ? Math.round(nOk / tot * 100) + "%" : "0";
   $("#prog").textContent = `${nOk} de ${tot} entregues`;
@@ -426,13 +432,13 @@ function render(){
 
   const card = (it, prox) => {
     const l = locDe(it), feito = !!ok[it.id];
-    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}${it.frios && it.frios.length ? " temfr" : ""}${it.especiais && it.especiais.length ? " temesp" : ""}${it.nova ? " nova" : ""}" data-id="${it.id}"><span class="n">${num.get(it.id)}</span>
-      <div><div class="nm">${it.nova ? `<span class="marca">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</span>` : `${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}`}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.aviso ? `<div class="av">⚠️ ${esc(it.aviso)}</div>` : ""}${it.especiais && it.especiais.length ? `<div class="esp">🔵 LEVAR PÃO ESPECIAL: ${esc(it.especiais.join(", "))}</div> ` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 LEVAR FRIOS: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}</div>
-      <span class="pa">${it.paes ? it.paes + " pães" : "só especial"}</span>
-      <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a>${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">📍 Corrigir local</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Salvar local</button>`}${botaoOk(it.id, feito)}</div></div>`;
+    return `<div class="st${prox ? " prox" : ""}${feito ? " feito" : ""}${it.frios && it.frios.length ? " temfr" : ""}${it.especiais && it.especiais.length ? " temesp" : ""}${it.nova ? " nova" : ""}${it.rec ? " rec" : ""}" data-id="${it.id}"><span class="n">${num.get(it.id)}</span>
+      <div><div class="nm">${it.nova ? `<span class="marca">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</span>` : `${esc(it.nome)}${it.casa ? ` <b>${esc(it.casa)}</b>` : ""}`}</div>${it.rua ? `<div class="ru">${esc(it.rua)}</div>` : ""}${it.aviso ? `<div class="av">⚠️ ${esc(it.aviso)}</div>` : ""}${it.especiais && it.especiais.length ? `<div class="esp">🔵 LEVAR PÃO ESPECIAL: ${esc(it.especiais.join(", "))}</div> ` : ""}${it.frios && it.frios.length ? `<div class="fr">🧀 LEVAR FRIOS: ${esc(it.frios.join(", "))}</div>` : ""}${it.nova ? `<div class="cestaG">🧺 LEVAR A CESTA</div>` : ""}${it.rec ? `<div class="buscaG">🧺 BUSCAR A CESTA · não entregar pão</div>` : ""}</div>
+      <span class="pa">${it.rec ? "buscar cesta" : it.paes ? it.paes + " pães" : "só especial"}</span>
+      <div class="acts"><a href="${linkIr(it)}" target="_blank" rel="noopener">➜ Ir</a>${feito ? "" : l ? `<button type="button" class="loc" data-loc="${it.id}">📍 Corrigir local</button>` : `<button type="button" class="loc semloc" data-loc="${it.id}">📍 Salvar local</button>`}${botaoOk(it.id, feito, it.rec)}</div></div>`;
   };
   let h = "";
-  if ((X.recolher || []).length) h += `<div class="box red"><h2>Recolher a cesta (não entregar)</h2><ul>${X.recolher.map(r => `<li><b>${esc(r.nome)}</b>${r.casa ? " " + esc(r.casa) : ""} · ${esc(r.cond)}</li>`).join("")}</ul></div>`;
+  if ((X.recolher || []).length) h += `<div class="box rec"><h2>🧺 Buscar a cesta (não entregar pão)</h2><ul>${X.recolher.map(r => `<li><b>${esc(r.nome)}</b>${r.casa ? " " + esc(r.casa) : ""} · ${esc(r.cond)}</li>`).join("")}</ul></div>`;
   if (falta.length) {
     h += `<div class="ordem"><button type="button" data-mapa="">🗺 Ver tudo no mapa</button></div>`;
     let cond = "";
@@ -440,13 +446,13 @@ function render(){
       if (it.cond !== cond) {
         cond = it.cond; const grupo = [];
         for (let j = i; j < falta.length && falta[j].cond === cond; j++) grupo.push(falta[j]);
-        const n = grupo.length, p = grupo.reduce((s, x) => s + (x.paes || 0), 0);
-        h += `${i ? "</section>" : ""}<section><div class="cond"><span>${esc(cond)}<small>${n} ${n === 1 ? "entrega" : "entregas"} · ${p} pães</small></span><button type="button" class="mapa" data-mapa="${esc(cond)}">🗺 Mapa</button></div>`;
+        const nr = grupo.filter(x => x.rec).length, n = grupo.length - nr, p = grupo.reduce((s, x) => s + (x.paes || 0), 0);
+        h += `${i ? "</section>" : ""}<section><div class="cond"><span>${esc(cond)}<small>${n} ${n === 1 ? "entrega" : "entregas"} · ${p} pães${nr ? ` · 🧺 buscar ${nr}` : ""}</small></span><button type="button" class="mapa" data-mapa="${esc(cond)}">🗺 Mapa</button></div>`;
       }
       h += card(it, i === 0);
     });
     h += "</section>";   // cada condomínio numa seção: o título só fica grudado no topo enquanto a lista dele está na tela
-  } else if (tot) h += `<div class="fim">Todas as ${tot} entregas feitas. Bom trabalho! 🥖</div>`;
+  } else if (itens.length) h += `<div class="fim">Todas as ${tot} entregas feitas. Bom trabalho! 🥖</div>`;
   else h += `<p class="vazio">Nenhuma entrega neste dia.</p>`;
   const novas = falta.filter(it => it.nova);
   if (novas.length) h += `<div class="box inf"><h2>Cliente nova neste dia</h2><div class="cestaG" style="margin:0 0 8px">🧺 LEVAR A CESTA</div><ul>${novas.map(it => `<li><span class="marca">${esc(it.nome)}${it.casa ? " " + esc(it.casa) : ""}</span> · ${esc(it.cond)}</li>`).join("")}</ul></div>`;
