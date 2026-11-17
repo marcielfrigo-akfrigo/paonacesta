@@ -120,8 +120,8 @@ footer button{border:0;background:none;color:var(--brown);font:600 13px "DM Sans
 #mapaFicha .dest .nm{font-weight:800;font-size:25px;line-height:1.12;min-width:0;overflow-wrap:anywhere}
 #mapaFicha .dest .pq{flex:0 0 auto;text-align:center;font-weight:800;font-size:13px;line-height:1}
 #mapaFicha .dest .pq b{display:block;font-size:42px;line-height:1;font-weight:900}
-.pin .mp{font-size:12px;display:inline-block;background:#1565c0;color:#fff;border-radius:6px;padding:1px 6px;font-weight:900}.pin .mp b{font-size:1.5em;line-height:.7;vertical-align:-.1em;margin:0 1px}
-#mapaFicha .dest .pqe{flex:1;min-width:0;text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end}#mapaFicha .dest .ee{background:#1565c0;color:#fff;font-size:21px;font-weight:900;line-height:1.15;border-radius:9px;padding:5px 10px}#mapaFicha .dest .ef{font-size:26px;font-weight:900;line-height:1.1}#mapaFicha .dest .ef b{display:inline;font-size:44px}
+.pin .mp{font-size:12px;display:inline-block;background:#1565c0;color:#fff;border-radius:6px;padding:1px 6px;font-weight:900}.pin .mpf{display:inline-block;background:#ffd600;color:#000;border-radius:6px;padding:1px 6px;font-size:12px;font-weight:900}.pin .mpf b{font-size:1.5em;line-height:.7;vertical-align:-.1em}.pin .mp b{font-size:1.5em;line-height:.7;vertical-align:-.1em;margin:0 1px}
+#mapaFicha .dest .pqe{flex:1;min-width:0;text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end}#mapaFicha .dest .ee{background:#1565c0;color:#fff;font-size:21px;font-weight:900;line-height:1.15;border-radius:9px;padding:5px 10px}#mapaFicha .dest .ef{background:#ffd600;color:#000;border-radius:9px;padding:3px 12px;font-size:26px;font-weight:900;line-height:1.1}#mapaFicha .dest .ef b{display:inline;font-size:44px}
 #mapaFicha .dest .dfr{background:#ffd600;color:#000;font-weight:800;font-size:17px;line-height:1.2;border-radius:8px;padding:5px 10px;margin-top:8px}
 #mapaFicha .dest .cestaG{display:block;font-size:20px;text-align:center;margin-top:8px}
 #mapaFicha .aviso{color:var(--red);font-weight:700;font-size:14px;margin-top:6px}
@@ -389,7 +389,7 @@ function desenharMapa(){
   com.forEach(it => {
     const l = locDe(it), feito = !!V.ok[it.id], fr = it.frios && it.frios.length;
     const esp = it.especiais && it.especiais.length, cls = "pin" + (fr ? " fr" : "") + (esp ? " esp" : "") + (it.nova ? " nova" : "") + (it.rec ? " rec" : "") + (feito ? " ok" : "") + (it === prox ? " prox" : "") + (it.id === M.sel ? " sel" : "");
-    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.rec ? "🧺 BUSCAR A CESTA" : esp ? `<span class="mp">🔵 ${esc(it.especiais.join(", "))}${it.paes ? ` <b>+</b> ${it.paes} ${it.paes === 1 ? "pão" : "pães"}` : " · só especial"}</span>` : it.paes ? it.paes + " pães" : ""}${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}${it.nova ? ' · <b style="color:#d6001c">🧺 CESTA</b>' : ""}</small></span></div>`;
+    const html = `<div class="${cls}"><i>${feito ? "✓" : V.num.get(it.id)}</i><span>${esc(curto(it.nome))}${it.casa ? " " + esc(it.casa) : ""}<small>${it.rec ? "🧺 BUSCAR A CESTA" : esp ? `<span class="mp">🔵 ${esc(it.especiais.join(", "))}${it.paes ? "" : " · só especial"}</span>${it.paes ? ` <span class="mpf"><b>+</b> ${it.paes} ${it.paes === 1 ? "pão" : "pães"}</span>` : ""}` : it.paes ? it.paes + " pães" : ""}${fr ? " · 🧀 " + esc(it.frios.join(", ")) : ""}${it.nova ? ' · <b style="color:#d6001c">🧺 CESTA</b>' : ""}</small></span></div>`;
     L.marker([l.lat, l.lng], { icon: L.divIcon({ className: "", html: `<div class="ponto"></div>${html}`, iconSize: [0, 0] }), zIndexOffset: it.id === M.sel ? 2000 : it === prox ? 1000 : feito ? -1000 : it.rec ? 700 : it.nova ? 600 : fr ? 500 : 0 })
       .on("click", ev => { L.DomEvent.stopPropagation(ev); M.sel = it.id; desenharMapa(); }).addTo(M.camada);
   });
