@@ -460,10 +460,10 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const DOW = ["dom","seg","ter","qua","qui","sex","sab"];
   const DOWL = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
-  const ENT = ["Careca","Dennis","Miro","Marciel"];
+  const ENT = ["Careca","Dennis","Miro","Bruno","Marciel"];
   // Feriados sem entrega (não entregamos sábado, domingo e feriados). Mesma lista do app dos clientes.
   const FERIADOS = { "2026-11-02": "Finados", "2026-11-20": "Consciência Negra", "2026-12-25": "Natal", "2027-01-01": "Ano Novo" };
-  const COR = { Careca:"#B5541E", Dennis:"#6b4a2e", Miro:"#1E5FBF", Marciel:"#2E6B4F" };
+  const COR = { Careca:"#B5541E", Dennis:"#6b4a2e", Miro:"#1E5FBF", Bruno:"#0F7C8A", Marciel:"#2E6B4F" };
   const VIEWS = [
     { id:"geral", nome:"Visão geral", ic:"dash" },
     { id:"clientes", nome:"Clientes", ic:"users" },
