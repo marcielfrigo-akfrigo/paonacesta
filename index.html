@@ -78,6 +78,10 @@ h1{font:400 38px/1.12 var(--display);margin:0 0 6px;letter-spacing:-.5px;text-wr
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fields label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--ink2)}
 .fields .wide{grid-column:1/-1}
+.fields .falta{margin:0;background:#fdecea;border:1px solid #e9b3ab;color:#9b2c1c!important;border-radius:9px;padding:10px 12px;font-size:14px;font-weight:600;line-height:1.4}
+.fields .falta .btn{display:block;margin-top:8px;text-align:center;background:#1e6b3d;color:#fff;border-radius:9px;padding:10px;text-decoration:none}
+.fields .erro{border-color:#c62828!important;box-shadow:0 0 0 2px #f3c1bb}
+.fields p.hint{margin:0}
 .fields input,.fields select{border:1px solid var(--line);border-radius:9px;background:var(--bg);padding:11px 12px;min-height:46px;font-size:16px;font-weight:400}
 /* Calculadora */
 .calc{position:sticky;top:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
@@ -227,9 +231,13 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:20px 0 0}
         <section class="step" aria-labelledby="s4"><h2 id="s4"><span class="n">6</span>Como prefere pagar?</h2><p class="hint">O valor da semana é o mesmo; muda só de quanto em quanto tempo você paga.</p><div class="opts" id="planos"></div></section>
         <section class="step" aria-labelledby="s5"><h2 id="s5"><span class="n">7</span>Seus dados</h2><p class="hint">Para sabermos onde entregar.</p>
           <div class="fields">
-            <label class="wide">Nome<input id="nome" autocomplete="name" placeholder="Seu nome"></label>
-            <label>Condomínio<select id="cond"></select></label>
-            <label>Casa / rua<input id="casa" placeholder="Número da casa ou rua"></label>
+            <label class="wide">Condomínio<select id="cond"></select></label>
+            <p class="falta wide" id="faltaCond" hidden>Falta selecionar o seu condomínio.</p>
+            <p class="hint wide" id="semCond" hidden>Seu condomínio não está na lista? <a id="waCond" href="#">Chame o Pão na Cesta no WhatsApp</a>.</p>
+            <label class="wide" id="lbNomeSel" hidden>Seu nome<select id="nomeSel"><option value="" disabled selected>Escolha primeiro o condomínio</option></select></label>
+            <label class="wide" id="lbNome">Nome<input id="nome" autocomplete="name" placeholder="Seu nome"></label>
+            <div class="falta wide" id="semNome" hidden>Seu nome ainda não está cadastrado neste condomínio, por isso não dá para pagar por este link. Chame o Pão na Cesta no WhatsApp para fazer o seu cadastro. <a class="btn" id="waNome" href="#">Chamar no WhatsApp</a></div>
+            <label class="wide" id="lbCasa">Casa / rua<input id="casa" placeholder="Número da casa ou rua"></label>
             
           </div>
         </section>
@@ -290,7 +298,7 @@ const CONFIG = {
     { k: "vitaminado", nome: "Pãozinho vitaminado", foto: ["vitaminado9.jpg"], ops: [{ q: 9, v: 16.5 }] }
   ],
   frios: { "Presunto": 14, "Mussarela": 20, "Peito de peru": 20, "Queijo prato": 23, "Mortadela defumada": 14 },
-  condominios: ["Bosque dos Tamburis","Bourbon","Central Parque","Dama 1","Dama 2","Dama 3","Dama Beatriz","Dama Belvedere","Gramado","Porto Madeiro","Quinta das Flores","Valência 1","Vila Toscana","Outro"],
+  condominios: ["Bosque dos Tamburis","Bourbon","Central Parque","Dama 1","Dama 2","Dama 3","Dama Beatriz","Dama Belvedere","Gramado","Porto Madeiro","Quinta das Flores","Valência 1","Vila Toscana"],
   pix: { chave: "+5518996470899", nome: "PAO NA CESTA", cidade: "PRESIDENTE PRUDENTE" },   // chave Pix celular (18) 99647-0899
   whatsapp: "5518996470899"   // (18) 99647-0899
 };
@@ -561,8 +569,11 @@ async function copiar(t, msg){ try { await navigator.clipboard.writeText(t); toa
 function confirmar(){
   const c = calc(); if (!c.ok) { toast(c.motivo); $("#dias").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   // quem veio pelo link pessoal já é cliente: o Pão na Cesta já sabe onde entregar, a casa não é obrigatória
-  const falta = !$("#nome").value.trim() ? ["nome", "Preencha seu nome"] : !$("#cond").value ? ["cond", "Escolha o seu condomínio"] : !$("#casa").value.trim() && !qp.get("n") ? ["casa", "Preencha o número da sua casa"] : null;
-  if (falta) { toast(falta[1]); $("#" + falta[0]).scrollIntoView({ behavior: "smooth", block: "center" }); $("#" + falta[0]).focus({ preventScroll: true }); return; }
+  // primeiro o condomínio; no link do grupo o nome tem de ser um dos cadastrados naquele condomínio
+  const semLista = LISTA && $("#nomeSel").value === NAO_ESTA;
+  const falta = !$("#cond").value ? ["cond", "Falta selecionar o seu condomínio"] : semLista ? ["semNome", "Seu nome não está cadastrado neste condomínio"] : LISTA && !$("#nomeSel").value ? ["nomeSel", "Falta escolher o seu nome na lista"] : !$("#nome").value.trim() ? ["nome", "Preencha seu nome"] : !$("#casa").value.trim() && !qp.get("n") && !LISTA ? ["casa", "Preencha o número da sua casa"] : null;
+  $("#faltaCond").hidden = !!$("#cond").value; $("#cond").classList.toggle("erro", !$("#cond").value);
+  if (falta) { toast(falta[1]); $("#" + falta[0]).scrollIntoView({ behavior: "smooth", block: "center" }); if (falta[0] !== "semNome") $("#" + falta[0]).focus({ preventScroll: true }); return; }
   const valor = c.planos[st.plano];
   $("#pixPlano").textContent = `${NOMEPLANO[st.plano]} · ${textoPlano(c, st.plano)}${nFr() ? " · " + st.paes + " pães por dia" : ""}`;
   $("#pixValor").textContent = brl(valor);
@@ -589,11 +600,40 @@ $("#enviarWa").addEventListener("click", () => {
   window.location.href = `https://wa.me/${CONFIG.whatsapp}?text=${t}`;
 });
 
-$("#cond").innerHTML = `<option value="" disabled selected>Escolha</option>` + CONFIG.condominios.map(c => `<option>${c}</option>`).join("");
+// ---- Condomínio e nome ----
+// Link pessoal (?n=) e link de cadastro novo (?cad=1): o nome é digitado.
+// Link do grupo (sem nada): a pessoa escolhe o condomínio e depois o próprio nome na lista dos cadastrados. Sem nome na lista, não paga.
+const NAO_ESTA = "__nao_esta__", LIVRE = !!(qp.get("n") || qp.get("cad"));
+let LISTA = false, NOMES = null;   // NOMES: [{ c: condomínio, n: [nomes] }] vindo do banco
+const waLink = t => `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(t)}`;
+function montarConds(){
+  const atual = $("#cond").value, l = NOMES ? NOMES.map(x => x.c) : CONFIG.condominios.slice();
+  if (qp.get("c") && !l.includes(qp.get("c"))) l.push(qp.get("c"));   // condomínio que acabou de abrir: entra pelo link pessoal
+  l.sort((a, b) => a.localeCompare(b, "pt"));
+  $("#cond").innerHTML = `<option value="" disabled selected>Escolha o seu condomínio</option>` + l.map(c => `<option>${c}</option>`).join("");
+  if (l.includes(atual)) $("#cond").value = atual;
+}
+function montarNomes(){
+  LISTA = !LIVRE && !!NOMES;
+  $("#lbNomeSel").hidden = !LISTA; $("#lbNome").hidden = LISTA; $("#lbCasa").hidden = LISTA; $("#semCond").hidden = false;
+  $("#waCond").href = waLink("Olá! Meu condomínio não está na lista do aplicativo do Pão na Cesta. Meu nome e condomínio: ");
+  if (!LISTA) { $("#semNome").hidden = true; return; }
+  const cond = $("#cond").value, nomes = ((NOMES.find(x => x.c === cond) || {}).n || []);
+  $("#nomeSel").innerHTML = !cond ? `<option value="" disabled selected>Escolha primeiro o condomínio</option>`
+    : `<option value="" disabled selected>Escolha o seu nome</option>` + nomes.map(n => `<option>${n.replace(/[&<>]/g, "")}</option>`).join("") + `<option value="${NAO_ESTA}">Meu nome não está na lista</option>`;
+  $("#nomeSel").disabled = !cond; $("#nome").value = ""; $("#semNome").hidden = true;
+}
+$("#cond").addEventListener("change", () => { $("#faltaCond").hidden = true; $("#cond").classList.remove("erro"); montarNomes(); });
+$("#nomeSel").addEventListener("change", () => {
+  const v = $("#nomeSel").value, fora = v === NAO_ESTA;
+  $("#nome").value = fora ? "" : v; $("#semNome").hidden = !fora;
+  if (fora) $("#waNome").href = waLink(`Olá! Quero fazer meu cadastro no Pão na Cesta. Condomínio: ${$("#cond").value}. Meu nome: `);
+});
+// a lista chega do banco logo depois de abrir; se não chegar (sem internet), fica o nome digitado, como antes
+window.aoCarregarNomes = d => { NOMES = d && Array.isArray(d.lista) && d.lista.length ? d.lista.filter(x => x && x.c && Array.isArray(x.n)).map(x => ({ c: x.c.replace(/^Valencia/, "Valência"), n: x.n })) : null; montarConds(); montarNomes(); };
+montarConds(); montarNomes();
 // Link pessoal: ?n=Nome&c=Condomínio&h=Casa preenche os dados do cliente
 if (qp.get("n")) $("#nome").value = qp.get("n");
-// condomínio que ainda não está na lista (ex.: um que acabou de abrir): entra como opção para o link pessoal
-if (qp.get("c") && ![...$("#cond").options].some(o => o.value === qp.get("c"))) { const o = document.createElement("option"); o.textContent = qp.get("c"); $("#cond").insertBefore(o, $("#cond").lastElementChild); }
 if (qp.get("c")) $("#cond").value = qp.get("c");
 if (qp.get("h")) $("#casa").value = qp.get("h");
 if (qp.get("p")) {
@@ -622,10 +662,12 @@ render();
 <script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyCDjC2i08rrbegFaBAPRg33wJLuHLjmEWk","authDomain":"pao-na-cesta.firebaseapp.com","projectId":"pao-na-cesta","storageBucket":"pao-na-cesta.firebasestorage.app","messagingSenderId":"562755057813","appId":"1:562755057813:web:61f7132e3d23bb211c039c"};</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.projectId) {
   const fs = getFirestore(initializeApp(window.FIREBASE_CONFIG));
   window.gravarPedido = d => addDoc(collection(fs, "pedidos"), d);
+  // nomes dos cadastrados por condomínio, para a pessoa escolher o seu no link do grupo
+  getDoc(doc(fs, "publico", "nomes")).then(s => window.aoCarregarNomes(s.exists() ? s.data() : null)).catch(() => {});
 }
 </script>
 </body>

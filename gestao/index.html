@@ -524,6 +524,18 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     clientes.forEach(c => { const v = conta[chaveCond(c.condominio)]; c.condominio = Object.keys(v).sort((a, b) => v[b] - v[a])[0]; });
   }
   const chaveCond = s => norm(s).replace(/\s+/g, " ").trim();
+  // Lista pública (só os nomes, por condomínio) que o app dos clientes mostra para a pessoa escolher o próprio nome no link do grupo
+  let nomesPub = null, nomesT = null;
+  function publicarNomes(){
+    clearTimeout(nomesT); nomesT = setTimeout(async () => {
+      const m = {};
+      clientes.filter(c => !c.cancelado && c.nome && c.condominio && !/^outro$/i.test(String(c.condominio).trim()) && !/duplicado|\(teste\)/i.test(c.nome))
+        .forEach(c => (m[c.condominio] = m[c.condominio] || []).push(c.nome.replace(/\s*\((cortesia|teste)\)/i, "").trim()));
+      const lista = Object.keys(m).sort((a, b) => a.localeCompare(b, "pt")).map(c => ({ c, n: m[c].sort((a, b) => a.localeCompare(b, "pt")) }));
+      const j = JSON.stringify(lista); if (j === nomesPub || !lista.length) return;
+      try { await db.doc("publico/nomes").set({ lista, em: Date.now() }); nomesPub = j; } catch (e) {}
+    }, 3000);
+  }
   // Grafia já usada do condomínio (para gravar igual aos outros); se for novo, fica como foi digitado
   const condCanon = s => (clientes.find(c => chaveCond(c.condominio) === chaveCond(s)) || {}).condominio || String(s || "").trim();
   const entregadorDe = c => { const r = cfg.rotas || {}; if (r[c.condominio]) return r[c.condominio]; const k = Object.keys(r).find(n => chaveCond(n) === chaveCond(c.condominio)); return k ? r[k] : "Sem rota"; };
@@ -1229,7 +1241,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const h = new Date().getHours(), saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
     const txt = [`${saud}! Tudo bem? 😊`,
       "Para fazer seu pedido do Pão na Cesta é só tocar no link abaixo. Lá você coloca seu nome, condomínio e número da casa, escolhe a quantidade de pães, os frios e os dias em que quer receber, e faz o Pix pelo próprio aplicativo. 🥖",
-      SITE_CLIENTES].join("\n\n");
+      SITE_CLIENTES + "?cad=1"].join("\n\n");
     try { await navigator.clipboard.writeText(txt); toast("Mensagem com o link copiada. Cole no WhatsApp do cliente novo."); }
     catch (er) { window.prompt("Copie a mensagem:", txt); }
   }
@@ -1241,7 +1253,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const txt = [`${saud}, pessoal! 🥖☀️`,
       "Agora ficou bem mais fácil fazer o seu pedido do Pão na Cesta: é tudo pelo nosso aplicativo, direto neste link 👇",
       SITE_CLIENTES,
-      "✅ Escolha os dias da semana em que quer receber (mínimo de 3 dias)\n✅ Escolha de 3 a 10 pães por dia\n✅ Os valores aparecem na hora, tudo bem explicadinho\n✅ Sem cadastro: é só colocar seu nome, condomínio e casa\n✅ O Pix é feito ali mesmo, no aplicativo",
+      "✅ Escolha os dias da semana em que quer receber (mínimo de 3 dias)\n✅ Escolha de 3 a 10 pães por dia\n✅ Os valores aparecem na hora, tudo bem explicadinho\n✅ É só escolher o seu condomínio e o seu nome na lista\n✅ O Pix é feito ali mesmo, no aplicativo",
       fer.length ? `📅 ${fer.length > 1 ? `Temos ${fer.length} feriados sem entrega` : "Temos um feriado sem entrega"} (${fer.map(D => br(D).slice(0, 5)).join(" e ")}), e o aplicativo já desconta ${fer.length > 1 ? "esses dias" : "esse dia"} sozinho do valor.` : "",
       dow === 5 || dow === 6 || dow === 0 ? "Hoje é dia de renovar para a próxima semana 😉" : "",
       "Qualquer dúvida, é só me chamar no particular que eu te ajudo!"
@@ -1659,7 +1671,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const live = $("#live");
     if (!db) { aviso("Não foi possível abrir os dados. Entre na sua conta do Claude e abra a página de novo."); live.querySelector("span").textContent = "Sem conexão"; return; }
     db.doc("config/app").onSnapshot(s => { cfg = (s.exists && s.data()) || cfg; mesclar(); render(); }, () => {});
-    db.collection("clientes").onSnapshot(s => { raw = s.docs.map(d => ({ id: d.id, ...d.data() })); mesclar(); loaded.cli = true; aviso(""); live.className = "live"; live.querySelector("span").textContent = "Dados ao vivo"; render(); },
+    db.collection("clientes").onSnapshot(s => { raw = s.docs.map(d => ({ id: d.id, ...d.data() })); mesclar(); publicarNomes(); loaded.cli = true; aviso(""); live.className = "live"; live.querySelector("span").textContent = "Dados ao vivo"; render(); },
       err => { aviso("Erro ao ler os clientes: " + (err && err.message || "")); live.className = "live off"; live.querySelector("span").textContent = "Sem conexão"; });
     db.collection("pagamentos").onSnapshot(s => { pags = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
     db.collection("creditos").onSnapshot(s => { creds = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, () => {});
