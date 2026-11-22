@@ -930,7 +930,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       more += opcoesPagar(c);
     }
     if (abertos.has(c.id)) {
-      more += `<div class="det"><span><b>${esc(c.paes || 0)}</b> pães/dia</span>${c.endereco ? `<span>${esc(c.endereco)}</span>` : ""}<span>Entregador: <b>${esc(entregadorDe(c))}</b></span>${c.frios ? `<span>Frios: ${esc(c.frios)}</span>` : ""}${Array.isArray(c.dias) && c.dias.length ? `<span>Recebe: ${c.dias.map(d => DOW[d]).join(", ")}</span>` : ""}</div>
+      more += `<div class="det"><span>${diasFrances(c) ? esc(paesTexto(c)) : `<b>${esc(c.paes || 0)}</b> pães/dia`}</span>${c.endereco ? `<span>${esc(c.endereco)}</span>` : ""}<span>Entregador: <b>${esc(entregadorDe(c))}</b></span>${c.frios ? `<span>Frios: ${esc(c.frios)}</span>` : ""}${Array.isArray(c.dias) && c.dias.length ? `<span>Recebe: ${c.dias.map(d => DOW[d]).join(", ")}</span>` : ""}</div>
         ${devido(c) ? `<div class="note">Em atraso: <b>${brl(devido(c))}</b>${textoDevido(c) ? ` (${esc(textoDevido(c))})` : ""}. Vai no link para renovar e soma no Pagar.</div>` : ""}${(c.suspenso || cancelou(c)) && c.motivo ? `<div class="note">${esc(c.motivo)}</div>` : ""}${c.obs ? `<div class="note">${esc(c.obs)}</div>` : ""}
         <div class="acts"><button class="b sm" type="button" data-a="editar" data-id="${c.id}">${ic("pencil")}Editar</button>${travado ? `<button class="b sm" type="button" data-a="abrir" data-id="${c.id}">Registrar pagamento mesmo assim</button>` : ""}<button class="b sm" type="button" data-a="cred" data-id="${c.id}">${ic("gift")}Lançar crédito</button><button class="b sm" type="button" data-a="link" data-id="${c.id}">${ic("copy")}Link para renovar</button></div>
         <div class="hist">${hs.length ? hs.map((p, i) => `<div class="h"><span class="num">${br(p.data)} · ${esc(p.tipo)} · <b>${brl(p.valor)}</b>${p.credito ? ` <small class="g">(crédito ${brl(p.credito)})</small>` : ""} <small class="muted">→ pago até ${br(p.depois)}</small></span>${i === 0 ? `<button class="b danger sm" type="button" data-a="desfazer" data-pid="${p.id}"${ocupado ? " disabled" : ""}>Desfazer</button>` : ""}</div>`).join("") : `<span class="muted">Nenhum pagamento registrado pelo app ainda.</span>`}</div>`;
@@ -1560,12 +1560,17 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
   };
   // Observação do cliente: a cada pagamento apaga a antiga e escreve só o resumo atual
   function diasTexto(c){ const d = Array.isArray(c.dias) && c.dias.length ? c.dias.slice().sort() : []; return d.length ? d.map(w => DOW[w]).join(", ") : "seg a sex"; }
+  // Dias em que o cliente recebe pão francês (tira os dias "sem pão francês"); null = todos os dias de entrega
+  function diasFrances(c){ const sf = Array.isArray(c.semFrances) ? c.semFrances : []; const d = Array.isArray(c.dias) && c.dias.length ? c.dias.slice().sort() : [1,2,3,4,5]; const f = d.filter(w => !sf.includes(w)); return f.length === d.length ? null : f; }
+  function listaDias(f){ const n = f.map(w => DOW[w]); return n.length > 1 ? n.slice(0, -1).join(", ") + " e " + n[n.length - 1] : n[0] || ""; }
+  // "5 pães" ou, se há dia sem francês, "5 pães franceses ter, qui e sex"
+  function paesTexto(c){ const f = diasFrances(c), n = c.paes || 0; return !f ? `${n} pães` : f.length ? `${n} pães franceses ${listaDias(f)}` : "sem pão francês"; }
   function obsPagamento(c, pg){
     const ent = []; for (let D = pg.ini; D && D <= pg.fim && ent.length < 200; D = addDays(D, 1)) if (recebe(c, D)) ent.push(D);
     const sobra = r2(creds.filter(k => k.clienteId === pg.clienteId && !k.usadoEm && !(pg.usados || []).includes(k.id)).reduce((s, k) => s + (Number(k.valor) || 0), 0));
     const pend = devido(c);
     return [
-      `Plano atual: ${c.plano || "semanal"} · ${diasTexto(c)} · ${c.paes || 0} pães · frios: ${c.frios ? c.frios : "não"} · ${brl(c.valor || 0)} por semana`,
+      `Plano atual: ${c.plano || "semanal"} · ${diasTexto(c)} · ${paesTexto(c)} · frios: ${c.frios ? c.frios : "não"} · ${brl(c.valor || 0)} por semana`,
       `Último pagamento: ${br(HOJE)}, ${brl(pg.valor)}${pg.credito ? ` (crédito usado ${brl(pg.credito)})` : ""} · ${br(pg.ini)} a ${br(pg.fim)} · ${ent.length} entrega${ent.length === 1 ? "" : "s"}`,
       pend ? `Pendência: ${brl(pend)}${textoDevido(c) ? ` (${textoDevido(c)})` : ""}` : sobra ? `Crédito em aberto: ${brl(sobra)}` : "Sem crédito nem pendência",
       `Pago até ${br(c.pagoAte)}`
@@ -1614,7 +1619,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
       const depois = { ...base, ...dados, ...fim, id };
       const ini = alvo && devido(alvo) ? (atrasoDias(alvo)[0] || pd.ini) : pd.ini || pd.i;
       dados.obs = comPag ? obsPagamento(depois, { clienteId: id, valor: pd.v, credito: usado, ini, fim: pd.fim, usados: ks.map(k => k.id) })
-        : `Plano atual: ${dados.plano} · ${diasTexto(dados)} · ${dados.paes} pães · frios: ${frios || "não"} · ${brl(dados.valor)} por semana${pd.t ? " · PEDIDO DE TESTE (valores ÷10)" : ""}`;
+        : `Plano atual: ${dados.plano} · ${diasTexto(dados)} · ${paesTexto(dados)} · frios: ${frios || "não"} · ${brl(dados.valor)} por semana${pd.t ? " · PEDIDO DE TESTE (valores ÷10)" : ""}`;
       if (alvo) t.update("clientes/" + id, { ...dados, ...fim });
       else t.set("clientes/" + id, { ...dados, pagoAte: "", suspenso: false, suspIni: "", volta: "", motivo: "", recolher: false, ...fim });
       if (comPag) {
