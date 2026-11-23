@@ -6,8 +6,8 @@
 <style>
 /* Quadro do projetor: tela cheia 16:9, sem rolagem. CSS simples (sem variáveis nem grid) para navegador antigo de TV/projetor. */
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;cursor:none}
-body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;background:#fbf8f1;color:#2b1d12}
-body.escuro{background:#14100c;color:#fff4e0}
+body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;background:#ffffff;color:#000000}
+body.escuro{background:#000000;color:#ffffff}
 #raiz{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden}
 .cab{position:absolute;left:0;top:0;width:100%;overflow:hidden}
 .dia{position:absolute;left:2%;top:0;white-space:nowrap;font-weight:800;letter-spacing:.02em}
@@ -15,16 +15,17 @@ body.escuro{background:#14100c;color:#fff4e0}
 .hora{position:absolute;right:2%;top:0;text-align:right;white-space:nowrap;font-weight:700}
 .aviso{font-weight:700;color:#b0503a}
 body.escuro .aviso{color:#ffb199}
-.lin{position:absolute;left:0;width:100%;white-space:nowrap}
-.c{position:absolute;top:0;height:100%;text-align:center;overflow:hidden}
+.lin{position:absolute;left:0;width:100%;white-space:nowrap;box-sizing:border-box;border-bottom:3px dashed #000}
+body.escuro .lin{border-bottom-color:#fff}
+.c{position:absolute;top:0;height:100%;text-align:center;overflow:hidden;box-sizing:border-box}
 .c0{text-align:left}
-.zb{background:#ebe3d0}
-body.escuro .zb{background:#33281d}
+.zb{background:transparent}
+body.escuro .zb{background:transparent}
 .nome{color:#fff;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
-.tit{background:#e3d6b8;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
-body.escuro .tit{background:#4a3a14;color:#ffd479}
+.tit{background:#e4e4e4;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+body.escuro .tit{background:#2b2b2b;color:#ffd479}
 .tot{font-weight:800}
-.rod{background:#2b1d12;color:#fff4e0;font-weight:800}
+.rod{background:#000;color:#fff;font-weight:800}
 body.escuro .rod{background:#fff4e0;color:#14100c}
 .rod small{font-weight:700;opacity:.85}
 .vazio{position:absolute;left:0;top:40%;width:100%;text-align:center;font-weight:700}
@@ -108,8 +109,8 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
 
   // ----- monta as linhas da tabela -----
   function soma(cols, f) { var t = 0; for (var i = 0; i < cols.length; i++) t += f(cols[i]) || 0; return t; }
-  function linhasDoDia(dia) {
-    var cols = dia.cols || [], out = [], i, j, q, tams = {}, lis;
+  function linhasDoDia(dia, cols) {
+    var out = [], i, j, q, tams = {}, lis;
     for (i = 0; i < cols.length; i++) for (q in (cols[i].sac || {})) if (cols[i].sac.hasOwnProperty(q) && cols[i].sac[q] > 0) tams[q] = 1;
     var ordem = []; for (q in tams) if (tams.hasOwnProperty(q)) ordem.push(Number(q));
     ordem.sort(function (a, b) { return b - a; });
@@ -140,6 +141,13 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
   function cel(cls, esq, larg, html, extra) {
     return '<div class="c ' + cls + '" style="left:' + esq + 'px;width:' + larg + 'px;' + (extra || "") + '">' + html + "</div>";
   }
+  var CORES = { Careca: "#D32F2F", Dennis: "#2E9E4F", Miro: "#1E5FBF", Bruno: "#6B7280" };
+  function corDe(c) { return CORES[c.n] || c.cor || "#6b4a2e"; }
+  function rgba(hex, a) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
+    if (!m) return "rgba(107,74,46," + a + ")";
+    return "rgba(" + parseInt(m[1], 16) + "," + parseInt(m[2], 16) + "," + parseInt(m[3], 16) + "," + a + ")";
+  }
   function desenhar() {
     var W = window.innerWidth || document.documentElement.clientWidth, H = window.innerHeight || document.documentElement.clientHeight;
     if (!W || !H) return;
@@ -148,11 +156,12 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
     if (!dados && aguardando) { raiz.innerHTML = '<div class="vazio" style="font-size:' + Math.round(H * 0.055) + 'px">Aguardando o primeiro quadro.<br>Abra a gestão no computador.</div>'; return; }
     if (!dados) { raiz.innerHTML = '<div class="vazio" style="font-size:' + Math.round(H * 0.06) + 'px">Carregando o quadro…</div>'; return; }
 
+    var escuro = /escuro/.test(document.body.className);
     var a = agoraSP(), sel = diaMostrado(a), dia = dados.dias[sel.D];
     var p = sel.D.split("-"), dow = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay();
-    var hCab = Math.round(H * 0.15);
+    var hCab = Math.round(H * 0.13);
     // cabeçalho
-    var fDia = Math.round(hCab * 0.55), fHora = Math.round(hCab * 0.3);
+    var fDia = Math.round(hCab * 0.6), fHora = Math.round(hCab * 0.32);
     var aviso = "";
     if (offline) aviso = '<div class="aviso" style="font-size:' + Math.round(fHora * 0.75) + 'px">Sem internet · mostrando o último quadro</div>';
     else if (sel.velho) aviso = '<div class="aviso" style="font-size:' + Math.round(fHora * 0.75) + 'px">Quadro desatualizado · abra a gestão</div>';
@@ -160,29 +169,35 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
       '<div class="dia" style="font-size:' + fDia + 'px;line-height:' + hCab + 'px">' + esc(DOW[dow].toUpperCase()) + "<b>" + p[2] + "/" + p[1] + "</b></div>" +
       '<div class="hora" style="font-size:' + fHora + 'px;line-height:' + Math.round(hCab * (aviso ? 0.5 : 1)) + 'px">Atualizado às ' + esc(ultimoOk || a.hm) + aviso + "</div></div>";
 
-    var cols = (dia && dia.cols) || [];
+    // o Marciel não ganha coluna: vira uma observação pequena no canto
+    var todos = (dia && dia.cols) || [], cols = [], marciel = 0, i, j;
+    for (i = 0; i < todos.length; i++) { if (todos[i].n === "Marciel") marciel += todos[i].paes || 0; else cols.push(todos[i]); }
     if (!dia || !cols.length) {
       raiz.innerHTML = h + '<div class="vazio" style="font-size:' + Math.round(H * 0.07) + 'px">Sem entregas neste dia.</div>';
       return;
     }
-    var linhas = linhasDoDia(dia);
+    var linhas = linhasDoDia(dia, cols);
     // linhas: nomes + (títulos e itens) + 2 de rodapé
-    var nLin = 1 + linhas.length + 2, areaH = H - hCab - Math.round(H * 0.015);
-    var hLin = Math.floor(areaH / nLin), maxL = Math.round(H * 0.13);
+    var nLin = 1.15 + linhas.length + 2, areaH = H - hCab - Math.round(H * 0.01);
+    var hLin = Math.floor(areaH / nLin), maxL = Math.round(H * 0.14);
     if (hLin > maxL) hLin = maxL;
-    var larg0 = Math.round(W * 0.2), nc = cols.length + 1, lc = Math.floor((W - larg0 - Math.round(W * 0.01)) / nc);
-    var fN = Math.round(hLin * 0.62), fT = Math.round(hLin * 0.5);
-    var y = hCab, i, j, zeb = 0;
-    function abre(cls, alt, extra) { var s = '<div class="lin ' + cls + '" style="top:' + y + "px;height:" + alt + "px;font-size:" + fN + "px;line-height:" + alt + "px;" + (extra || "") + '">'; y += alt; return s; }
+    var larg0 = Math.round(W * 0.2), nc = cols.length + 1, lc = Math.floor((W - larg0 - Math.round(W * 0.005)) / nc);
+    var fN = Math.round(hLin * 0.66), fT = Math.round(hLin * 0.5), fNum = Math.round(hLin * 0.84);
+    var y = hCab, zeb = 0, tintA = escuro ? 0.5 : 0.3, bc = escuro ? "#fff" : "#000", bw = Math.max(3, Math.round(W * 0.0025));
+    function abre(cls, alt, extra) { var t = '<div class="lin ' + cls + '" style="top:' + y + "px;height:" + alt + "px;font-size:" + fN + "px;line-height:" + (alt - 3) + "px;" + (extra || "") + '">'; y += alt; return t; }
+    // fundo colorido da coluna do entregador + faixa grossa na esquerda, para a coluna aparecer de longe
+    function fundoCol(c) { return "background:" + rgba(corDe(c), tintA) + ";border-left:" + bw + "px dashed " + bc + ";"; }
+    var fundoTot = "background:" + (escuro ? "rgba(242,183,5,.45)" : "rgba(242,183,5,.5)") + ";border-left:" + bw + "px dashed " + bc + ";";
 
     // faixa larga com o nome e a cor de cada entregador
-    var s = abre("", Math.round(hLin * 1.12));
-    var fNome = Math.round(hLin * 0.56);
-    s += cel("c0", 0, larg0, "", "");
+    var hNome = Math.round(hLin * 1.15), fNome = Math.round(hLin * 0.62), raio = Math.round(hLin * 0.12);
+    var s = abre("", hNome, "border-bottom:0");
+    var obs = marciel ? '<span style="font-size:' + Math.round(hLin * 0.42) + 'px;font-weight:800">+ Marciel: ' + marciel + ' pães</span>' : "";
+    s += cel("c0", 14, larg0 - 14, obs, "");
     for (i = 0; i < cols.length; i++) {
-      s += cel("nome", larg0 + i * lc + 3, lc - 6, esc(cols[i].n), "background:" + (cols[i].cor || "#6b4a2e") + ";font-size:" + fNome + "px;border-radius:" + Math.round(hLin * 0.12) + "px;height:94%");
+      s += cel("nome", larg0 + i * lc + 3, lc - 6, esc(cols[i].n), "background:" + corDe(cols[i]) + ";font-size:" + fNome + "px;border-radius:" + raio + "px;height:94%");
     }
-    s += cel("nome", larg0 + cols.length * lc + 3, lc - 6, "TOTAL", "background:#2b1d12;font-size:" + fNome + "px;border-radius:" + Math.round(hLin * 0.12) + "px;height:94%");
+    s += cel("nome", larg0 + cols.length * lc + 3, lc - 6, "TOTAL", "background:#f2b705;color:#2b1d12;font-size:" + fNome + "px;border-radius:" + raio + "px;height:94%");
     h += s + "</div>";
 
     for (i = 0; i < linhas.length; i++) {
@@ -192,21 +207,20 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
         h += abre("tit", hLin, "font-size:" + fT + "px") + cel("c0", 14, W - 28, esc(L.rot), "") + "</div>";
       } else {
         var z = (zeb++ % 2 === 1) ? "zb" : "";
-        s = abre(z, hLin) + cel("c0", 14, larg0 - 14, "<b>" + esc(L.rot) + "</b>", "");
-        for (j = 0; j < L.v.length; j++) s += cel("", larg0 + j * lc, lc, L.v[j] ? String(L.v[j]) : "", "");
-        s += cel("tot", larg0 + L.v.length * lc, lc, L.tot ? String(L.tot) : "", "");
+        s = abre(z, hLin) + cel("c0", 14, larg0 - 14, "<b>" + esc(L.rot) + "</b>", "font-weight:800");
+        for (j = 0; j < L.v.length; j++) s += cel("", larg0 + j * lc, lc, L.v[j] ? String(L.v[j]) : "", fundoCol(cols[j]) + "font-size:" + fNum + "px;font-weight:800");
+        s += cel("tot", larg0 + L.v.length * lc, lc, L.tot ? String(L.tot) : "", fundoTot + "font-size:" + fNum + "px;font-weight:900");
         h += s + "</div>";
       }
     }
     // rodapé: total de entregas e de pães de cada entregador
     var te = soma(cols, function (c) { return c.ent; }), tp = soma(cols, function (c) { return c.paes; });
-    var pq = Math.round(hLin * 0.38);
-    s = abre("rod", hLin) + cel("c0", 14, larg0 - 14, "ENTREGAS", "font-size:" + fT + "px");
-    for (i = 0; i < cols.length; i++) s += cel("", larg0 + i * lc, lc, String(cols[i].ent || 0), "");
-    h += s + cel("", larg0 + cols.length * lc, lc, String(te), "") + "</div>";
-    s = abre("rod", hLin) + cel("c0", 14, larg0 - 14, "PÃES", "font-size:" + fT + "px");
-    for (i = 0; i < cols.length; i++) s += cel("", larg0 + i * lc, lc, String(cols[i].paes || 0), "");
-    h += s + cel("", larg0 + cols.length * lc, lc, String(tp), "") + "</div>";
+    function rodape(rot, pega, tot) {
+      var t = abre("rod", hLin, "border-bottom:0") + cel("c0", 14, larg0 - 14, rot, "font-size:" + fT + "px");
+      for (var k = 0; k < cols.length; k++) t += cel("", larg0 + k * lc, lc, String(pega(cols[k]) || 0), "background:" + corDe(cols[k]) + ";color:#fff;border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900");
+      return t + cel("", larg0 + cols.length * lc, lc, String(tot), "background:#f2b705;color:#000;border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900") + "</div>";
+    }
+    h += rodape("ENTREGAS", function (c) { return c.ent; }, te) + rodape("PÃES", function (c) { return c.paes; }, tp);
     raiz.innerHTML = h;
   }
 
