@@ -178,8 +178,8 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
       return;
     }
     var linhas = linhasDoDia(dia, cols);
-    // linhas: nomes + (títulos e itens) + 2 de rodapé
-    var nLin = 1.15 + linhas.length + 2, areaH = H - hCab - Math.round(H * 0.01);
+    // linhas: nomes + (títulos e itens) + 1 de rodapé
+    var nLin = 1.15 + linhas.length + 1, areaH = H - hCab - Math.round(H * 0.01);
     var hLin = Math.floor(areaH / nLin), maxL = Math.round(H * 0.14);
     if (hLin > maxL) hLin = maxL;
     var larg0 = Math.round(W * 0.2), lc = Math.ceil((W - larg0) / cols.length);
@@ -211,13 +211,13 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
         h += s + "</div>";
       }
     }
-    // rodapé: total de entregas e de pães de cada entregador
+    // rodapé: entregas de cada entregador
     function rodape(rot, pega) {
       var t = abre("rod", hLin, "border-bottom:0") + cel("c0", 14, larg0 - 14, rot, "font-size:" + fT + "px");
       for (var k = 0; k < cols.length; k++) t += cel("", larg0 + k * lc, lc, String(pega(cols[k]) || 0), "background:" + corDe(cols[k]) + ";color:" + txtDe(cols[k]) + ";border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900");
       return t + "</div>";
     }
-    h += rodape("ENTREGAS", function (c) { return c.ent; }) + rodape("PÃES", function (c) { return c.paes; });
+    h += rodape("ENTREGAS", function (c) { return c.ent; });
     raiz.innerHTML = h;
   }
 
