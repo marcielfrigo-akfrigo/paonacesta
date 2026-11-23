@@ -729,7 +729,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       recolher: x.recolher.map(parada),
       fora: x.mud.filter(m => m.s === "-").map(m => ({ nome: parada(m.c).nome, cond: m.c.condominio, txt: m.txt })) };
   }
-  function agendarRotas(){ clearTimeout(pubTimer); pubTimer = setTimeout(publicarRotas, 1500); }
+  function agendarRotas(){ clearTimeout(pubTimer); pubTimer = setTimeout(() => { publicarRotas(); publicarQuadro(); }, 1500); }
   async function publicarRotas(){
     if (!db || !loaded.cli || !loaded.rotas) return;
     const cod = Object.assign({}, cfg.rotaCod || {});
@@ -746,6 +746,25 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
         pubUltimo[e] = txt;
       } catch (err) {}
     }
+  }
+  // Quadro do projetor (paonacesta.com.br/quadro-tv/#código): só números por entregador, nenhum dado de cliente.
+  // A gestão publica em quadro/{código} os próximos dias de entrega; a tela da parede só lê.
+  let quadroUltimo = "";
+  function quadroDoDia(M){
+    const pe = M.porE, ehEspP = i => /^(Pão de batata|Pão caseirinho|Vitaminado)/.test(i), its = Object.keys(M.friT).sort();
+    const ordem = e => { const k = ENT.indexOf(e); return k < 0 ? 99 : k; };
+    const cols = Object.keys(pe).filter(e => pe[e].paes > 0 || pe[e].lista.length).sort((a, b) => ordem(a) - ordem(b))
+      .map(e => ({ n: e, cor: COR[e] || "", ent: pe[e].lista.length, paes: pe[e].paes, sac: pe[e].sac, fri: pe[e].frios }));
+    return { cols, esp: its.filter(ehEspP), fri: its.filter(i => !ehEspP(i)) };
+  }
+  async function publicarQuadro(){
+    if (!db || !loaded.cli) return;
+    let cod = cfg.quadroCod;
+    if (!cod) { cod = codigoNovo() + codigoNovo(); try { await db.doc("config/app").update({ quadroCod: cod }); } catch (err) {} return; }   // a gravação volta pelo onSnapshot e publica
+    const dias = []; let D = HOJE; while (dias.length < 5) { if (ehEntrega(D)) dias.push(D); D = addDays(D, 1); }
+    const obj = { virada: cfg.quadroVirada || "14:00", dias: Object.fromEntries(dias.map(d => [d, quadroDoDia(montar(d))])) };
+    const txt = JSON.stringify(obj); if (txt === quadroUltimo) return;
+    try { await db.doc("quadro/" + cod).set({ json: txt, atualizadoEm: Date.now() }); quadroUltimo = txt; } catch (err) {}
   }
   // Local da casa salvo pelo entregador: passa para o cadastro do cliente e limpa o pedido
   async function guardarLocais(){

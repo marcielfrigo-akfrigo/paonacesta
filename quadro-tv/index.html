@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Quadro das entregas</title>
+<style>
+/* Quadro do projetor: tela cheia 16:9, sem rolagem. CSS simples (sem variáveis nem grid) para navegador antigo de TV/projetor. */
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;cursor:none}
+body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;background:#fbf8f1;color:#2b1d12}
+body.escuro{background:#14100c;color:#fff4e0}
+#raiz{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden}
+.cab{position:absolute;left:0;top:0;width:100%;overflow:hidden}
+.dia{position:absolute;left:2%;top:0;white-space:nowrap;font-weight:800;letter-spacing:.02em}
+.dia b{display:inline-block;background:#f2b705;color:#2b1d12;border-radius:.18em;padding:0 .35em;margin-left:.3em}
+.hora{position:absolute;right:2%;top:0;text-align:right;white-space:nowrap;font-weight:700}
+.aviso{font-weight:700;color:#b0503a}
+body.escuro .aviso{color:#ffb199}
+.lin{position:absolute;left:0;width:100%;white-space:nowrap}
+.c{position:absolute;top:0;height:100%;text-align:center;overflow:hidden}
+.c0{text-align:left}
+.zb{background:#ebe3d0}
+body.escuro .zb{background:#33281d}
+.nome{color:#fff;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+.tit{background:#e3d6b8;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+body.escuro .tit{background:#4a3a14;color:#ffd479}
+.tot{font-weight:800}
+.rod{background:#2b1d12;color:#fff4e0;font-weight:800}
+body.escuro .rod{background:#fff4e0;color:#14100c}
+.rod small{font-weight:700;opacity:.85}
+.vazio{position:absolute;left:0;top:40%;width:100%;text-align:center;font-weight:700}
+</style></head><body>
+<div id="raiz"></div>
+<script>
+(function () {
+  var CHAVE = "AIzaSyCDjC2i08rrbegFaBAPRg33wJLuHLjmEWk";   // chave pública do app web (a mesma da tela de rota)
+  var URL_BASE = "https://firestore.googleapis.com/v1/projects/pao-na-cesta/databases/(default)/documents/quadro/";
+  var DOW = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+  var raiz = document.getElementById("raiz");
+
+  // ----- parâmetros do link: #código (ou ?t=código), ?tema=escuro, ?virada=HH:MM -----
+  function param(nome) {
+    var m = new RegExp("[?&]" + nome + "=([^&#]*)").exec(location.search);
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+  var cod = (location.hash || "").replace(/^#/, "").split("?")[0] || param("t");
+  if (param("tema") === "escuro") document.body.className = "escuro";
+  var viradaLink = param("virada");
+
+  var dados = null, ultimoOk = "", offline = false, erroLink = false;
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function dois(n) { return (n < 10 ? "0" : "") + n; }
+
+  // Horário de Brasília (UTC-3, sem horário de verão desde 2019), não importa o fuso do aparelho
+  function agoraSP() {
+    var t = new Date(new Date().getTime() - 3 * 3600 * 1000);
+    return { D: t.getUTCFullYear() + "-" + dois(t.getUTCMonth() + 1) + "-" + dois(t.getUTCDate()), min: t.getUTCHours() * 60 + t.getUTCMinutes(),
+      hm: dois(t.getUTCHours()) + ":" + dois(t.getUTCMinutes()) };
+  }
+  function minutos(hm, padrao) {
+    var m = /^(\d{1,2}):(\d\d)$/.exec(hm || "");
+    return m ? Number(m[1]) * 60 + Number(m[2]) : padrao;
+  }
+  function somaDia(D, n) {
+    var p = D.split("-"), t = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + n));
+    return t.getUTCFullYear() + "-" + dois(t.getUTCMonth() + 1) + "-" + dois(t.getUTCDate());
+  }
+
+  // ----- busca o quadro (a cada 60 s) -----
+  function guardar(txt) { try { localStorage.setItem("quadroTv:" + cod, txt); } catch (e) {} }
+  function lerGuardado() { try { return localStorage.getItem("quadroTv:" + cod); } catch (e) { return null; } }
+  function aceitar(txt) {
+    var o = JSON.parse(txt);
+    if (o && o.dias) { dados = o; return true; }
+    return false;
+  }
+  function buscar() {
+    var x = new XMLHttpRequest(), pronto = false;
+    x.open("GET", URL_BASE + encodeURIComponent(cod) + "?key=" + CHAVE + "&_=" + new Date().getTime(), true);
+    x.timeout = 20000;
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4 || pronto) return;
+      pronto = true;
+      if (x.status === 200) {
+        try {
+          var j = JSON.parse(x.responseText), txt = j.fields.json.stringValue;
+          if (aceitar(txt)) { guardar(txt); offline = false; erroLink = false; ultimoOk = agoraSP().hm; }
+        } catch (e) { offline = true; }
+      } else if (x.status === 403 || x.status === 404) { if (!dados) erroLink = true; else offline = true; }
+      else offline = true;
+      desenhar();
+    };
+    x.onerror = x.ontimeout = function () { if (pronto) return; pronto = true; offline = true; desenhar(); };
+    try { x.send(); } catch (e) { offline = true; desenhar(); }
+  }
+
+  // ----- qual dia mostrar: hoje até a hora da virada; depois, o próximo dia com entrega -----
+  function diaMostrado(a) {
+    var lista = [], k;
+    for (k in dados.dias) if (dados.dias.hasOwnProperty(k)) lista.push(k);
+    lista.sort();
+    if (!lista.length) return { D: "", velho: true };
+    var virada = minutos(viradaLink || dados.virada, 14 * 60);
+    var alvo = a.min >= virada ? somaDia(a.D, 1) : a.D;
+    for (var i = 0; i < lista.length; i++) if (lista[i] >= alvo) return { D: lista[i], velho: false };
+    return { D: lista[lista.length - 1], velho: true };   // o quadro publicado já ficou para trás
+  }
+
+  // ----- monta as linhas da tabela -----
+  function soma(cols, f) { var t = 0; for (var i = 0; i < cols.length; i++) t += f(cols[i]) || 0; return t; }
+  function linhasDoDia(dia) {
+    var cols = dia.cols || [], out = [], i, j, q, tams = {}, lis;
+    for (i = 0; i < cols.length; i++) for (q in (cols[i].sac || {})) if (cols[i].sac.hasOwnProperty(q) && cols[i].sac[q] > 0) tams[q] = 1;
+    var ordem = []; for (q in tams) if (tams.hasOwnProperty(q)) ordem.push(Number(q));
+    ordem.sort(function (a, b) { return b - a; });
+    function bloco(titulo, itens, rotulo, pega) {
+      if (!itens.length) return;
+      out.push({ t: "tit", rot: titulo });
+      for (var n = 0; n < itens.length; n++) {
+        (function (it) {
+          var v = [], tot = 0;
+          for (var c = 0; c < cols.length; c++) { var x = pega(cols[c], it) || 0; v.push(x); tot += x; }
+          out.push({ t: "lin", rot: rotulo(it), v: v, tot: tot });
+        })(itens[n]);
+      }
+    }
+    bloco("Sacolas de pão francês", ordem, function (q) { return q + " pães"; }, function (c, q) { return (c.sac || {})[q]; });
+    function comAlgo(lista) {
+      var r = [];
+      for (var n = 0; n < (lista || []).length; n++) if (soma(cols, function (c) { return (c.fri || {})[lista[n]]; }) > 0) r.push(lista[n]);
+      return r;
+    }
+    var pegaF = function (c, it) { return (c.fri || {})[it]; }, rot = function (it) { return it; };
+    bloco("Pão especial", comAlgo(dia.esp), rot, pegaF);
+    bloco("Frios", comAlgo(dia.fri), rot, pegaF);
+    return out;
+  }
+
+  // ----- desenha tudo para caber exatamente na tela -----
+  function cel(cls, esq, larg, html, extra) {
+    return '<div class="c ' + cls + '" style="left:' + esq + 'px;width:' + larg + 'px;' + (extra || "") + '">' + html + "</div>";
+  }
+  function desenhar() {
+    var W = window.innerWidth || document.documentElement.clientWidth, H = window.innerHeight || document.documentElement.clientHeight;
+    if (!W || !H) return;
+    var h = "";
+    if (erroLink || !cod) { raiz.innerHTML = '<div class="vazio" style="font-size:' + Math.round(H * 0.06) + 'px">Link do quadro incorreto.<br>Peça o link novo ao Marciel.</div>'; return; }
+    if (!dados) { raiz.innerHTML = '<div class="vazio" style="font-size:' + Math.round(H * 0.06) + 'px">Carregando o quadro…</div>'; return; }
+
+    var a = agoraSP(), sel = diaMostrado(a), dia = dados.dias[sel.D];
+    var p = sel.D.split("-"), dow = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay();
+    var hCab = Math.round(H * 0.15);
+    // cabeçalho
+    var fDia = Math.round(hCab * 0.55), fHora = Math.round(hCab * 0.3);
+    var aviso = "";
+    if (offline) aviso = '<div class="aviso" style="font-size:' + Math.round(fHora * 0.75) + 'px">Sem internet · mostrando o último quadro</div>';
+    else if (sel.velho) aviso = '<div class="aviso" style="font-size:' + Math.round(fHora * 0.75) + 'px">Quadro desatualizado · abra a gestão</div>';
+    h += '<div class="cab" style="height:' + hCab + 'px">' +
+      '<div class="dia" style="font-size:' + fDia + 'px;line-height:' + hCab + 'px">' + esc(DOW[dow].toUpperCase()) + "<b>" + p[2] + "/" + p[1] + "</b></div>" +
+      '<div class="hora" style="font-size:' + fHora + 'px;line-height:' + Math.round(hCab * (aviso ? 0.5 : 1)) + 'px">Atualizado às ' + esc(ultimoOk || a.hm) + aviso + "</div></div>";
+
+    var cols = (dia && dia.cols) || [];
+    if (!dia || !cols.length) {
+      raiz.innerHTML = h + '<div class="vazio" style="font-size:' + Math.round(H * 0.07) + 'px">Sem entregas neste dia.</div>';
+      return;
+    }
+    var linhas = linhasDoDia(dia);
+    // linhas: nomes + (títulos e itens) + 2 de rodapé
+    var nLin = 1 + linhas.length + 2, areaH = H - hCab - Math.round(H * 0.015);
+    var hLin = Math.floor(areaH / nLin), maxL = Math.round(H * 0.13);
+    if (hLin > maxL) hLin = maxL;
+    var larg0 = Math.round(W * 0.2), nc = cols.length + 1, lc = Math.floor((W - larg0 - Math.round(W * 0.01)) / nc);
+    var fN = Math.round(hLin * 0.62), fT = Math.round(hLin * 0.5);
+    var y = hCab, i, j, zeb = 0;
+    function abre(cls, alt, extra) { var s = '<div class="lin ' + cls + '" style="top:' + y + "px;height:" + alt + "px;font-size:" + fN + "px;line-height:" + alt + "px;" + (extra || "") + '">'; y += alt; return s; }
+
+    // faixa larga com o nome e a cor de cada entregador
+    var s = abre("", Math.round(hLin * 1.12));
+    var fNome = Math.round(hLin * 0.56);
+    s += cel("c0", 0, larg0, "", "");
+    for (i = 0; i < cols.length; i++) {
+      s += cel("nome", larg0 + i * lc + 3, lc - 6, esc(cols[i].n), "background:" + (cols[i].cor || "#6b4a2e") + ";font-size:" + fNome + "px;border-radius:" + Math.round(hLin * 0.12) + "px;height:94%");
+    }
+    s += cel("nome", larg0 + cols.length * lc + 3, lc - 6, "TOTAL", "background:#2b1d12;font-size:" + fNome + "px;border-radius:" + Math.round(hLin * 0.12) + "px;height:94%");
+    h += s + "</div>";
+
+    for (i = 0; i < linhas.length; i++) {
+      var L = linhas[i];
+      if (L.t === "tit") {
+        zeb = 0;
+        h += abre("tit", hLin, "font-size:" + fT + "px") + cel("c0", 14, W - 28, esc(L.rot), "") + "</div>";
+      } else {
+        var z = (zeb++ % 2 === 1) ? "zb" : "";
+        s = abre(z, hLin) + cel("c0", 14, larg0 - 14, "<b>" + esc(L.rot) + "</b>", "");
+        for (j = 0; j < L.v.length; j++) s += cel("", larg0 + j * lc, lc, L.v[j] ? String(L.v[j]) : "", "");
+        s += cel("tot", larg0 + L.v.length * lc, lc, L.tot ? String(L.tot) : "", "");
+        h += s + "</div>";
+      }
+    }
+    // rodapé: total de entregas e de pães de cada entregador
+    var te = soma(cols, function (c) { return c.ent; }), tp = soma(cols, function (c) { return c.paes; });
+    var pq = Math.round(hLin * 0.38);
+    s = abre("rod", hLin) + cel("c0", 14, larg0 - 14, "ENTREGAS", "font-size:" + fT + "px");
+    for (i = 0; i < cols.length; i++) s += cel("", larg0 + i * lc, lc, String(cols[i].ent || 0), "");
+    h += s + cel("", larg0 + cols.length * lc, lc, String(te), "") + "</div>";
+    s = abre("rod", hLin) + cel("c0", 14, larg0 - 14, "PÃES", "font-size:" + fT + "px");
+    for (i = 0; i < cols.length; i++) s += cel("", larg0 + i * lc, lc, String(cols[i].paes || 0), "");
+    h += s + cel("", larg0 + cols.length * lc, lc, String(tp), "") + "</div>";
+    raiz.innerHTML = h;
+  }
+
+  // ----- vida da tela -----
+  var guardado = lerGuardado();
+  if (guardado) { try { aceitar(guardado); } catch (e) {} }
+  desenhar();
+  if (cod) { buscar(); setInterval(buscar, 60000); }
+  setInterval(desenhar, 30000);                   // troca de dia na hora certa, mesmo sem internet
+  window.onresize = desenhar;
+})();
+</script>
+</body></html>
