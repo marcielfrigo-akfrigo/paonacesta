@@ -56,7 +56,7 @@ body{font-family:"DM Sans",Roboto,"Helvetica Neue",Arial,sans-serif;color:#000;c
   var cod = (location.hash || "").replace(/^#/, "").split("?")[0] || param("t");
   var viradaLink = param("virada");
 
-  var dados = null, ultimoOk = "", offline = false, erroLink = false, aguardando = false;
+  var diaOk = "", dados = null, ultimoOk = "", offline = false, erroLink = false, aguardando = false;
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
   function dois(n) { return (n < 10 ? "0" : "") + n; }
 
@@ -76,8 +76,6 @@ body{font-family:"DM Sans",Roboto,"Helvetica Neue",Arial,sans-serif;color:#000;c
   }
 
   // ----- busca o quadro (a cada 60 s) -----
-  function guardar(txt) { try { localStorage.setItem("quadroTv:" + cod, txt); } catch (e) {} }
-  function lerGuardado() { try { return localStorage.getItem("quadroTv:" + cod); } catch (e) { return null; } }
   function aceitar(txt) {
     var o = JSON.parse(txt);
     if (o && o.dias) { dados = o; return true; }
@@ -93,7 +91,7 @@ body{font-family:"DM Sans",Roboto,"Helvetica Neue",Arial,sans-serif;color:#000;c
       if (x.status === 200) {
         try {
           var j = JSON.parse(x.responseText), txt = j.fields.json.stringValue;
-          if (aceitar(txt)) { guardar(txt); offline = false; erroLink = false; aguardando = false; ultimoOk = agoraSP().hm; }
+          if (aceitar(txt)) { offline = false; erroLink = false; aguardando = false; ultimoOk = agoraSP().hm; diaOk = agoraSP().D; }
         } catch (e) { offline = true; }
       } else if (x.status === 404) { if (!dados) aguardando = true; else offline = true; }
       else if (x.status === 403) { if (!dados) erroLink = true; else offline = true; }
@@ -165,11 +163,19 @@ body{font-family:"DM Sans",Roboto,"Helvetica Neue",Arial,sans-serif;color:#000;c
   var CALEND = '<path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>';
   var CAMINHAO = '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.650a1 1 0 0 0-.220-.620l-3.480-4.350A1 1 0 0 0 17.520 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>';
   function recado(H, txt) { raiz.innerHTML = '<div class="vazio" style="font-size:' + R(H * 0.05) + 'px">' + txt + "</div>"; }
+  function semInternet(W, H) {
+    raiz.innerHTML = '<div style="position:absolute;left:0;top:0;width:100%;height:100%;background:#b3261e;color:#fff;text-align:center">' +
+      '<div style="position:absolute;left:0;width:100%;top:26%;font-size:' + R(H * 0.15) + "px;line-height:1.1;font-weight:700\">SEM INTERNET</div>" +
+      '<div style="position:absolute;left:0;width:100%;top:50%;font-size:' + R(H * 0.06) + 'px;line-height:1.4;font-weight:500">Ligue a internet do celular.<br>Não use os números de outro dia.</div></div>';
+  }
   function desenhar() {
     var W = window.innerWidth || document.documentElement.clientWidth, H = window.innerHeight || document.documentElement.clientHeight;
     if (!W || !H) return;
     if (erroLink || !cod) return recado(H, "Link do quadro incorreto.<br>Peça o link novo ao Marciel.");
     if (!dados && aguardando) return recado(H, "Aguardando o primeiro quadro.<br>Abra a gestão no computador.");
+    // sem internet: só mantém o quadro se ele foi atualizado hoje; senão, aviso grande no lugar dos números,
+    // para ninguém montar as sacolas por um quadro velho (pedido do Marciel, 23/11)
+    if (offline && (!dados || diaOk !== agoraSP().D)) return semInternet(W, H);
     if (!dados) return recado(H, "Carregando o quadro…");
 
     var a = agoraSP(), sel = diaMostrado(a), dia = dados.dias[sel.D], i, k;
@@ -249,8 +255,6 @@ body{font-family:"DM Sans",Roboto,"Helvetica Neue",Arial,sans-serif;color:#000;c
   }
 
   // ----- vida da tela -----
-  var guardado = lerGuardado();
-  if (guardado) { try { aceitar(guardado); } catch (e) {} }
   desenhar();
   if (cod) { buscar(); setInterval(buscar, 60000); }
   setInterval(desenhar, 30000);                   // troca de dia na hora certa, mesmo sem internet
