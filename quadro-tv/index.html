@@ -141,8 +141,9 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
   function cel(cls, esq, larg, html, extra) {
     return '<div class="c ' + cls + '" style="left:' + esq + 'px;width:' + larg + 'px;' + (extra || "") + '">' + html + "</div>";
   }
-  var CORES = { Careca: "#D32F2F", Dennis: "#2E9E4F", Miro: "#1E5FBF", Bruno: "#6B7280" };
+  var CORES = { Careca: "#D32F2F", Dennis: "#FFD600", Miro: "#1E5FBF", Bruno: "#6B7280" };
   function corDe(c) { return CORES[c.n] || c.cor || "#6b4a2e"; }
+  function txtDe(c) { return c.n === "Dennis" ? "#000" : "#fff"; }   // amarelo pede letra preta
   function rgba(hex, a) {
     var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
     if (!m) return "rgba(107,74,46," + a + ")";
@@ -181,23 +182,23 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
     var nLin = 1.15 + linhas.length + 2, areaH = H - hCab - Math.round(H * 0.01);
     var hLin = Math.floor(areaH / nLin), maxL = Math.round(H * 0.14);
     if (hLin > maxL) hLin = maxL;
-    var larg0 = Math.round(W * 0.2), nc = cols.length + 1, lc = Math.floor((W - larg0 - Math.round(W * 0.005)) / nc);
+    var larg0 = Math.round(W * 0.2), nc = cols.length + 1, lc = Math.floor((W - larg0) / nc), lTot = W - larg0 - cols.length * lc;
     var fN = Math.round(hLin * 0.66), fT = Math.round(hLin * 0.5), fNum = Math.round(hLin * 0.84);
     var y = hCab, zeb = 0, tintA = escuro ? 0.5 : 0.3, bc = escuro ? "#fff" : "#000", bw = Math.max(3, Math.round(W * 0.0025));
     function abre(cls, alt, extra) { var t = '<div class="lin ' + cls + '" style="top:' + y + "px;height:" + alt + "px;font-size:" + fN + "px;line-height:" + (alt - 3) + "px;" + (extra || "") + '">'; y += alt; return t; }
     // fundo colorido da coluna do entregador + faixa grossa na esquerda, para a coluna aparecer de longe
     function fundoCol(c) { return "background:" + rgba(corDe(c), tintA) + ";border-left:" + bw + "px dashed " + bc + ";"; }
-    var fundoTot = "background:" + (escuro ? "rgba(242,183,5,.45)" : "rgba(242,183,5,.5)") + ";border-left:" + bw + "px dashed " + bc + ";";
+    var fundoTot = "background:" + (escuro ? "#000" : "#fff") + ";border-left:" + bw + "px solid " + bc + ";";
 
     // faixa larga com o nome e a cor de cada entregador
     var hNome = Math.round(hLin * 1.15), fNome = Math.round(hLin * 0.62), raio = Math.round(hLin * 0.12);
     var s = abre("", hNome, "border-bottom:0");
-    var obs = marciel ? '<span style="font-size:' + Math.round(hLin * 0.42) + 'px;font-weight:800">+ Marciel: ' + marciel + ' pães</span>' : "";
+    var obs = marciel ? '<span style="font-size:' + Math.round(hLin * 0.46) + 'px;font-weight:800">+ Marciel: ' + marciel + ' pães</span>' : "";
     s += cel("c0", 14, larg0 - 14, obs, "");
     for (i = 0; i < cols.length; i++) {
-      s += cel("nome", larg0 + i * lc + 3, lc - 6, esc(cols[i].n), "background:" + corDe(cols[i]) + ";font-size:" + fNome + "px;border-radius:" + raio + "px;height:94%");
+      s += cel("nome", larg0 + i * lc + 3, lc - 6, esc(cols[i].n), "background:" + corDe(cols[i]) + ";color:" + txtDe(cols[i]) + ";font-size:" + fNome + "px;border-radius:" + raio + "px;height:94%");
     }
-    s += cel("nome", larg0 + cols.length * lc + 3, lc - 6, "TOTAL", "background:#f2b705;color:#2b1d12;font-size:" + fNome + "px;border-radius:" + raio + "px;height:94%");
+    s += cel("nome", larg0 + cols.length * lc + 3, lTot - 6, "TOTAL", "background:" + bc + ";color:" + (escuro ? "#000" : "#fff") + ";font-size:" + fNome + "px;border-radius:" + raio + "px;height:94%");
     h += s + "</div>";
 
     for (i = 0; i < linhas.length; i++) {
@@ -209,7 +210,7 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
         var z = (zeb++ % 2 === 1) ? "zb" : "";
         s = abre(z, hLin) + cel("c0", 14, larg0 - 14, "<b>" + esc(L.rot) + "</b>", "font-weight:800");
         for (j = 0; j < L.v.length; j++) s += cel("", larg0 + j * lc, lc, L.v[j] ? String(L.v[j]) : "", fundoCol(cols[j]) + "font-size:" + fNum + "px;font-weight:800");
-        s += cel("tot", larg0 + L.v.length * lc, lc, L.tot ? String(L.tot) : "", fundoTot + "font-size:" + fNum + "px;font-weight:900");
+        s += cel("tot", larg0 + L.v.length * lc, lTot, L.tot ? String(L.tot) : "", fundoTot + "font-size:" + fNum + "px;font-weight:900");
         h += s + "</div>";
       }
     }
@@ -217,8 +218,8 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
     var te = soma(cols, function (c) { return c.ent; }), tp = soma(cols, function (c) { return c.paes; });
     function rodape(rot, pega, tot) {
       var t = abre("rod", hLin, "border-bottom:0") + cel("c0", 14, larg0 - 14, rot, "font-size:" + fT + "px");
-      for (var k = 0; k < cols.length; k++) t += cel("", larg0 + k * lc, lc, String(pega(cols[k]) || 0), "background:" + corDe(cols[k]) + ";color:#fff;border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900");
-      return t + cel("", larg0 + cols.length * lc, lc, String(tot), "background:#f2b705;color:#000;border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900") + "</div>";
+      for (var k = 0; k < cols.length; k++) t += cel("", larg0 + k * lc, lc, String(pega(cols[k]) || 0), "background:" + corDe(cols[k]) + ";color:" + txtDe(cols[k]) + ";border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900");
+      return t + cel("", larg0 + cols.length * lc, lTot, String(tot), "background:#000;color:#fff;border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900") + "</div>";
     }
     h += rodape("ENTREGAS", function (c) { return c.ent; }, te) + rodape("PÃES", function (c) { return c.paes; }, tp);
     raiz.innerHTML = h;
