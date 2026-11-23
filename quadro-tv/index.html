@@ -46,7 +46,7 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
   if (param("tema") === "escuro") document.body.className = "escuro";
   var viradaLink = param("virada");
 
-  var dados = null, ultimoOk = "", offline = false, erroLink = false;
+  var dados = null, ultimoOk = "", offline = false, erroLink = false, aguardando = false;
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
   function dois(n) { return (n < 10 ? "0" : "") + n; }
 
@@ -83,9 +83,10 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
       if (x.status === 200) {
         try {
           var j = JSON.parse(x.responseText), txt = j.fields.json.stringValue;
-          if (aceitar(txt)) { guardar(txt); offline = false; erroLink = false; ultimoOk = agoraSP().hm; }
+          if (aceitar(txt)) { guardar(txt); offline = false; erroLink = false; aguardando = false; ultimoOk = agoraSP().hm; }
         } catch (e) { offline = true; }
-      } else if (x.status === 403 || x.status === 404) { if (!dados) erroLink = true; else offline = true; }
+      } else if (x.status === 404) { if (!dados) aguardando = true; else offline = true; }
+      else if (x.status === 403) { if (!dados) erroLink = true; else offline = true; }
       else offline = true;
       desenhar();
     };
@@ -144,6 +145,7 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
     if (!W || !H) return;
     var h = "";
     if (erroLink || !cod) { raiz.innerHTML = '<div class="vazio" style="font-size:' + Math.round(H * 0.06) + 'px">Link do quadro incorreto.<br>Peça o link novo ao Marciel.</div>'; return; }
+    if (!dados && aguardando) { raiz.innerHTML = '<div class="vazio" style="font-size:' + Math.round(H * 0.055) + 'px">Aguardando o primeiro quadro.<br>Abra a gestão no computador.</div>'; return; }
     if (!dados) { raiz.innerHTML = '<div class="vazio" style="font-size:' + Math.round(H * 0.06) + 'px">Carregando o quadro…</div>'; return; }
 
     var a = agoraSP(), sel = diaMostrado(a), dia = dados.dias[sel.D];
