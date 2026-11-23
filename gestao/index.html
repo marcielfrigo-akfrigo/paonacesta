@@ -1022,20 +1022,20 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   const precoSemana = (paes, frios) => r2(({ 3: 55, 4: 63, 5: 70 })[paes] ?? paes * 14) +
     String(frios || "").split("|").filter(sg => sg.includes(":")).reduce((s, sg) => s + friosItens(sg.split(":").slice(1).join(":")).reduce((t, i) => t + (PRECO_FRIO[i] || 0), 0), 0);
   const esperando = p => (p.moradores || []).filter(m => !m.clienteId);
-  const ehPredio = p => p.tipo === "predio";
+  const ehPredio = p => p.tipo === "predio", ehBairro = p => p.tipo === "bairro";
   function vProsp(){
     const lst = prosp.slice().sort((a, b) => esperando(b).length - esperando(a).length || (a.nome || "").localeCompare(b.nome || ""));
     if (prospSel && !lst.some(p => p.id === prospSel)) prospSel = "";
     const sel = lst.find(p => p.id === prospSel) || null, mor = sel ? (sel.moradores || []) : [];
-    const total = lst.reduce((s, p) => s + esperando(p).length, 0), nPred = lst.filter(ehPredio).length, nCond = lst.length - nPred;
+    const total = lst.reduce((s, p) => s + esperando(p).length, 0), nPred = lst.filter(ehPredio).length, nBair = lst.filter(ehBairro).length, nCond = lst.length - nPred - nBair;
     const barra = n => `<div style="height:6px;border-radius:9px;background:var(--line);overflow:hidden;margin-top:6px"><div style="height:100%;width:${Math.min(100, n / META_ROTA * 100)}%;background:${n >= META_ROTA ? "var(--sem)" : "var(--gold)"}"></div></div>`;
     const ed = prospEdit >= 0 ? mor[prospEdit] || null : null;
     const val = k => ed ? esc(ed[k] || "") : "";
     // duas listas separadas: condomínios de casas e prédios (entrega na portaria)
     const grupo = (tit, arr) => arr.length ? `<div class="panel" style="margin-bottom:14px"><div class="ptitle"><h2>${tit} <span class="count">${arr.length}</span></h2><span class="muted">${(k => `${k} interessado${k === 1 ? "" : "s"}`)(arr.reduce((s, p) => s + esperando(p).length, 0))}</span></div><div class="rows">${arr.map(p => { const n = esperando(p).length; return `<button type="button" class="row" data-pc="${p.id}" style="display:block;width:100%;text-align:left;background:${prospSel === p.id ? "var(--quin-bg)" : "transparent"};border:0;cursor:pointer;padding:12px 16px"><div style="display:flex;justify-content:space-between;gap:8px"><strong>${esc(p.nome)}</strong><span class="muted">${n} de ${META_ROTA}${n >= META_ROTA ? " · pronto para abrir" : ""}</span></div>${barra(n)}</button>`; }).join("")}</div></div>` : "";
-    return head("Lista de espera", "Próximos condomínios e prédios.", `${nCond} condomínio${nCond === 1 ? "" : "s"} · ${nPred} prédio${nPred === 1 ? "" : "s"} · ${total} interessado${total === 1 ? "" : "s"}. A rota abre com ${META_ROTA} interessados no lugar.`) +
-      `<form class="filters" data-form="prospCond"><label class="search">${ic("plus")}<input name="nome" placeholder="Novo condomínio ou prédio (ex.: Golden Village)" autocomplete="off" required></label><select name="tipo" aria-label="Tipo"><option value="condominio">Condomínio</option><option value="predio">Prédio</option></select><button class="b pri" type="submit">Adicionar</button></form>
-      ${grupo("Condomínios", lst.filter(p => !ehPredio(p)))}${grupo("Prédios", lst.filter(ehPredio))}
+    return head("Lista de espera", "Próximos condomínios e prédios.", `${nCond} condomínio${nCond === 1 ? "" : "s"} · ${nPred} prédio${nPred === 1 ? "" : "s"}${nBair ? ` · ${nBair} bairro${nBair === 1 ? "" : "s"}` : ""} · ${total} interessado${total === 1 ? "" : "s"}. A rota abre com ${META_ROTA} interessados no lugar.`) +
+      `<form class="filters" data-form="prospCond"><label class="search">${ic("plus")}<input name="nome" placeholder="Novo condomínio ou prédio (ex.: Golden Village)" autocomplete="off" required></label><select name="tipo" aria-label="Tipo"><option value="condominio">Condomínio</option><option value="predio">Prédio</option><option value="bairro">Bairro</option></select><button class="b pri" type="submit">Adicionar</button></form>
+      ${grupo("Condomínios", lst.filter(p => !ehPredio(p) && !ehBairro(p)))}${grupo("Prédios", lst.filter(ehPredio))}${grupo("Bairros · entrega entre 7h e 7h30", lst.filter(ehBairro))}
       ${!lst.length ? `<div class="panel"><div class="empty">${ic("leaf")}<h3>Nenhum condomínio ainda.</h3><p>Adicione acima os condomínios onde quer começar a entregar.</p></div></div>` : !sel ? `<div class="panel"><div class="empty">${ic("users")}<h3>Escolha um condomínio ou prédio.</h3><p>Toque em um nome acima para ver e adicionar interessados.</p></div></div>` :
       `<div class="panel"><div class="ptitle"><h2>${esc(sel.nome)} <span class="count">${esperando(sel).length} de ${META_ROTA}</span></h2><div class="acts">${esperando(sel).length ? `<button class="b sm" type="button" data-pcabrir="${sel.id}">${ic("check")}Abrir rota: virar clientes</button>` : ""}<button class="b sm" type="button" data-pcnome="${sel.id}">${ic("pencil")}Editar nome</button><button class="b sm" type="button" data-pctipo="${sel.id}">Mover para ${ehPredio(sel) ? "condomínios" : "prédios"}</button><button class="b danger sm" type="button" data-pcdel="${sel.id}">Apagar ${ehPredio(sel) ? "prédio" : "condomínio"}</button></div></div>
         <form class="fgrid" data-form="prospMor" style="padding:14px 16px;border-bottom:1px solid var(--line)">
@@ -1466,8 +1466,8 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
         if (!v.nome) return;
         if (prosp.some(p => norm(p.nome) === norm(v.nome))) { prospSel = prosp.find(p => norm(p.nome) === norm(v.nome)).id; render(); toast("Esse nome já está na lista"); return; }
         let id = slug(v.nome) || "condominio"; while (prosp.some(p => p.id === id)) id += "-2";
-        const tipo = v.tipo === "predio" ? "predio" : "condominio";
-        prospSel = id; await db.doc("prospeccao/" + id).set({ nome: v.nome, tipo, moradores: [], criadoEm: Date.now() }); render(); prospEdit = -1; toast((tipo === "predio" ? "Prédio" : "Condomínio") + " adicionado: " + v.nome);
+        const tipo = v.tipo === "predio" ? "predio" : v.tipo === "bairro" ? "bairro" : "condominio";
+        prospSel = id; await db.doc("prospeccao/" + id).set({ nome: v.nome, tipo, moradores: [], criadoEm: Date.now() }); render(); prospEdit = -1; toast((tipo === "predio" ? "Prédio" : tipo === "bairro" ? "Bairro" : "Condomínio") + " adicionado: " + v.nome);
       } else if (f.dataset.form === "prospMor") {
         const p = prosp.find(x => x.id === prospSel); if (!p || !v.nome) return;
         const dados = { nome: v.nome, casa: v.casa || "", tel: v.tel || "", paes: Number(v.paes) || "", frios: v.frios || "", obs: v.obs || "" };
