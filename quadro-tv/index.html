@@ -182,13 +182,12 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
     var nLin = 1.15 + linhas.length + 2, areaH = H - hCab - Math.round(H * 0.01);
     var hLin = Math.floor(areaH / nLin), maxL = Math.round(H * 0.14);
     if (hLin > maxL) hLin = maxL;
-    var larg0 = Math.round(W * 0.2), nc = cols.length + 1, lc = Math.floor((W - larg0) / nc), lTot = W - larg0 - cols.length * lc;
+    var larg0 = Math.round(W * 0.2), lc = Math.ceil((W - larg0) / cols.length);
     var fN = Math.round(hLin * 0.66), fT = Math.round(hLin * 0.5), fNum = Math.round(hLin * 0.84);
     var y = hCab, zeb = 0, tintA = escuro ? 0.5 : 0.3, bc = escuro ? "#fff" : "#000", bw = Math.max(3, Math.round(W * 0.0025));
     function abre(cls, alt, extra) { var t = '<div class="lin ' + cls + '" style="top:' + y + "px;height:" + alt + "px;font-size:" + fN + "px;line-height:" + (alt - 3) + "px;" + (extra || "") + '">'; y += alt; return t; }
     // fundo colorido da coluna do entregador + faixa grossa na esquerda, para a coluna aparecer de longe
     function fundoCol(c) { return "background:" + rgba(corDe(c), tintA) + ";border-left:" + bw + "px dashed " + bc + ";"; }
-    var fundoTot = "background:" + (escuro ? "#000" : "#fff") + ";border-left:" + bw + "px solid " + bc + ";";
 
     // faixa larga com o nome e a cor de cada entregador
     var hNome = Math.round(hLin * 1.15), fNome = Math.round(hLin * 0.62), raio = Math.round(hLin * 0.12);
@@ -198,7 +197,6 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
     for (i = 0; i < cols.length; i++) {
       s += cel("nome", larg0 + i * lc + 3, lc - 6, esc(cols[i].n), "background:" + corDe(cols[i]) + ";color:" + txtDe(cols[i]) + ";font-size:" + fNome + "px;border-radius:" + raio + "px;height:94%");
     }
-    s += cel("nome", larg0 + cols.length * lc + 3, lTot - 6, "TOTAL", "background:" + bc + ";color:" + (escuro ? "#000" : "#fff") + ";font-size:" + fNome + "px;border-radius:" + raio + "px;height:94%");
     h += s + "</div>";
 
     for (i = 0; i < linhas.length; i++) {
@@ -210,18 +208,16 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
         var z = (zeb++ % 2 === 1) ? "zb" : "";
         s = abre(z, hLin) + cel("c0", 14, larg0 - 14, "<b>" + esc(L.rot) + "</b>", "font-weight:800");
         for (j = 0; j < L.v.length; j++) s += cel("", larg0 + j * lc, lc, L.v[j] ? String(L.v[j]) : "", fundoCol(cols[j]) + "font-size:" + fNum + "px;font-weight:800");
-        s += cel("tot", larg0 + L.v.length * lc, lTot, L.tot ? String(L.tot) : "", fundoTot + "font-size:" + fNum + "px;font-weight:900");
         h += s + "</div>";
       }
     }
     // rodapé: total de entregas e de pães de cada entregador
-    var te = soma(cols, function (c) { return c.ent; }), tp = soma(cols, function (c) { return c.paes; });
-    function rodape(rot, pega, tot) {
+    function rodape(rot, pega) {
       var t = abre("rod", hLin, "border-bottom:0") + cel("c0", 14, larg0 - 14, rot, "font-size:" + fT + "px");
       for (var k = 0; k < cols.length; k++) t += cel("", larg0 + k * lc, lc, String(pega(cols[k]) || 0), "background:" + corDe(cols[k]) + ";color:" + txtDe(cols[k]) + ";border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900");
-      return t + cel("", larg0 + cols.length * lc, lTot, String(tot), "background:#000;color:#fff;border-left:" + bw + "px dashed #fff;font-size:" + fNum + "px;font-weight:900") + "</div>";
+      return t + "</div>";
     }
-    h += rodape("ENTREGAS", function (c) { return c.ent; }, te) + rodape("PÃES", function (c) { return c.paes; }, tp);
+    h += rodape("ENTREGAS", function (c) { return c.ent; }) + rodape("PÃES", function (c) { return c.paes; });
     raiz.innerHTML = h;
   }
 
