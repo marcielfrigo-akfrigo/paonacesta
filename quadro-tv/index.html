@@ -217,6 +217,12 @@ body.escuro .rod{background:#fff4e0;color:#14100c}
   if (cod) { buscar(); setInterval(buscar, 60000); }
   setInterval(desenhar, 30000);                   // troca de dia na hora certa, mesmo sem internet
   window.onresize = desenhar;
+  // Um toque (OK do controle com o mouse ligado) abre em tela cheia, sem a barra do navegador
+  function telaCheia() {
+    try { var e = document.documentElement, f = e.requestFullscreen || e.webkitRequestFullscreen || e.mozRequestFullScreen; if (f) f.call(e); } catch (er) {}
+  }
+  document.onclick = telaCheia;
+  document.onkeydown = function (ev) { if ((ev || window.event).keyCode === 13) telaCheia(); };
 })();
 </script>
 </body></html>
