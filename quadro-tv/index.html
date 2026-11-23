@@ -6,24 +6,39 @@
 <link rel="icon" href="../logo-pao-na-cesta.png">
 <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&amp;family=Libre+Caslon+Display&amp;display=swap">
 <style>
-/* Quadro do projetor: mesmo padrão do app (DM Sans, Libre Caslon, marrom da marca), fundo branco e números pretos.
+/* Quadro do projetor, no desenho que o Marciel mandou em 23/11: fundo branco, faixas bege por grupo e rodapé marrom.
    Tela cheia 16:9, sem rolagem. CSS simples (sem variáveis nem grid) para navegador antigo de TV/projetor. */
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff}
 body{font-family:"DM Sans",Roboto,"Helvetica Neue",Arial,sans-serif;color:#000;cursor:none}
 #raiz{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden}
-.a{position:absolute;white-space:nowrap;overflow:hidden;box-sizing:border-box}
-.dia{font-family:"Libre Caslon Display",Georgia,"Times New Roman",serif;color:#3b2a1d}
-.info{color:#5e4b33;text-align:right}
-.aviso{color:#b0503a;font-weight:600}
-.n{text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
-.ent{text-align:center;font-weight:600;color:#3b2a1d}
-.ent i{display:inline-block;width:.62em;height:.62em;border-radius:50%;margin-right:.42em}
-.rot{color:#3b2a1d;font-weight:500}
-.grupo{color:#7d5d22;font-weight:600}
-.fio{position:absolute;background:#d8d0c1}
-.forte{background:#3b2a1d}
-.tot{font-weight:700;color:#000}
-.vazio{position:absolute;left:0;top:40%;width:100%;text-align:center;color:#3b2a1d;font-weight:500;line-height:1.4}
+.a,.r{position:absolute;box-sizing:border-box}
+.a{white-space:nowrap;overflow:hidden}
+.a svg,.r svg{position:absolute;display:block}
+.m{text-align:center}
+.titulo{color:#3b1d10;font-weight:500}
+.pil{background:#fdf6ea;border:2px solid #c9963f}
+.pilt{color:#4a2412;font-weight:700}
+.info{color:#2b2b2b;text-align:right}
+.info i{display:inline-block;width:.75em;height:.75em;border-radius:50%;background:#16a34a;margin-right:.45em}
+.info.ruim{color:#a33a22;font-weight:600}
+.info.ruim i{background:#c0392b}
+.cabt{background:#f0ece6}
+.prod{color:#4a1d0f;font-weight:700}
+.ent{text-align:center;font-weight:700;color:#000}
+.ent i{display:inline-block;width:.68em;height:.68em;border-radius:50%;margin-right:.4em}
+.faixa{background:#e8d3b3}
+.grupo{color:#4a1d0f;font-weight:700}
+.rot{color:#000;font-weight:500}
+.n{text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+.z{text-align:center;color:#8d857b;font-weight:500}
+.fio{position:absolute;background:#d9d4cc}
+.ouro{background:#cf9f45}
+.sep{background:#8a5a34}
+.rod{background:#4f2814}
+.rodl{color:#fff;font-weight:700}
+.rodn{color:#fff;font-weight:500;text-align:center}
+.rodv{color:#f7dc8c;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+.vazio{position:absolute;left:0;top:40%;width:100%;text-align:center;color:#3b1d10;font-weight:500;line-height:1.4}
 </style></head><body>
 <div id="raiz"></div>
 <script>
@@ -119,27 +134,37 @@ body{font-family:"DM Sans",Roboto,"Helvetica Neue",Arial,sans-serif;color:#000;c
         })(itens[n]);
       }
     }
-    bloco("Pão francês", ordem, function (q) { return q + " pães"; }, function (c, q) { return (c.sac || {})[q]; });
+    bloco("PÃO FRANCÊS", ordem, function (q) { return q + " pães"; }, function (c, q) { return (c.sac || {})[q]; });
     function comAlgo(lista) {
       var r = [];
       for (var n = 0; n < (lista || []).length; n++) if (soma(cols, function (c) { return (c.fri || {})[lista[n]]; }) > 0) r.push(lista[n]);
       return r;
     }
     var pegaF = function (c, it) { return (c.fri || {})[it]; }, rot = function (it) { return it; };
-    bloco("Pão especial", comAlgo(dia.esp), rot, pegaF);
-    bloco("Frios", comAlgo(dia.fri), rot, pegaF);
+    bloco("PÃES ESPECIAIS", comAlgo(dia.esp), rot, pegaF);
+    bloco("FRIOS", comAlgo(dia.fri), rot, pegaF);
     return out;
   }
 
   // ----- desenha tudo para caber exatamente na tela -----
-  var CORES = { Careca: "#D32F2F", Dennis: "#F2B705", Miro: "#1E5FBF", Bruno: "#7C8088" };
-  var MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  var CORES = { Careca: "#E0262F", Dennis: "#FBCB0A", Miro: "#0B84FF", Bruno: "#85888C" };
   function corDe(c) { return CORES[c.n] || c.cor || "#6b4a2e"; }
+  var R = Math.round;
   function cx(cls, x, y, w, alt, fonte, html) {
-    return '<div class="a ' + cls + '" style="left:' + x + "px;top:" + y + "px;width:" + w + "px;height:" + alt + "px;line-height:" + alt + "px;font-size:" + fonte + 'px">' + html + "</div>";
+    return '<div class="a ' + cls + '" style="left:' + R(x) + "px;top:" + R(y) + "px;width:" + R(w) + "px;height:" + R(alt) + "px;line-height:" + R(alt) + "px;font-size:" + R(fonte) + 'px">' + html + "</div>";
   }
-  function fio(cls, x, y, w, alt) { return '<div class="fio ' + cls + '" style="left:' + x + "px;top:" + y + "px;width:" + w + "px;height:" + alt + 'px"></div>'; }
-  function recado(H, txt) { raiz.innerHTML = '<div class="vazio" style="font-size:' + Math.round(H * 0.05) + 'px">' + txt + "</div>"; }
+  function fio(cls, x, y, w, alt) { return '<div class="fio ' + cls + '" style="left:' + R(x) + "px;top:" + R(y) + "px;width:" + R(w) + "px;height:" + R(alt) + 'px"></div>'; }
+  function caixa(cls, x, y, w, alt, raio) { return '<div class="r ' + cls + '" style="left:' + R(x) + "px;top:" + R(y) + "px;width:" + R(w) + "px;height:" + R(alt) + "px;border-radius:" + raio + '"></div>'; }
+  function svg(x, y, w, alt, vb, dentro, attrs) { return '<svg style="position:absolute;left:' + R(x) + "px;top:" + R(y) + 'px" width="' + R(w) + '" height="' + R(alt) + '" viewBox="' + vb + '" ' + (attrs || "") + ">" + dentro + "</svg>"; }
+  var TRACO = 'fill="none" stroke-linecap="round" stroke-linejoin="round" ';
+  var DESENHO = {
+    "PÃO FRANCÊS": '<g transform="rotate(-14 24 16)"><rect x="3" y="8" width="42" height="16" rx="8" fill="#eab25c" stroke="#7a3f16" stroke-width="2.2"/><path d="M14 10l5 8M23 9.500l5 8M32 10l5 8" fill="none" stroke="#fff1cf" stroke-width="2.600" stroke-linecap="round"/></g>',
+    "PÃES ESPECIAIS": '<path d="M7 26C1 22 4 13 12 13 14 6 22 5 25 8 30 5 36 8 37 13 45 13 47 22 41 26Z" fill="#eab25c" stroke="#7a3f16" stroke-width="2.200" stroke-linejoin="round"/><path d="M17 16c2-2 4-2 6 0M28 15c2-2 4-2 5 0" fill="none" stroke="#fff1cf" stroke-width="2.400" stroke-linecap="round"/>',
+    "FRIOS": '<path d="M4 18L31 5c8 1 12 6 13 13z" fill="#f6cf6b" stroke="#7a3f16" stroke-width="2.200" stroke-linejoin="round"/><path d="M4 18h40v10H4z" fill="#eab25c" stroke="#7a3f16" stroke-width="2.200" stroke-linejoin="round"/><circle cx="14" cy="23" r="2.200" fill="#fff1cf"/><circle cx="28" cy="22.500" r="2.800" fill="#fff1cf"/><circle cx="37" cy="24" r="1.700" fill="#fff1cf"/>'
+  };
+  var CALEND = '<path d="M8 2v4M16 2v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>';
+  var CAMINHAO = '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.650a1 1 0 0 0-.220-.620l-3.480-4.350A1 1 0 0 0 17.520 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>';
+  function recado(H, txt) { raiz.innerHTML = '<div class="vazio" style="font-size:' + R(H * 0.05) + 'px">' + txt + "</div>"; }
   function desenhar() {
     var W = window.innerWidth || document.documentElement.clientWidth, H = window.innerHeight || document.documentElement.clientHeight;
     if (!W || !H) return;
@@ -147,54 +172,79 @@ body{font-family:"DM Sans",Roboto,"Helvetica Neue",Arial,sans-serif;color:#000;c
     if (!dados && aguardando) return recado(H, "Aguardando o primeiro quadro.<br>Abra a gestão no computador.");
     if (!dados) return recado(H, "Carregando o quadro…");
 
-    var a = agoraSP(), sel = diaMostrado(a), dia = dados.dias[sel.D], i, j;
+    var a = agoraSP(), sel = diaMostrado(a), dia = dados.dias[sel.D], i, k;
     var p = sel.D.split("-"), dow = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay();
     // o Marciel não ganha coluna: os pães dele viram uma observação no canto
     var todos = (dia && dia.cols) || [], cols = [], marciel = 0;
     for (i = 0; i < todos.length; i++) { if (todos[i].n === "Marciel") marciel += todos[i].paes || 0; else cols.push(todos[i]); }
 
-    // cabeçalho discreto: logo, dia e, à direita, a hora
-    var mx = Math.round(W * 0.035), cabY = Math.round(H * 0.025), cabH = Math.round(H * 0.085), larg = W - mx * 2;
-    var logoW = Math.round(cabH * 375 / 270), fDia = Math.round(H * 0.046), fInfo = Math.round(H * 0.026);
-    var info = marciel ? "Marciel: " + marciel + " pães &nbsp;·&nbsp; " : "";
-    if (offline) info += '<span class="aviso">Sem internet, mostrando o último quadro</span>';
-    else if (sel.velho) info += '<span class="aviso">Quadro desatualizado, abra a gestão</span>';
-    else info += "Atualizado às " + esc(ultimoOk || a.hm);
-    var h = '<img alt="" src="../logo-pao-na-cesta.png" style="position:absolute;left:' + mx + "px;top:" + cabY + "px;width:" + logoW + "px;height:" + cabH + 'px">' +
-      cx("dia", mx + logoW + Math.round(W * 0.014), cabY, Math.round(larg * 0.5), cabH, fDia, esc(DOW[dow]) + ", " + Number(p[2]) + " de " + MESES[+p[1] - 1]) +
-      cx("info", mx + Math.round(larg * 0.5), cabY, larg - Math.round(larg * 0.5), cabH, fInfo, info);
-    if (!dia || !cols.length) { raiz.innerHTML = h + '<div class="vazio" style="font-size:' + Math.round(H * 0.06) + 'px">Sem entregas neste dia.</div>'; return; }
+    // ----- cabeçalho: logo, título, dia e hora -----
+    var U = Math.min(H, W * 9 / 16), mx = W * 0.016, larg = W - mx * 2, e1 = Math.max(1, R(H / 600));
+    var cabY = H * 0.012, cabH = H * 0.092, logoW = cabH * 375 / 270, x = mx + W * 0.012;
+    var h = '<img alt="" src="../logo-pao-na-cesta.png" style="position:absolute;left:' + R(x) + "px;top:" + R(cabY) + "px;width:" + R(logoW) + "px;height:" + R(cabH) + 'px">';
+    x += logoW + W * 0.018;
+    h += fio("sep", x, cabY + cabH * 0.17, Math.max(2, e1), cabH * 0.66);
+    x += W * 0.018;
+    h += cx("titulo", x, cabY, W * 0.3, cabH, U * 0.041, "Painel de Distribuição");
+    var pilW = W * 0.222, pilH = cabH * 0.66, pilX = W * 0.485, pilY = cabY + (cabH - pilH) / 2, icoH = pilH * 0.56;
+    h += caixa("pil", pilX, pilY, pilW, pilH, R(pilH / 2) + "px") + svg(pilX + pilH * 0.5, pilY + (pilH - icoH) / 2, icoH, icoH, "0 0 24 24", CALEND, TRACO + 'stroke="#b9812b" stroke-width="2"') +
+      cx("pilt m", pilX + pilH * 0.5 + icoH, pilY, pilW - pilH * 0.8 - icoH, pilH, U * 0.031, esc(DOW[dow]) + " · " + p[2] + "/" + p[1]);
+    var txt, ruim = "";
+    if (offline) { txt = "Sem internet"; ruim = " ruim"; }
+    else if (sel.velho) { txt = "Abra a gestão"; ruim = " ruim"; }
+    else txt = "Atualizado às <b>" + esc(ultimoOk || a.hm) + "</b>";
+    var infX = pilX + pilW + W * 0.01, infW = W - mx - W * 0.012 - infX;
+    h += cx("info" + ruim, infX, cabY + (marciel ? cabH * 0.14 : 0), infW, marciel ? cabH * 0.42 : cabH, U * 0.027, "<i></i>" + txt);
+    if (marciel) h += cx("info", infX, cabY + cabH * 0.54, infW, cabH * 0.34, U * 0.022, "Marciel: " + marciel + " pães");
+    h += fio("ouro", mx + W * 0.01, H * 0.111, larg - W * 0.02, Math.max(2, R(H / 360)));
+    if (!dia || !cols.length) { raiz.innerHTML = h + '<div class="vazio" style="font-size:' + R(H * 0.06) + 'px">Sem entregas neste dia.</div>'; return; }
 
-    // o título do primeiro grupo fica na mesma linha dos nomes, para sobrar altura para os números
-    var linhas = linhasDoDia(dia, cols), primeiro = "";
-    if (linhas.length && linhas[0].t === "tit") { primeiro = linhas[0].rot; linhas = linhas.slice(1); }
-    var G = 1.1, NM = 1.25, peso = NM + 1.15;                      // altura relativa: título de grupo, nomes, rodapé
-    for (i = 0; i < linhas.length; i++) peso += linhas[i].t === "tit" ? G : 1;
-    var y0 = cabY + cabH + Math.round(H * 0.025), hLin = Math.min((H - y0 - Math.round(H * 0.025)) / peso, H * 0.11);
-    var larg0 = Math.round(larg * 0.25), lc = (larg - larg0) / cols.length;
-    var fNum = Math.round(hLin * 0.76), fRot = Math.round(hLin * 0.56), fGru = Math.round(hLin * 0.5), fNome = Math.round(hLin * 0.66), e1 = Math.max(1, Math.round(H / 540)), y = y0;
-    function colX(k) { return Math.round(mx + larg0 + k * lc); }
-    function valores(cls, vs, alt) { var t = ""; for (var k = 0; k < cols.length; k++) if (vs[k]) t += cx("n " + cls, colX(k), Math.round(y), Math.round(lc), Math.round(alt), fNum, String(vs[k])); return t; }
+    var larg0 = larg * 0.283, lc = (larg - larg0) / cols.length, recuo = larg * 0.058, sepW = Math.max(1, e1);
+    function colX(n) { return mx + larg0 + n * lc; }
 
-    var alt = hLin * NM;
-    h += cx("grupo", mx, Math.round(y), larg0, Math.round(alt), fGru, esc(primeiro));
-    for (i = 0; i < cols.length; i++) h += cx("ent", colX(i), Math.round(y), Math.round(lc), Math.round(alt), fNome, '<i style="background:' + corDe(cols[i]) + '"></i>' + esc(cols[i].n));
-    y += alt;
-    h += fio("", mx, Math.round(y) - e1, larg, e1);
-
-    for (i = 0; i < linhas.length; i++) {
-      var L = linhas[i], tit = L.t === "tit";
-      alt = tit ? hLin * G : hLin;
-      if (tit) h += cx("grupo", mx, Math.round(y + alt * 0.16), larg, Math.round(alt * 0.84), fGru, esc(L.rot));
-      else h += cx("rot", mx, Math.round(y), larg0, Math.round(alt), fRot, esc(L.rot)) + valores("", L.v, alt);
-      y += alt;
-      if (i < linhas.length - 1 && linhas[i + 1].t !== "tit") h += fio("", mx, Math.round(y) - e1, larg, e1);
+    // ----- nomes -----
+    var y = H * 0.127, hNome = H * 0.062;
+    h += caixa("cabt", mx, y, larg, hNome, R(hNome * 0.3) + "px") + cx("prod", mx + recuo, y, larg0 - recuo, hNome, hNome * 0.55, "PRODUTOS");
+    for (k = 0; k < cols.length; k++) {
+      h += fio("", colX(k), y + hNome * 0.2, sepW, hNome * 0.6) +
+        cx("ent", colX(k), y, lc, hNome, hNome * 0.6, '<i style="background:' + corDe(cols[k]) + '"></i>' + esc(cols[k].n.toUpperCase()));
     }
-    // rodapé: quantas entregas cada um vai fazer
-    var ve = []; for (i = 0; i < cols.length; i++) ve.push(cols[i].ent || 0);
-    h += fio("forte", mx, Math.round(y), larg, e1 + 1);
-    alt = hLin * 1.15;
-    h += cx("rot tot", mx, Math.round(y), larg0, Math.round(alt), fRot, "Entregas") + valores("tot", ve, alt);
+    y += hNome + H * 0.012;
+
+    // ----- grupos: a altura da linha se ajusta para tudo caber -----
+    var rodH = H * 0.118, rodY = H - rodH - H * 0.016, linhas = linhasDoDia(dia, cols), nG = 0, nL = 0;
+    for (i = 0; i < linhas.length; i++) { if (linhas[i].t === "tit") nG++; else nL++; }
+    var gap = 0.34, u = Math.min((rodY - H * 0.014 - y) / (nL + nG + Math.max(0, nG - 1) * gap), H * 0.07), raio = R(u * 0.26);
+    for (i = 0; i < linhas.length; i++) {
+      var L = linhas[i];
+      if (L.t === "tit") {
+        if (i) y += u * gap;
+        var dh = u * 0.82, dw = dh * 48 / 32;
+        h += caixa("faixa", mx, y, larg, u, raio + "px " + raio + "px 0 0") +
+          svg(mx + recuo - dw - larg * 0.004, y + (u - dh) / 2, dw, dh, "0 0 48 32", DESENHO[L.rot] || "") +
+          cx("grupo", mx + recuo + larg * 0.008, y, larg0, u, u * 0.68, esc(L.rot));
+      } else {
+        h += cx("rot", mx + recuo, y, larg0 - recuo, u, u * 0.74, esc(L.rot));
+        for (k = 0; k < cols.length; k++) {
+          h += fio("", colX(k), y, sepW, u) + (L.v[k] ? cx("n", colX(k), y, lc, u, u * 0.86, String(L.v[k])) : cx("z", colX(k), y, lc, u, u * 0.74, "–"));
+        }
+        h += fio("", mx, y + u - e1, larg, e1);
+      }
+      y += u;
+    }
+
+    // ----- rodapé: quantas entregas cada um vai fazer -----
+    var tr = rodH * 0.62;
+    h += caixa("rod", mx, rodY, larg, rodH, R(rodH * 0.2) + "px") +
+      svg(mx + larg * 0.022, rodY + (rodH - tr) / 2, tr, tr, "0 0 24 24", CAMINHAO, TRACO + 'stroke="#f7dc8c" stroke-width="1.6"') +
+      cx("rodl", mx + larg * 0.105, rodY + rodH * 0.17, larg0 - larg * 0.11, rodH * 0.33, rodH * 0.27, "ENTREGAS") +
+      cx("rodl", mx + larg * 0.105, rodY + rodH * 0.5, larg0 - larg * 0.11, rodH * 0.33, rodH * 0.27, "PROGRAMADAS") +
+      fio("", mx + larg * 0.09, rodY + rodH * 0.2, sepW, rodH * 0.6);
+    for (k = 0; k < cols.length; k++) {
+      h += fio("", colX(k), rodY + rodH * 0.2, sepW, rodH * 0.6) +
+        cx("rodn", colX(k), rodY + rodH * 0.07, lc, rodH * 0.28, rodH * 0.23, esc(cols[k].n.toUpperCase())) +
+        cx("rodv", colX(k), rodY + rodH * 0.33, lc, rodH * 0.6, rodH * 0.58, String(cols[k].ent || 0));
+    }
     raiz.innerHTML = h;
   }
 
