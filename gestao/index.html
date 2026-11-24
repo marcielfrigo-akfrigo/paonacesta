@@ -613,6 +613,10 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
   }
   // pães especiais (batata, caseirinho, vitaminado) vão em azul na rota; frios continuam em laranja
   const ehEsp = i => /^(Pão de batata|Pão caseirinho|Vitaminado)/.test(i);
+  // Pedido da padaria: pães especiais (batata, caseirinho, vitaminado; do menor para o maior) logo abaixo do francês, frios por último
+  const ordEsp = i => ["Pão de batata", "Pão caseirinho", "Vitaminado"].findIndex(t => i.startsWith(t));
+  const numEsp = i => Number((i.match(/\((\d+)\)/) || [])[1]) || 0;
+  const itensPed = friT => { const k = Object.keys(friT); return { esp: k.filter(ehEsp).sort((x, y) => ordEsp(x) - ordEsp(y) || numEsp(x) - numEsp(y)), fri: k.filter(i => !ehEsp(i)).sort() }; };
   function friosDe(c, D){
     const extra = (c.friosExtra || {})[D];
     let fixos = [];
@@ -1094,7 +1098,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     if (eTab === "Padaria") {
       corpo = `<div class="panel"><div class="ptitle"><h2>Pedido da padaria</h2><span class="muted">${tit(D)}</span></div>
         <div class="ovx"><table class="tbl"><tr><th>Sacola</th><th class="r">Quantidade</th></tr>${tamanhos.map(q => `<tr><td><b>${q} pães</b></td><td class="r"><span class="qt">${M.sacT[q]}</span></td></tr>`).join("")}<tr class="tot"><td>Total</td><td class="r">${M.sacN} sacolas · ${M.paesT} pães</td></tr></table></div>
-        ${Object.keys(M.friT).length ? `<div class="ovx"><table class="tbl"><tr><th>Frios</th><th class="r">Pacotes</th></tr>${Object.entries(M.friT).map(([i, n]) => `<tr><td><b>${i}</b></td><td class="r"><span class="qt">${n}</span></td></tr>`).join("")}</table></div>` : `<div class="blk"><span class="muted">Sem frios neste dia.</span></div>`}
+        ${(() => { const I = itensPed(M.friT), lin = l => l.map(i => `<tr><td><b>${i}</b></td><td class="r"><span class="qt">${M.friT[i]}</span></td></tr>`).join(""); return (I.esp.length ? `<div class="ovx"><table class="tbl"><tr><th>Pão especial</th><th class="r">Quantidade</th></tr>${lin(I.esp)}</table></div>` : "") + (I.fri.length ? `<div class="ovx"><table class="tbl"><tr><th>Frios</th><th class="r">Pacotes</th></tr>${lin(I.fri)}</table></div>` : `<div class="blk"><span class="muted">Sem frios neste dia.</span></div>`); })()}
         <div class="blk"><button class="b pri" type="button" data-copy="1">${ic("copy")}Copiar pedido para o WhatsApp</button></div></div>`;
     } else if (eTab === "Quadro") {
       const cols = Object.keys(pe).filter(e => pe[e].paes > 0 || pe[e].lista.length);
@@ -1472,7 +1476,7 @@ ${blocoNovas}${blocoRec}${blocoMud}${blocoPes}
     const cp = e.target.closest("button[data-copy]");
     if (cp) {
       const M = montar(eData || proxEntrega()), tam = Object.keys(M.sacT).map(Number).sort((a, b) => b - a);
-      const txt = cp.dataset.copy === "rota" ? textoRota(eTab, M) : `Pedido Pão na Cesta – ${tit(M.D)}\n` + tam.map(q => `${q} pães: ${M.sacT[q]} sacola${M.sacT[q] > 1 ? "s" : ""}`).join("\n") + `\nTotal: ${M.sacN} sacolas · ${M.paesT} pães` + (Object.keys(M.friT).length ? "\n\nFrios:\n" + Object.entries(M.friT).map(([i, n]) => `${i}: ${n}`).join("\n") : "");
+      const txt = cp.dataset.copy === "rota" ? textoRota(eTab, M) : `Pedido Pão na Cesta – ${tit(M.D)}\n` + tam.map(q => `${q} pães: ${M.sacT[q]} sacola${M.sacT[q] > 1 ? "s" : ""}`).join("\n") + `\nTotal: ${M.sacN} sacolas · ${M.paesT} pães` + (() => { const I = itensPed(M.friT), lin = l => l.map(i => `${i}: ${M.friT[i]}`).join("\n"); return (I.esp.length ? "\n\nPão especial:\n" + lin(I.esp) : "") + (I.fri.length ? "\n\nFrios:\n" + lin(I.fri) : ""); })();
       try { await navigator.clipboard.writeText(txt); toast(cp.dataset.copy === "rota" ? "Rota do " + eTab + " copiada" : "Pedido copiado"); }
       catch (er) { const ta = document.createElement("textarea"); ta.value = txt; ta.rows = 8; ta.style.cssText = "width:100%;margin-top:10px"; cp.after(ta); ta.select(); toast("Selecione e copie o texto"); }
     }
