@@ -584,7 +584,7 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
     const w = parse(D).getDay(); if (w < 1 || w > 5 || FERIADOS[D]) return false;
     if (cancelou(c) || suspNaData(c, D)) return false;
     if (c.inicio && D < c.inicio) return false;
-    if (Array.isArray(c.dias) && c.dias.length && !c.dias.includes(w)) return false;
+    if (Array.isArray(c.dias) && c.dias.length && !c.dias.includes(w) && !(c.maisDias || []).includes(D)) return false;   // maisDias: dia avulso trocado (ex.: quinta vira sexta nesta semana)
     if ((c.fora || []).includes(D)) return false;
     return paesDia(c, D) > 0 || ((c.paes || 0) > 0 && friosDe(c, D).length > 0);
   }
