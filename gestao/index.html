@@ -624,7 +624,11 @@ document.querySelectorAll("img[data-logo]").forEach(i=>i.src=LOGOS[i.dataset.log
       const hojeD = DOW[parse(D).getDay()];
       fixos = friosItens(c.frios.split("|").filter(sg => sg.includes(":") && norm(sg.split(":")[0]).includes(hojeD)).map(sg => sg.split(":").slice(1).join(":")).join(" e "));
     }
-    return extra ? fixos.concat(friosItens(extra)) : fixos;
+    // Pedido novo ainda não aceito (não pago): os frios que o cliente pediu também saem na entrega, igual ao pedido normal
+    const pend = (pedidos || []).filter(q => q.status === "novo" && (q.clienteId ? q.clienteId === c.id : (norm(q.n) === norm(c.nome) && chaveCond(q.c) === chaveCond(c.condominio))) && q.ini && D >= q.ini && (!q.fim || D <= q.fim))
+      .flatMap(q => friosItens(((q.f || {})[parse(D).getDay()] || []).filter(i => !/sem p[aã]o franc/i.test(i)).join(" e ")));
+    const todos = extra ? fixos.concat(friosItens(extra)) : fixos;
+    return pend.length ? todos.concat(pend.filter(i => !todos.includes(i))) : todos;
   }
   function motivoFora(c, D){
     if (cancelou(c)) return "cancelou";
