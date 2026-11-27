@@ -459,13 +459,11 @@ const NOMEPLANOC = (c, k) => k === "mensal" ? `Mensal (até ${ddmm(c.per.fimMens
 const textoPeriodo = p => `${ddmm(p.ini)} a ${ddmm(p.fim)} · ${p.sem} semana${p.sem > 1 ? "s" : ""}`;
 const textoFeriado = (c, k) => c.fer && c.fer[k] && c.fer[k].length ? ` · sem entrega em ${c.fer[k].map(D => ddmm(parse(D)) + " (" + CONFIG.feriados[D] + ")").join(", ")}, já descontado` : "";
 const textoPlano = (c, k) => (c.ant.valor ? "dias já recebidos + " : "") + (CREDITO ? "com crédito · " : "") + (c.avulso ? `${ddmm(c.per.inicio)} a ${ddmm(c.per[k].fim)} · ${c.per.avulsos.length} dia${c.per.avulsos.length > 1 ? "s" : ""}${c.per[k].sem ? ` + ${c.per[k].sem} semana${c.per[k].sem > 1 ? "s" : ""}` : ""}` : textoPeriodo(c.per[k])) + textoFeriado(c, k);
-// Dias da semana bloqueados: no período do plano escolhido, todas as datas desse dia são feriado (ex.: semana com sexta feriado)
-function diasFeriado(){
-  const per = periodos(), k = per.disp.includes(st.plano) ? st.plano : per.disp[per.disp.length - 1], fim = per[k].fim, out = [];
-  for (const [w] of DIAS) {
-    const datas = []; for (let d = new Date(per.inicio); d <= fim; d = mais(d, 1)) if (d.getDay() === w) datas.push(iso(d));
-    if (datas.length && datas.every(D => CONFIG.feriados[D])) out.push(w);
-  }
+// Feriado nunca bloqueia o dia da semana: o pedido vale para as próximas semanas, e a data do feriado só sai do valor.
+// Aqui só se descobre a data do feriado de cada dia, para avisar no botão.
+function feriadosPorDia(){
+  const per = periodos(), k = per.disp.includes(st.plano) ? st.plano : per.disp[per.disp.length - 1], fim = per[k].fim, out = {};
+  for (let d = new Date(per.inicio); d <= fim; d = mais(d, 1)) if (CONFIG.feriados[iso(d)] && !out[d.getDay()]) out[d.getDay()] = iso(d);
   return out;
 }
 function salvar(){ try { localStorage.setItem("pnc-pedido", JSON.stringify(st)); } catch (e) {} }
@@ -483,9 +481,8 @@ function render(){
   Object.keys(st.semF || {}).forEach(d => { if (!st.dias.includes(Number(d))) delete st.semF[d]; });
   st.dias.forEach(d => EXTRAS.forEach(e => { const m = st.extras[d]; if (m && m[e.k] != null && e.ops[m[e.k]] && !opValida(d, e.ops[m[e.k]])) delete m[e.k]; }));
   $("#paes").innerHTML = CONFIG.quantidades.map(q => [q, semanaPaes(q, 5)]).map(([q, v]) => `<button class="opt" type="button" data-paes="${q}" aria-pressed="${q === st.paes}">${q}<small>${brl(v)}/sem</small></button>`).join("");
-  const bloq = diasFeriado();
-  if (st.dias.some(d => bloq.includes(d))) st.dias = st.dias.filter(d => !bloq.includes(d));
-  $("#dias").innerHTML = DIAS.map(([d, n]) => bloq.includes(d) ? `<button class="opt" type="button" disabled aria-pressed="false">${n}<small>feriado</small></button>` : `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}</button>`).join("");
+  const fer = feriadosPorDia();
+  $("#dias").innerHTML = DIAS.map(([d, n]) => `<button class="opt" type="button" data-dia="${d}" aria-pressed="${st.dias.includes(d)}">${n}${fer[d] ? `<small>${CONFIG.feriados[fer[d]] === "combinado" ? "sem entrega" : "feriado"} ${ddmm(parse(fer[d]))}</small>` : ""}</button>`).join("");
   $("#frios").innerHTML = Object.entries(CONFIG.diasFrios).map(([d, nome]) => { const on = st.dias.includes(Number(d)); return `<div class="fday"><h3>${nome}</h3>${Object.entries(CONFIG.frios).map(([i, v]) => `<button class="fitem" type="button" data-fd="${d}" data-fi="${i}" aria-pressed="${(st.frios[d] || []).includes(i)}"${v == null || !on ? " disabled" : ""}><i class="ck"></i><span style="flex:1">${i}</span><small>${v == null ? "a confirmar" : "+ " + brl(v) + "/sem"}</small></button>`).join("")}${on ? "" : `<p class="hint" style="margin:8px 0 0">Marque ${nome.toLowerCase()} nos dias para escolher.</p>`}</div>`; }).join("");
   $("#extras").innerHTML = !st.dias.length ? '<p class="hint">Marque os dias no passo 3 para escolher os pães de cada dia.</p>' : `<div class="xfotos">${EXTRAS.map(e => `<div><img src="fotos-paes/${e.foto[0]}" alt="${e.nome}"><b>${e.nome}</b></div>`).join("")}</div><div class="xgrid">` + DIAS.filter(([d]) => st.dias.includes(d)).map(([d]) => `<div class="xday"><div class="xh"><h3>${DIASEM[d]}</h3>${st.dias.length > 1 ? `<button class="rep" type="button" data-rep="${d}" title="Repetir nos outros dias">Repetir</button>` : ""}</div><div class="xit"><div class="xb"><b>Pão francês</b><div class="xops"><button class="xop" type="button" data-sf="${d}|0" aria-pressed="${!semFr(d)}">${st.paes} un</button><button class="xop" type="button" data-sf="${d}|1" aria-pressed="${semFr(d)}">Sem francês</button></div></div></div>${EXTRAS.map(e => { const j = (st.extras[d] || {})[e.k]; return `<div class="xit"><div class="xb"><b>${e.nome}</b><div class="xops">${e.ops.map((o, k) => `<button class="xop" type="button" data-ex="${d}|${e.k}|${k}" aria-pressed="${j === k}"${opValida(d, o) ? "" : " disabled"}>${o.q + " un"}<small>${brl(o.v)}</small></button>`).join("")}</div></div></div>`; }).join("")}<div class="xtot">${extraDia(d) ? "Dia: " + brl(extraDia(d)) : "nenhum"}</div></div>`).join("") + "</div>";
   const ops = opcoesInicio(), atual = $("#inicio").value, ehRapida = ops.some(([v]) => v === atual);
